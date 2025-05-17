@@ -1,28 +1,50 @@
 // File: src/App.tsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PromptTypeSelector } from "./components/PromptTypeSelector";
 import { JobDescriptionInput } from "./components/JobDescriptionInput";
 import { ResumeInput } from "./components/ResumeInput";
 import { PromptDisplay } from "./components/PromptDisplay";
+import { OptionalInstructions } from "./components/OptionalInstructions";
+import { TemplateSelector } from "./components/TemplateSelector";
 import { useTemplates } from "./hooks/useTemplates";
 import { usePromptGenerator } from "./hooks/usePromptGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/ui/card";
-import { Checkbox } from "@radix-ui/react-checkbox";
-import { Textarea } from "./components/ui/textarea";
+import { Checkbox } from "./components/ui/checkbox";
 import { Button } from "./components/ui/button";
+import type { PromptType } from "./types";
 
 function App() {
-  const { resumeTemplates, coverLetterTemplates } = useTemplates();
+  const { 
+    resumeTemplates, 
+    coverLetterTemplates, 
+    addTemplate
+  } = useTemplates();
+  
   const { generateResumePrompt, generateCoverLetterPrompt } = usePromptGenerator();
 
-  const [promptType, setPromptType] = useState<"resume" | "coverLetter">("resume");
+  // Load saved preferences from localStorage
+  const getSavedPromptType = (): PromptType => {
+    const saved = localStorage.getItem("promptType");
+    return (saved === "resume" || saved === "coverLetter") ? saved : "resume";
+  };
+  
+  const [promptType, setPromptType] = useState<PromptType>(getSavedPromptType());
   const [jobDescription, setJobDescription] = useState("");
   const [resumeContent, setResumeContent] = useState("");
   const [showResumeInput, setShowResumeInput] = useState(false);
   const [hasOptionalInstructions, setHasOptionalInstructions] = useState(false);
   const [optionalInstructions, setOptionalInstructions] = useState("");
-  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState(localStorage.getItem("selectedTemplateId") || "");
   const [generatedPrompt, setGeneratedPrompt] = useState("");
+
+  // Persist user preferences
+  useEffect(() => {
+    localStorage.setItem("promptType", promptType);
+  }, [promptType]);
+
+  useEffect(() => {
+    localStorage.setItem("selectedTemplateId", selectedTemplateId);
+  }, [selectedTemplateId]);
 
   const currentTemplates =
     promptType === "resume" ? resumeTemplates : coverLetterTemplates;
@@ -31,20 +53,21 @@ function App() {
     (t) => t.id === selectedTemplateId
   );
 
-  const generatePrompt = () => {
-    if (!jobDescription || !selectedTemplateId) return;
+  const handleGeneratePrompt = () => {
+    if (!jobDescription || !selectedTemplateId || !selectedTemplate) return;
 
     const baseProps = {
       jobDescription,
       resumeContent,
+      templateId: selectedTemplateId,
       showResumeInput,
       optionalInstructions,
     };
 
     const prompt =
       promptType === "resume"
-        ? generateResumePrompt({ ...baseProps, resumeTemplate: selectedTemplate?.id || "" })
-        : generateCoverLetterPrompt({ ...baseProps, coverTemplate: selectedTemplate?.id || "" });
+        ? generateResumePrompt(baseProps)
+        : generateCoverLetterPrompt(baseProps);
 
     setGeneratedPrompt(prompt);
   };
@@ -54,6 +77,15 @@ function App() {
       .writeText(generatedPrompt)
       .then(() => alert("Prompt copied to clipboard!"))
       .catch((err) => console.error("Failed to copy: ", err));
+  };
+
+  const handleTemplateChange = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+  };
+
+  const handlePromptTypeChange = (value: string) => {
+    setPromptType(value as PromptType);
+    setSelectedTemplateId("");
   };
 
   return (
@@ -68,11 +100,9 @@ function App() {
         <CardContent className="space-y-4 px-4 py-3">
           <PromptTypeSelector
             promptType={promptType}
-            onChange={(value) => {
-              setPromptType(value as "resume" | "coverLetter");
-              setSelectedTemplateId("");
-            }}
+            onChange={handlePromptTypeChange}
           />
+          
           <JobDescriptionInput
             jobDescription={jobDescription}
             onChange={(e) => setJobDescription(e.target.value)}
@@ -85,9 +115,8 @@ function App() {
               onCheckedChange={(checked) =>
                 setShowResumeInput(checked === true)
               }
-              className="h-3 w-3"
             />
-            <label htmlFor="showResume" className="text-xs font-medium">
+            <label htmlFor="showResume" className="text-xs font-medium cursor-pointer">
               Show resume input
             </label>
           </div>
@@ -99,51 +128,26 @@ function App() {
             />
           )}
 
-          <div className="space-y-1">
-            <label className="text-xs font-medium">
-              Select Template:
-            </label>
-            <select
-              value={selectedTemplateId}
-              onChange={(e) => setSelectedTemplateId(e.target.value)}
-              className="w-full h-8 text-sm border rounded"
-            >
-              <option value="">Select a template</option>
-              {currentTemplates.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <TemplateSelector
+            promptType={promptType}
+            templates={currentTemplates}
+            selectedTemplateId={selectedTemplateId}
+            onSelectTemplate={handleTemplateChange}
+            onAddTemplate={addTemplate}
+          />
 
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="instructions"
-                checked={hasOptionalInstructions}
-                onCheckedChange={(checked) =>
-                  setHasOptionalInstructions(checked === true)
-                }
-                className="h-3 w-3"
-              />
-              <label htmlFor="instructions" className="text-xs font-medium">
-                Include optional instructions
-              </label>
-            </div>
-            {hasOptionalInstructions && (
-              <div className="h-20 overflow-y-auto border rounded-md">
-                <Textarea
-                  placeholder="Add any optional instructions here"
-                  value={optionalInstructions}
-                  onChange={(e) => setOptionalInstructions(e.target.value)}
-                  className="text-sm w-full h-full resize-none border-0"
-                />
-              </div>
-            )}
-          </div>
+          <OptionalInstructions
+            hasInstructions={hasOptionalInstructions}
+            instructions={optionalInstructions}
+            onToggleInstructions={setHasOptionalInstructions}
+            onInstructionsChange={(e) => setOptionalInstructions(e.target.value)}
+          />
 
-          <Button onClick={generatePrompt} className="w-full h-8 text-sm">
+          <Button 
+            onClick={handleGeneratePrompt} 
+            className="w-full h-8 text-sm"
+            disabled={!jobDescription || !selectedTemplateId}
+          >
             Generate Prompt
           </Button>
 
