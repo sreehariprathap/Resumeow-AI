@@ -6,6 +6,7 @@ import { OptionalInstructions } from "./components/OptionalInstructions";
 import { TemplateSelector } from "./components/TemplateSelector";
 import { PromptTypeSelector } from "./components/PromptTypeSelector";
 import { SettingsDialog } from "./components/SettingsDialog"; 
+import { ResumeLaTeXGenerator } from "./components/ResumeLaTeXGenerator";
 import { useTemplates } from "./hooks/useTemplates";
 import { usePromptGenerator } from "./hooks/usePromptGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardAction } from "./components/ui/card";
@@ -261,10 +262,14 @@ function App() {
             }
           >
             Generate {promptType === 'resume' ? 'Resume' : 'Cover Letter'} Prompt
-          </Button>
-
-          {generatedPrompt && (
+          </Button>          {generatedPrompt && (
             <PromptDisplay prompt={generatedPrompt} onCopy={copyPrompt} />
+          )}
+
+          {promptType === 'resume' && jobDescription && resumeContent && selectedTemplateId && selectedTemplateId !== "no-selection" && (
+            <ResumeLaTeXGenerator 
+              generatedPrompt={generatedPrompt}
+            />
           )}
         </CardContent>
       </Card>
