@@ -5,8 +5,9 @@ import { PromptDisplay } from "./components/PromptDisplay";
 import { OptionalInstructions } from "./components/OptionalInstructions";
 import { TemplateSelector } from "./components/TemplateSelector";
 import { PromptTypeSelector } from "./components/PromptTypeSelector";
-import { SettingsDialog } from "./components/SettingsDialog"; 
+import { SettingsDialog } from "./components/SettingsDialog";
 import { ResumeLaTeXGenerator } from "./components/ResumeLaTeXGenerator";
+import { GoogleAuthButton } from "./components/GoogleAuthButton";
 import { useTemplates } from "./hooks/useTemplates";
 import { usePromptGenerator } from "./hooks/usePromptGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardAction } from "./components/ui/card";
@@ -19,17 +20,17 @@ import { toast } from "sonner";
 import type { CustomPrompt, Template, PromptType } from "./types";
 
 function App() {
-  const { 
-    resumeTemplates, 
+  const {
+    resumeTemplates,
     coverLetterTemplates,
     customPrompts,
-    addTemplate, 
+    addTemplate,
     addCustomPrompt,
     updateCustomPrompt,
     deleteCustomPrompt,
     setActivePrompt
   } = useTemplates();
-  
+
   const { generateResumePrompt, generateCoverLetterPrompt } = usePromptGenerator();
 
   const [promptType, setPromptType] = useState<PromptType>('resume');
@@ -76,15 +77,16 @@ function App() {
         // Get the template for access to resume content
         const template = resumeTemplates.find(t => t.id === selectedTemplateId);
         const resumeToUse = useTemporaryResume ? resumeContent : (template?.resumeLatex || resumeContent);
-        
+
         const prompt = generateResumePrompt({
           jobDescription,
           resumeContent: resumeToUse,
           templateId: selectedTemplateId,
           showResumeInput: true,
-          optionalInstructions: hasOptionalInstructions ? optionalInstructions : undefined        });
+          optionalInstructions: hasOptionalInstructions ? optionalInstructions : undefined
+        });
         setGeneratedPrompt(prompt);
-        
+
         if (!prompt.startsWith("Error:")) {
           toast.success("Resume prompt generated successfully!");
         }
@@ -100,7 +102,7 @@ function App() {
           coverLetterTemplate
         });
         setGeneratedPrompt(prompt);
-        
+
         if (!prompt.startsWith("Error:")) {
           toast.success("Cover letter prompt generated successfully!");
         }
@@ -118,7 +120,7 @@ function App() {
   };
   const handleTemplateChange = (templateId: string) => {
     setSelectedTemplateId(templateId || "no-selection");
-    
+
     // Load resume content if available in the template
     const template = resumeTemplates.find(t => t.id === templateId);
     if (template?.resumeLatex) {
@@ -128,7 +130,7 @@ function App() {
 
   const handleCoverLetterTemplateChange = (templateId: string) => {
     setSelectedCoverLetterTemplateId(templateId || "no-selection");
-    
+
     // Load cover letter template if available
     const template = coverLetterTemplates.find(t => t.id === templateId);
     if (template?.coverLetterTemplate) {
@@ -169,35 +171,43 @@ function App() {
 
   return (
     <div className="w-[400px] h-[600px] overflow-auto p-2">
-      <Card className="w-full shadow-none border-0">
-        <CardHeader className="px-4 py-3">
-          <CardAction>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setIsSettingsOpen(true)}
-              className="h-8 w-8 p-0"
-              title="Settings"
-            >
-              <Settings className="h-4 w-4" />
-              <span className="sr-only">Settings</span>
-            </Button>
-          </CardAction>          <CardTitle className="text-lg">Resume & Cover Letter Generator</CardTitle>
-          <CardDescription className="text-xs">
-            Create custom prompts for resumes and cover letters with reusable templates
-          </CardDescription>
-        </CardHeader>
-          <CardContent className="space-y-4 px-4 py-3">
+      <Card className="w-full shadow-none border-0">        <CardHeader className="px-4 py-3">
+        <div className="flex flex-col gap-2">
+          <CardTitle className="text-lg">
+            <img src="/Resumeow-d.png" />
+            <span className="">prompter</span>
+          </CardTitle>
+        <CardDescription className="text-xs">
+          Create custom prompts for resumes and cover letters with reusable templates
+        </CardDescription>
+          <div className="flex justify-between items-center">
+            <CardAction>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsSettingsOpen(true)}
+                className="h-8 w-8 p-0"
+                title="Settings"
+              >
+                <Settings className="h-4 w-4" />
+                <span className="sr-only">Settings</span>
+              </Button>
+            </CardAction>
+            <GoogleAuthButton />
+          </div>
+        </div>
+      </CardHeader>
+        <CardContent className="space-y-4 px-4 py-3">
           <PromptTypeSelector
             promptType={promptType}
             onChange={handlePromptTypeChange}
           />
-          
+
           <JobDescriptionInput
             jobDescription={jobDescription}
             onChange={(e) => setJobDescription(e.target.value)}
           />
-          
+
           {promptType === 'resume' ? (
             <TemplateSelector
               templates={resumeTemplates}
@@ -214,7 +224,7 @@ function App() {
                 onSelectTemplate={handleCoverLetterTemplateChange}
                 onAddTemplate={handleAddTemplate}
               />
-              
+
               <div className="space-y-1">
                 <Label htmlFor="coverLetterTemplate" className="text-xs font-medium">Cover Letter Template (Optional)</Label>
                 <div className="h-28 overflow-y-auto border rounded-md">
@@ -227,13 +237,13 @@ function App() {
                   />
                 </div>
               </div>
-            </>          )}
-          
+            </>)}
+
           <div className="flex items-center space-x-2">
-            <Checkbox 
-              id="useTemporaryResume" 
-              checked={useTemporaryResume} 
-              onCheckedChange={(checked) => setUseTemporaryResume(checked as boolean)} 
+            <Checkbox
+              id="useTemporaryResume"
+              checked={useTemporaryResume}
+              onCheckedChange={(checked) => setUseTemporaryResume(checked as boolean)}
             />
             <Label htmlFor="useTemporaryResume" className="text-xs cursor-pointer">
               Use temporary resume text
@@ -252,11 +262,11 @@ function App() {
             onToggleInstructions={setHasOptionalInstructions}
             onInstructionsChange={(e) => setOptionalInstructions(e.target.value)}
           />
-          
-          <Button 
-            onClick={handleGeneratePrompt} 
+
+          <Button
+            onClick={handleGeneratePrompt}
             className="w-full h-8 text-sm"
-            disabled={!jobDescription || 
+            disabled={!jobDescription ||
               (promptType === 'resume' && (!selectedTemplateId || selectedTemplateId === "no-selection")) ||
               (promptType === 'coverLetter' && (!selectedCoverLetterTemplateId || selectedCoverLetterTemplateId === "no-selection"))
             }
@@ -267,13 +277,17 @@ function App() {
           )}
 
           {promptType === 'resume' && jobDescription && resumeContent && selectedTemplateId && selectedTemplateId !== "no-selection" && (
-            <ResumeLaTeXGenerator 
+            <ResumeLaTeXGenerator
               generatedPrompt={generatedPrompt}
             />
           )}
+
+          <div className="mt-4">
+            <GoogleAuthButton />
+          </div>
         </CardContent>
       </Card>
-      
+
       <SettingsDialog
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}

@@ -8,9 +8,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 
 interface ResumeLaTeXGeneratorProps {
-  jobDescription: string;
-  resumeContent: string;
-  optionalInstructions?: string;
+  generatedPrompt: string;
 }
 
 export function ResumeLaTeXGenerator({ 
