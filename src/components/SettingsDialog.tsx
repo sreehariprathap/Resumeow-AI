@@ -371,10 +371,9 @@ export const SettingsDialog = ({
             >
               <Upload className="h-3.5 w-3.5" />
               <span>Import Prompts</span>
-            </Button>
-          </div>
+            </Button>          </div>
           
-          <DialogFooter className="mt-4">
+          <DialogFooter className="sticky bottom-0 pt-4 bg-background">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
             <Button onClick={handleSaveSettings} className="flex items-center gap-1">
               <Check className="h-4 w-4" />

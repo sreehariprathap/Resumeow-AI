@@ -86,10 +86,9 @@ export const CustomPromptDialog = ({
     onSave(newPrompt);
     onClose();
   };
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Custom Prompt" : "Create Custom Prompt"}</DialogTitle>
           <DialogDescription>
@@ -229,11 +228,10 @@ export const CustomPromptDialog = ({
                   className="h-7 text-xs"
                 />
               </div>
-            )}
-          </div>
+            )}          </div>
         </div>
         
-        <DialogFooter>
+        <DialogFooter className="sticky bottom-0 pt-4 bg-background">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={handleSave}>{isEditing ? "Update" : "Save"}</Button>
         </DialogFooter>

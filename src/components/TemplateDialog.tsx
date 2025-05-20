@@ -48,10 +48,9 @@ export const TemplateDialog = ({
       });
     }
   };
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {promptType === 'resume' 
@@ -107,11 +106,10 @@ export const TemplateDialog = ({
               <p className="text-xs text-gray-500">
                 Provide a template structure for your cover letter.
               </p>
-            </div>
-          )}
+            </div>          )}
         </div>
         
-        <DialogFooter>
+        <DialogFooter className="sticky bottom-0 pt-4 bg-background">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={handleSave}>
             {promptType === 'resume' ? "Save Resume" : "Save Template"}

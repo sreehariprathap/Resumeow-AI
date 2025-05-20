@@ -25,10 +25,9 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     onConfirm();
     onClose();
   };
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -37,7 +36,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           <p>{message}</p>
         </div>
         
-        <DialogFooter className="flex justify-end space-x-2">
+        <DialogFooter className="sticky bottom-0 pt-4 bg-background">
           <Button variant="outline" onClick={onClose}>{cancelText}</Button>
           <Button variant="destructive" onClick={handleConfirm}>{confirmText}</Button>
         </DialogFooter>
