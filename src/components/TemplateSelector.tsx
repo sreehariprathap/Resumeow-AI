@@ -1,67 +1,101 @@
 import { useState } from "react";
 import { Button } from "./ui/button";
-import { PlusCircle } from "lucide-react";
-import { Select } from "./ui/select";
+import { PlusCircle, FileText } from "lucide-react";
+import { 
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem
+} from "./ui/select";
 import { TemplateDialog } from "./TemplateDialog";
-import type { PromptType, Template } from "@/types";
+import type { Template } from "@/types";
 
 interface TemplateSelectorProps {
-  promptType: PromptType;
   templates: Template[];
   selectedTemplateId: string;
   onSelectTemplate: (templateId: string) => void;
-  onAddTemplate: (type: PromptType, template: Template) => void;
+  onAddTemplate: (template: Template) => void;
+  onLoadResume?: (resumeLatex: string) => void;
 }
 
 export const TemplateSelector = ({
-  promptType,
   templates,
   selectedTemplateId,
   onSelectTemplate,
   onAddTemplate,
+  onLoadResume,
 }: TemplateSelectorProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  
-  return (
-    <div className="space-y-2">
-      <div className="flex justify-between items-center">
-        <label htmlFor="template-select" className="text-xs font-medium">
-          Select Template:
+  const handleLoadResume = () => {
+    if (!selectedTemplateId || selectedTemplateId === "no-selection" || !onLoadResume) return;
+      const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
+    if (selectedTemplate?.resumeLatex) {
+      onLoadResume(selectedTemplate.resumeLatex);
+      alert("LaTeX resume loaded to editor successfully!");
+    }
+  };
+    return (
+    <div className="space-y-2">      <div className="flex justify-between items-center">
+        <label className="text-xs font-medium">
+          Saved Resume:
         </label>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => setIsDialogOpen(true)}
-          className="h-6 w-6 p-0"
-          aria-label="Add new template"
-        >
-          <PlusCircle className="h-4 w-4" />
-        </Button>
+        <div className="flex gap-1">{selectedTemplateId && selectedTemplateId !== "no-selection" && onLoadResume && templates.find(t => t.id === selectedTemplateId)?.resumeLatex && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleLoadResume}
+              className="h-6 p-0 px-1 text-xs flex items-center gap-1"
+              title="Load saved LaTeX resume"
+              aria-label="Load saved LaTeX resume"
+            >              <FileText className="h-4 w-4" />
+              <span className="text-xs ml-1">Load LaTeX</span>
+            </Button>
+          )}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setIsDialogOpen(true)}
+            className="h-7 text-xs flex items-center gap-1"
+            aria-label="Add new resume"
+          >
+            <PlusCircle className="h-4 w-4" />
+            <span>Add Resume</span>
+          </Button>
+        </div>
       </div>
-      
-      <Select
-        value={selectedTemplateId}
-        onValueChange={(value) => onSelectTemplate(value)}
-      >
-        <option value="">Select a template</option>
-        {templates.map((template) => (
-          <option key={template.id} value={template.id}>
-            {template.name}
-          </option>
-        ))}
-      </Select>
-      
-      <TemplateDialog 
+        <Select value={selectedTemplateId} onValueChange={onSelectTemplate}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Select a resume" />
+        </SelectTrigger>        <SelectContent>
+          {templates.length === 0 ? (
+            <SelectItem value="no-templates" disabled>No resumes available</SelectItem>
+          ) : (
+            <>
+              {selectedTemplateId === "no-selection" && (
+                <SelectItem value="no-selection" disabled>Select a resume</SelectItem>
+              )}              {templates.map((template) => (
+                <SelectItem key={template.id} value={template.id}>
+                  {template.name} {template.resumeLatex ? "📄" : ""}
+                </SelectItem>
+              ))}
+            </>
+          )}
+        </SelectContent>
+      </Select>        <TemplateDialog 
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         onSave={(template) => {
-          onAddTemplate(promptType, {
+          const newTemplate = {
             ...template,
-            id: crypto.randomUUID()
-          });
+            id: crypto.randomUUID(),
+            content: "Create a tailored resume based on this job description:\n\n{JOB_DESCRIPTION}\n\nMy current resume:\n\n{RESUME}"
+          };
+          onAddTemplate(newTemplate);
           setIsDialogOpen(false);
+          alert("Resume saved successfully!");
         }}
-        promptType={promptType}
+        promptType="resume"
       />
     </div>
   );

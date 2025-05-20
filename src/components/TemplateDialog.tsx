@@ -1,15 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
-import type { PromptType } from "@/types/index";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { Label } from "./ui/label";
+import type { PromptType } from "@/types";
 
 interface TemplateDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (template: { name: string; content: string }) => void;
+  onSave: (template: { name: string; resumeLatex?: string; coverLetterTemplate?: string }) => void;
   promptType: PromptType;
 }
 
@@ -17,68 +17,106 @@ export const TemplateDialog = ({
   isOpen,
   onClose,
   onSave,
-  promptType,
+  promptType
 }: TemplateDialogProps) => {
   const [templateName, setTemplateName] = useState("");
-  const [templateContent, setTemplateContent] = useState(
-    promptType === "resume"
-      ? "Create a tailored resume based on this job description:\n\n{JOB_DESCRIPTION}\n\nMy current resume:\n\n{RESUME}"
-      : "Write a cover letter based on this job description:\n\n{JOB_DESCRIPTION}\n\nMy current resume:\n\n{RESUME}"
-  );
+  const [resumeLatex, setResumeLatex] = useState("");
+  const [coverLetterTemplate, setCoverLetterTemplate] = useState("");
+
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      setTemplateName("");
+      setResumeLatex("");
+      setCoverLetterTemplate("");
+    }
+  }, [isOpen]);
 
   const handleSave = () => {
-    if (!templateName.trim() || !templateContent.trim()) return;
+    if (!templateName.trim()) return;
     
-    onSave({
-      name: templateName.trim(),
-      content: templateContent.trim(),
-    });
-    
-    // Reset form
-    setTemplateName("");
-    setTemplateContent("");
+    if (promptType === 'resume') {
+      if (!resumeLatex.trim()) return;
+      onSave({
+        name: templateName,
+        resumeLatex: resumeLatex
+      });
+    } else if (promptType === 'coverLetter') {
+      onSave({
+        name: templateName,
+        coverLetterTemplate: coverLetterTemplate
+      });
+    }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add {promptType === "resume" ? "Resume" : "Cover Letter"} Template</DialogTitle>
+          <DialogTitle>
+            {promptType === 'resume' 
+              ? "Add Resume in LaTeX Format" 
+              : "Add Cover Letter Template"}
+          </DialogTitle>
         </DialogHeader>
+        
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="template-name">Template Name</Label>
+            <Label htmlFor="name">
+              {promptType === 'resume' ? "Resume Name" : "Cover Letter Template Name"}
+            </Label>
             <Input
-              id="template-name"
+              id="name"
               value={templateName}
               onChange={(e) => setTemplateName(e.target.value)}
-              placeholder="My template"
+              placeholder={promptType === 'resume' 
+                ? "e.g., Software Engineer Resume" 
+                : "e.g., Standard Cover Letter"
+              }
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="template-content">Template Content</Label>
-            <div className="relative">
-              <Textarea
-                id="template-content"
-                value={templateContent}
-                onChange={(e) => setTemplateContent(e.target.value)}
-                className="h-40 resize-none font-mono text-sm"
-                placeholder="Use {JOB_DESCRIPTION} and {RESUME} as placeholders"
-              />
-              <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
-                Use {"{JOB_DESCRIPTION}"} and {"{RESUME}"} as placeholders
+
+          {promptType === 'resume' ? (
+            <div className="grid gap-2">
+              <Label htmlFor="resumeLatex">Resume LaTeX Format</Label>
+              <div className="h-72 overflow-y-auto border rounded-md">
+                <Textarea
+                  id="resumeLatex"
+                  value={resumeLatex}
+                  onChange={(e) => setResumeLatex(e.target.value)}
+                  placeholder="Paste your resume in LaTeX format here"
+                  className="h-full resize-none font-mono text-xs leading-relaxed"
+                />
               </div>
+              <p className="text-xs text-gray-500">
+                Save your LaTeX resume for quick access later.
+              </p>
             </div>
-          </div>
+          ) : (
+            <div className="grid gap-2">
+              <Label htmlFor="coverLetterTemplate">Cover Letter Template (Optional)</Label>
+              <div className="h-72 overflow-y-auto border rounded-md">
+                <Textarea
+                  id="coverLetterTemplate"
+                  value={coverLetterTemplate}
+                  onChange={(e) => setCoverLetterTemplate(e.target.value)}
+                  placeholder="Enter a cover letter template (optional)"
+                  className="h-full resize-none font-mono text-xs leading-relaxed"
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                Provide a template structure for your cover letter.
+              </p>
+            </div>
+          )}
         </div>
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
+        
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave}>
+            {promptType === 'resume' ? "Save Resume" : "Save Template"}
           </Button>
-          <Button onClick={handleSave} disabled={!templateName.trim() || !templateContent.trim()}>
-            Save Template
-          </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

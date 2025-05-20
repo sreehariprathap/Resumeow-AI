@@ -11,7 +11,7 @@ interface ResumeInputProps {
 export const ResumeInput: React.FC<ResumeInputProps> = ({ resumeContent, onChange }) => (
   <div className="space-y-1">
     <label className="text-xs font-medium">Resume Content:</label>
-    <div className="h-28 overflow-y-auto border rounded-md">
+    <div className="h-36 overflow-y-auto border rounded-md">
       <Textarea
         placeholder="Paste your resume content here"
         value={resumeContent}
