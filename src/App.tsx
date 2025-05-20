@@ -12,7 +12,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardAction }
 import { Button } from "./components/ui/button";
 import { Textarea } from "./components/ui/textarea";
 import { Label } from "./components/ui/label";
+import { Checkbox } from "./components/ui/checkbox";
 import { Settings } from "lucide-react";
+import { toast } from "sonner";
 import type { CustomPrompt, Template, PromptType } from "./types";
 
 function App() {
@@ -35,6 +37,7 @@ function App() {
   const [coverLetterTemplate, setCoverLetterTemplate] = useState("");
   const [hasOptionalInstructions, setHasOptionalInstructions] = useState(false);
   const [optionalInstructions, setOptionalInstructions] = useState("");
+  const [useTemporaryResume, setUseTemporaryResume] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(() => {
     const saved = localStorage.getItem("selectedTemplateId");
     return saved && saved !== "" ? saved : "no-selection";
@@ -64,45 +67,62 @@ function App() {
       localStorage.setItem("selectedCoverLetterTemplateId", selectedCoverLetterTemplateId);
     }
   }, [selectedCoverLetterTemplateId]);
-
   const handleGeneratePrompt = () => {
     if (!jobDescription) return;
 
     if (promptType === 'resume') {
       if (selectedTemplateId && selectedTemplateId !== "no-selection") {
+        // Get the template for access to resume content
+        const template = resumeTemplates.find(t => t.id === selectedTemplateId);
+        const resumeToUse = useTemporaryResume ? resumeContent : (template?.resumeLatex || resumeContent);
+        
         const prompt = generateResumePrompt({
           jobDescription,
-          resumeContent,
+          resumeContent: resumeToUse,
           templateId: selectedTemplateId,
           showResumeInput: true,
-          optionalInstructions: hasOptionalInstructions ? optionalInstructions : undefined
-        });
+          optionalInstructions: hasOptionalInstructions ? optionalInstructions : undefined        });
         setGeneratedPrompt(prompt);
+        
+        if (!prompt.startsWith("Error:")) {
+          toast.success("Resume prompt generated successfully!");
+        }
       }
     } else if (promptType === 'coverLetter') {
       if (selectedCoverLetterTemplateId && selectedCoverLetterTemplateId !== "no-selection") {
         const prompt = generateCoverLetterPrompt({
           jobDescription,
-          resumeContent,
+          resumeContent: useTemporaryResume ? resumeContent : (resumeTemplates.find(t => t.id === selectedTemplateId)?.resumeLatex || resumeContent),
           templateId: selectedCoverLetterTemplateId,
           showResumeInput: true,
           optionalInstructions: hasOptionalInstructions ? optionalInstructions : undefined,
           coverLetterTemplate
         });
         setGeneratedPrompt(prompt);
+        
+        if (!prompt.startsWith("Error:")) {
+          toast.success("Cover letter prompt generated successfully!");
+        }
       }
     }
   };
-
   const copyPrompt = () => {
     navigator.clipboard
       .writeText(generatedPrompt)
-      .then(() => alert("Prompt copied to clipboard!"))
-      .catch((err) => console.error("Failed to copy: ", err));
+      .then(() => toast.success("Prompt copied to clipboard!"))
+      .catch((err) => {
+        console.error("Failed to copy: ", err);
+        toast.error("Failed to copy prompt to clipboard");
+      });
   };
-
   const handleTemplateChange = (templateId: string) => {
     setSelectedTemplateId(templateId || "no-selection");
+    
+    // Load resume content if available in the template
+    const template = resumeTemplates.find(t => t.id === templateId);
+    if (template?.resumeLatex) {
+      setResumeContent(template.resumeLatex);
+    }
   };
 
   const handleCoverLetterTemplateChange = (templateId: string) => {
@@ -114,9 +134,9 @@ function App() {
       setCoverLetterTemplate(template.coverLetterTemplate);
     }
   };
-
   const handleAddTemplate = (template: Template) => {
     addTemplate(promptType, template);
+    toast.success(`${promptType === 'resume' ? 'Resume' : 'Cover letter'} template added successfully!`);
   };
 
   const handlePromptTypeChange = (value: string) => {
@@ -125,14 +145,17 @@ function App() {
 
   const handleAddCustomPrompt = (prompt: CustomPrompt) => {
     addCustomPrompt(prompt);
+    toast.success("Custom prompt added successfully!");
   };
 
   const handleUpdateCustomPrompt = (promptId: string, prompt: CustomPrompt) => {
     updateCustomPrompt(promptId, prompt);
+    toast.success("Custom prompt updated successfully!");
   };
 
   const handleDeleteCustomPrompt = (promptId: string) => {
     deleteCustomPrompt(promptId);
+    toast.success("Custom prompt deleted successfully!");
   };
 
   const handleSetActivePrompt = (type: PromptType, promptId: string) => {
@@ -163,8 +186,7 @@ function App() {
             Create custom prompts for resumes and cover letters with reusable templates
           </CardDescription>
         </CardHeader>
-        
-        <CardContent className="space-y-4 px-4 py-3">
+          <CardContent className="space-y-4 px-4 py-3">
           <PromptTypeSelector
             promptType={promptType}
             onChange={handlePromptTypeChange}
@@ -173,11 +195,6 @@ function App() {
           <JobDescriptionInput
             jobDescription={jobDescription}
             onChange={(e) => setJobDescription(e.target.value)}
-          />
-
-          <ResumeInput
-            resumeContent={resumeContent}
-            onChange={(e) => setResumeContent(e.target.value)}
           />
           
           {promptType === 'resume' ? (
@@ -209,8 +226,24 @@ function App() {
                   />
                 </div>
               </div>
-            </>
-          )}
+            </>          )}
+          
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="useTemporaryResume" 
+              checked={useTemporaryResume} 
+              onCheckedChange={(checked) => setUseTemporaryResume(checked as boolean)} 
+            />
+            <Label htmlFor="useTemporaryResume" className="text-xs cursor-pointer">
+              Use temporary resume text
+            </Label>
+          </div>
+
+          <ResumeInput
+            resumeContent={resumeContent}
+            onChange={(e) => setResumeContent(e.target.value)}
+            visible={useTemporaryResume}
+          />
 
           <OptionalInstructions
             hasInstructions={hasOptionalInstructions}

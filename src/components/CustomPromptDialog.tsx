@@ -152,14 +152,13 @@ export const CustomPromptDialog = ({
 
           {showPreview && (
             <div className="grid gap-2 mt-2">
-              <Label className="text-xs">Preview with Sample Data</Label>
-              <div className="h-32 overflow-y-auto border rounded-md p-2 text-xs bg-gray-50">
+              <Label className="text-xs">Preview with Sample Data</Label>              <div className="h-32 overflow-y-auto border rounded-md p-2 text-xs bg-gray-50">
                 {promptContent
-                  .replace(new RegExp(resumePosition, 'g'), "[Your Resume Content]")
-                  .replace(new RegExp(jobDescriptionPosition, 'g'), "[Job Description]")
-                  .replace(new RegExp(optionalInstructionsPosition, 'g'), "[Additional Instructions]")
+                  .replace(new RegExp(resumePosition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), "[Your Resume Content]")
+                  .replace(new RegExp(jobDescriptionPosition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), "[Job Description]")
+                  .replace(new RegExp(optionalInstructionsPosition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), "[Additional Instructions]")
                   .replace(
-                    promptType === 'coverLetter' ? new RegExp(coverLetterTemplatePosition, 'g') : /(?!)/,
+                    promptType === 'coverLetter' ? new RegExp(coverLetterTemplatePosition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g') : /(?!)/,
                     "[Cover Letter Template]"
                   )}
               </div>

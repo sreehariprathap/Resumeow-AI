@@ -6,6 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Label } from "./ui/label";
 import { CustomPromptDialog } from "./CustomPromptDialog";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { toast } from "sonner";
 import type { CustomPrompt, PromptType } from "@/types";
 
 interface SettingsDialogProps {
@@ -33,6 +35,14 @@ export const SettingsDialog = ({
   const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState<CustomPrompt | undefined>(undefined);
   const [localActivePrompts, setLocalActivePrompts] = useState<Record<PromptType, string>>(activePrompts);
+  const [confirmDialogState, setConfirmDialogState] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    promptIdToDelete: "",
+    isImportReplace: false,
+    importData: null as unknown
+  });
 
   // Reset local state when dialog opens
   useEffect(() => {
@@ -40,12 +50,14 @@ export const SettingsDialog = ({
       setLocalActivePrompts(activePrompts);
     }
   }, [isOpen, activePrompts]);
-
+  
   const handlePromptSave = (prompt: CustomPrompt) => {
     if (editingPrompt) {
       onUpdateCustomPrompt(editingPrompt.id, prompt);
+      toast.success("Prompt updated successfully");
     } else {
       onAddCustomPrompt(prompt);
+      toast.success("Prompt created successfully");
     }
     setIsPromptDialogOpen(false);
     setEditingPrompt(undefined);
@@ -55,25 +67,39 @@ export const SettingsDialog = ({
     setEditingPrompt(undefined);
     setIsPromptDialogOpen(true);
   };
-
+  
   const handleEditPrompt = (prompt: CustomPrompt) => {
     setEditingPrompt(prompt);
     setIsPromptDialogOpen(true);
   };
 
   const handleDeletePrompt = (promptId: string) => {
-    if (confirm("Are you sure you want to delete this prompt?")) {
-      onDeleteCustomPrompt(promptId);
+    setConfirmDialogState({
+      isOpen: true,
+      title: "Delete Prompt",
+      message: "Are you sure you want to delete this prompt?",
+      promptIdToDelete: promptId,
+      isImportReplace: false,
+      importData: null
+    });
+  };
+
+  const confirmDeletePrompt = () => {
+    if (confirmDialogState.promptIdToDelete) {
+      onDeleteCustomPrompt(confirmDialogState.promptIdToDelete);
+      toast.success("Prompt deleted successfully");
     }
   };
+  
   const handleSaveSettings = () => {
     // Save the active prompts
     Object.entries(localActivePrompts).forEach(([type, promptId]) => {
       onSetActivePrompt(type as PromptType, promptId);
     });
+    toast.success("Settings saved successfully");
     onClose();
   };
-
+  
   const exportPrompts = () => {
     const exportData = {
       customPrompts,
@@ -90,6 +116,8 @@ export const SettingsDialog = ({
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
+    
+    toast.success("Prompts exported successfully");
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -109,40 +137,20 @@ export const SettingsDialog = ({
       try {
         const importedData = JSON.parse(e.target?.result as string);
         if (importedData.customPrompts && Array.isArray(importedData.customPrompts)) {
-          // Clear existing prompts if confirmed
-          if (confirm("Do you want to replace all existing prompts with the imported ones? Click Cancel to merge instead.")) {
-            // Replace all prompts
-            importedData.customPrompts.forEach((prompt: CustomPrompt) => {
-              onAddCustomPrompt(prompt);
-            });
-          } else {
-            // Merge prompts
-            importedData.customPrompts.forEach((prompt: CustomPrompt) => {
-              // Check if prompt with same id exists
-              const exists = customPrompts.some(p => p.id === prompt.id);
-              if (!exists) {
-                onAddCustomPrompt(prompt);
-              }
-            });
-          }
-          
-          // Import active prompts
-          if (importedData.activePrompts) {
-            Object.entries(importedData.activePrompts).forEach(([type, promptId]) => {
-              setLocalActivePrompts(prev => ({
-                ...prev,
-                [type]: promptId as string
-              }));
-            });
-          }
-          
-          alert("Prompts imported successfully!");
+          setConfirmDialogState({
+            isOpen: true,
+            title: "Import Prompts",
+            message: "Do you want to replace all existing prompts with the imported ones? Click Cancel to merge instead.",
+            promptIdToDelete: "",
+            isImportReplace: true,
+            importData: importedData
+          });
         } else {
-          alert("Invalid import file format.");
+          toast.error("Invalid import file format.");
         }
       } catch (error) {
         console.error("Import error:", error);
-        alert("Failed to import prompts. Please check the file format.");
+        toast.error("Failed to import prompts. Please check the file format.");
       }
       
       // Reset the file input
@@ -151,6 +159,39 @@ export const SettingsDialog = ({
       }
     };
     reader.readAsText(file);
+  };
+  
+  const confirmImport = () => {
+    const importedData = confirmDialogState.importData as Record<string, unknown>;
+    if (!importedData) return;
+
+    if (confirmDialogState.isImportReplace) {
+      // Replace all prompts
+      (importedData.customPrompts as CustomPrompt[]).forEach((prompt: CustomPrompt) => {
+        onAddCustomPrompt(prompt);
+      });
+    } else {
+      // Merge prompts
+      (importedData.customPrompts as CustomPrompt[]).forEach((prompt: CustomPrompt) => {
+        // Check if prompt with same id exists
+        const exists = customPrompts.some(p => p.id === prompt.id);
+        if (!exists) {
+          onAddCustomPrompt(prompt);
+        }
+      });
+    }
+    
+    // Import active prompts
+    if (importedData.activePrompts) {
+      Object.entries(importedData.activePrompts).forEach(([type, promptId]) => {
+        setLocalActivePrompts(prev => ({
+          ...prev,
+          [type]: promptId as string
+        }));
+      });
+    }
+    
+    toast.success("Prompts imported successfully!");
   };
 
   const filteredPrompts = (type: PromptType) => {
@@ -163,7 +204,7 @@ export const SettingsDialog = ({
       [type]: promptId
     }));
   };
-
+  
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -296,7 +337,8 @@ export const SettingsDialog = ({
               </div>
             </TabsContent>
           </Tabs>
-            <div className="text-xs text-muted-foreground mt-4">
+          
+          <div className="text-xs text-muted-foreground mt-4">
             <p>
               <strong>Instructions:</strong> Custom prompts should include placeholders to indicate where your 
               resume, job description and optional instructions will be inserted.
@@ -348,6 +390,16 @@ export const SettingsDialog = ({
         onSave={handlePromptSave}
         initialPrompt={editingPrompt}
         isEditing={!!editingPrompt}
+      />
+
+      <ConfirmDialog
+        isOpen={confirmDialogState.isOpen}
+        onClose={() => setConfirmDialogState(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmDialogState.promptIdToDelete ? confirmDeletePrompt : confirmImport}
+        title={confirmDialogState.title}
+        message={confirmDialogState.message}
+        confirmText={confirmDialogState.promptIdToDelete ? "Delete" : "Replace"}
+        cancelText={confirmDialogState.promptIdToDelete ? "Cancel" : "Merge"}
       />
     </>
   );

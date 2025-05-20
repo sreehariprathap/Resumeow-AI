@@ -1,5 +1,6 @@
 import type { PromptGeneratorOptions, Template } from "@/types";
 import { useTemplates } from "./useTemplates";
+import { toast } from "sonner";
 
 export function usePromptGenerator() {
   const { resumeTemplates, coverLetterTemplates, getActivePrompt } = useTemplates();
@@ -11,9 +12,7 @@ export function usePromptGenerator() {
     } else {
       return coverLetterTemplates.find(template => template.id === id);
     }
-  };
-  
-  // Generator function for resume prompts
+  };  // Generator function for resume prompts
   const generateResumePrompt = ({
     jobDescription,
     resumeContent,
@@ -23,11 +22,13 @@ export function usePromptGenerator() {
   }: PromptGeneratorOptions): string => {
     // Skip invalid template IDs
     if (!templateId || templateId === "no-selection") {
+      toast.error("Please select a valid template.");
       return "Error: Please select a valid template.";
     }
     
     const template = findTemplateById(templateId, 'resume');
     if (!template) {
+      toast.error("Template not found. Please select a valid template.");
       return "Error: Template not found. Please select a valid template.";
     }
     
@@ -38,43 +39,46 @@ export function usePromptGenerator() {
     
     // Replace placeholders
     if (customPrompt.placeholders.jobDescriptionPosition) {
+      const escapedJobDescPosition = customPrompt.placeholders.jobDescriptionPosition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       prompt = prompt.replace(
-        new RegExp(customPrompt.placeholders.jobDescriptionPosition, 'g'), 
+        new RegExp(escapedJobDescPosition, 'g'), 
         jobDescription.trim()
       );
     }
     
     if (showResumeInput && resumeContent && customPrompt.placeholders.resumePosition) {
+      const escapedResumePosition = customPrompt.placeholders.resumePosition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       prompt = prompt.replace(
-        new RegExp(customPrompt.placeholders.resumePosition, 'g'), 
+        new RegExp(escapedResumePosition, 'g'), 
         resumeContent.trim()
       );
     } else if (customPrompt.placeholders.resumePosition) {
       // Remove resume placeholder if no resume is provided
+      const escapedResumePosition = customPrompt.placeholders.resumePosition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       prompt = prompt.replace(
-        new RegExp(`\\n*[^{]*${customPrompt.placeholders.resumePosition}[^}]*\\n*`, 'g'), 
+        new RegExp(escapedResumePosition, 'g'), 
         ""
       );
     }
     
     // Add optional instructions if provided
     if (optionalInstructions && customPrompt.placeholders.optionalInstructionsPosition) {
+      const escapedOptInstrPosition = customPrompt.placeholders.optionalInstructionsPosition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       prompt = prompt.replace(
-        new RegExp(customPrompt.placeholders.optionalInstructionsPosition, 'g'),
+        new RegExp(escapedOptInstrPosition, 'g'),
         optionalInstructions.trim()
       );
     } else if (customPrompt.placeholders.optionalInstructionsPosition) {
       // Remove optional instructions placeholder if none provided
+      const escapedOptInstrPosition = customPrompt.placeholders.optionalInstructionsPosition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       prompt = prompt.replace(
-        new RegExp(customPrompt.placeholders.optionalInstructionsPosition, 'g'),
+        new RegExp(escapedOptInstrPosition, 'g'),
         ""
       );
     }
     
     return prompt;
-  };
-
-  // Generator function for cover letter prompts
+  };  // Generator function for cover letter prompts
   const generateCoverLetterPrompt = ({
     jobDescription,
     resumeContent,
@@ -85,11 +89,13 @@ export function usePromptGenerator() {
   }: PromptGeneratorOptions): string => {
     // Skip invalid template IDs
     if (!templateId || templateId === "no-selection") {
+      toast.error("Please select a valid template.");
       return "Error: Please select a valid template.";
     }
     
     const template = findTemplateById(templateId, 'coverLetter');
     if (!template) {
+      toast.error("Template not found. Please select a valid template.");
       return "Error: Template not found. Please select a valid template.";
     }
     
@@ -100,54 +106,62 @@ export function usePromptGenerator() {
     
     // Replace placeholders
     if (customPrompt.placeholders.jobDescriptionPosition) {
+      const escapedJobDescPosition = customPrompt.placeholders.jobDescriptionPosition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       prompt = prompt.replace(
-        new RegExp(customPrompt.placeholders.jobDescriptionPosition, 'g'), 
+        new RegExp(escapedJobDescPosition, 'g'), 
         jobDescription.trim()
       );
     }
     
     if (showResumeInput && resumeContent && customPrompt.placeholders.resumePosition) {
+      const escapedResumePosition = customPrompt.placeholders.resumePosition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       prompt = prompt.replace(
-        new RegExp(customPrompt.placeholders.resumePosition, 'g'), 
+        new RegExp(escapedResumePosition, 'g'), 
         resumeContent.trim()
       );
     } else if (customPrompt.placeholders.resumePosition) {
       // Remove resume placeholder if no resume is provided
+      const escapedResumePosition = customPrompt.placeholders.resumePosition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       prompt = prompt.replace(
-        new RegExp(`\\n*[^{]*${customPrompt.placeholders.resumePosition}[^}]*\\n*`, 'g'), 
+        new RegExp(escapedResumePosition, 'g'), 
         ""
       );
     }
     
     // Add cover letter template if provided
     if (coverLetterTemplate && customPrompt.placeholders.coverLetterTemplatePosition) {
+      const escapedCoverLetterTemplatePosition = customPrompt.placeholders.coverLetterTemplatePosition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       prompt = prompt.replace(
-        new RegExp(customPrompt.placeholders.coverLetterTemplatePosition, 'g'),
+        new RegExp(escapedCoverLetterTemplatePosition, 'g'),
         coverLetterTemplate.trim()
       );
     } else if (template.coverLetterTemplate && customPrompt.placeholders.coverLetterTemplatePosition) {
+      const escapedCoverLetterTemplatePosition = customPrompt.placeholders.coverLetterTemplatePosition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       prompt = prompt.replace(
-        new RegExp(customPrompt.placeholders.coverLetterTemplatePosition, 'g'),
+        new RegExp(escapedCoverLetterTemplatePosition, 'g'),
         template.coverLetterTemplate.trim()
       );
     } else if (customPrompt.placeholders.coverLetterTemplatePosition) {
       // Remove cover letter template placeholder if none provided
+      const escapedCoverLetterTemplatePosition = customPrompt.placeholders.coverLetterTemplatePosition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       prompt = prompt.replace(
-        new RegExp(customPrompt.placeholders.coverLetterTemplatePosition, 'g'),
+        new RegExp(escapedCoverLetterTemplatePosition, 'g'),
         ""
       );
     }
     
     // Add optional instructions if provided
     if (optionalInstructions && customPrompt.placeholders.optionalInstructionsPosition) {
+      const escapedOptInstrPosition = customPrompt.placeholders.optionalInstructionsPosition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       prompt = prompt.replace(
-        new RegExp(customPrompt.placeholders.optionalInstructionsPosition, 'g'),
+        new RegExp(escapedOptInstrPosition, 'g'),
         optionalInstructions.trim()
       );
     } else if (customPrompt.placeholders.optionalInstructionsPosition) {
       // Remove optional instructions placeholder if none provided
+      const escapedOptInstrPosition = customPrompt.placeholders.optionalInstructionsPosition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       prompt = prompt.replace(
-        new RegExp(customPrompt.placeholders.optionalInstructionsPosition, 'g'),
+        new RegExp(escapedOptInstrPosition, 'g'),
         ""
       );
     }

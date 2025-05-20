@@ -9,6 +9,7 @@ import {
   SelectItem
 } from "./ui/select";
 import { TemplateDialog } from "./TemplateDialog";
+import { toast } from "sonner";
 import type { Template } from "@/types";
 
 interface TemplateSelectorProps {
@@ -26,13 +27,12 @@ export const TemplateSelector = ({
   onAddTemplate,
   onLoadResume,
 }: TemplateSelectorProps) => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const handleLoadResume = () => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);  const handleLoadResume = () => {
     if (!selectedTemplateId || selectedTemplateId === "no-selection" || !onLoadResume) return;
       const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
     if (selectedTemplate?.resumeLatex) {
       onLoadResume(selectedTemplate.resumeLatex);
-      alert("LaTeX resume loaded to editor successfully!");
+      toast.success("LaTeX resume loaded to editor successfully!");
     }
   };
     return (
@@ -90,10 +90,9 @@ export const TemplateSelector = ({
             ...template,
             id: crypto.randomUUID(),
             content: "Create a tailored resume based on this job description:\n\n{JOB_DESCRIPTION}\n\nMy current resume:\n\n{RESUME}"
-          };
-          onAddTemplate(newTemplate);
+          };          onAddTemplate(newTemplate);
           setIsDialogOpen(false);
-          alert("Resume saved successfully!");
+          toast.success("Resume saved successfully!");
         }}
         promptType="resume"
       />
