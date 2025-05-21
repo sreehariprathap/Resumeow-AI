@@ -1,8 +1,6 @@
-
-
 // File: src/components/PromptTypeSelector.tsx
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
-import React from "react";
+import { memo } from "react";
 import type { PromptType } from "@/types/index";
 
 type Props = {
@@ -10,7 +8,8 @@ type Props = {
   onChange: (value: string) => void;
 };
 
-export const PromptTypeSelector: React.FC<Props> = ({ promptType, onChange }) => {
+// Using memo to prevent unnecessary re-renders
+export const PromptTypeSelector = memo(({ promptType, onChange }: Props) => {
   return (
     <div className="space-y-1">
       <label className="text-xs font-medium">Choose Prompt Type:</label>
@@ -26,5 +25,5 @@ export const PromptTypeSelector: React.FC<Props> = ({ promptType, onChange }) =>
       </RadioGroup>
     </div>
   );
-};
+});
 

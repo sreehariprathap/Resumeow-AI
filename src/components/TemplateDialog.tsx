@@ -2,8 +2,10 @@ import { useState, useEffect } from "react";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "./ui/dialog";
 import { Label } from "./ui/label";
+import { useAuth } from "@/lib/authContext";
+import { Cloud } from "lucide-react";
 import type { PromptType } from "@/types";
 
 interface TemplateDialogProps {
@@ -19,6 +21,7 @@ export const TemplateDialog = ({
   onSave,
   promptType
 }: TemplateDialogProps) => {
+  const { currentUser } = useAuth();
   const [templateName, setTemplateName] = useState("");
   const [resumeLatex, setResumeLatex] = useState("");
   const [coverLetterTemplate, setCoverLetterTemplate] = useState("");
@@ -57,6 +60,12 @@ export const TemplateDialog = ({
               ? "Add Resume in LaTeX Format" 
               : "Add Cover Letter Template"}
           </DialogTitle>
+          {currentUser && (
+            <DialogDescription className="flex items-center gap-1 text-xs">
+              <Cloud className="h-3.5 w-3.5 text-blue-500" />
+              <span>Your templates will be saved to the cloud</span>
+            </DialogDescription>
+          )}
         </DialogHeader>
         
         <div className="grid gap-4 py-4">
@@ -77,8 +86,7 @@ export const TemplateDialog = ({
 
           {promptType === 'resume' ? (
             <div className="grid gap-2">
-              <Label htmlFor="resumeLatex">Resume LaTeX Format</Label>
-              <div className="h-72 overflow-y-auto border rounded-md">
+              <Label htmlFor="resumeLatex">Resume LaTeX Format</Label>              <div className="h-72 overflow-y-auto border rounded-md">
                 <Textarea
                   id="resumeLatex"
                   value={resumeLatex}
@@ -88,7 +96,7 @@ export const TemplateDialog = ({
                 />
               </div>
               <p className="text-xs text-gray-500">
-                Save your LaTeX resume for quick access later.
+                Save your LaTeX resume for quick access later{currentUser ? " (synced across devices)" : ""}.
               </p>
             </div>
           ) : (
@@ -104,7 +112,7 @@ export const TemplateDialog = ({
                 />
               </div>
               <p className="text-xs text-gray-500">
-                Provide a template structure for your cover letter.
+                Provide a template structure for your cover letter{currentUser ? " (synced across devices)" : ""}.
               </p>
             </div>          )}
         </div>

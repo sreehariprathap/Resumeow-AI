@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { JobDescriptionInput } from "./components/JobDescriptionInput";
 import { ResumeInput } from "./components/ResumeInput";
 import { PromptDisplay } from "./components/PromptDisplay";
@@ -141,10 +141,9 @@ function App() {
     addTemplate(promptType, template);
     toast.success(`${promptType === 'resume' ? 'Resume' : 'Cover letter'} template added successfully!`);
   };
-
-  const handlePromptTypeChange = (value: string) => {
+  const handlePromptTypeChange = useCallback((value: string) => {
     setPromptType(value as PromptType);
-  };
+  }, []);
 
   const handleAddCustomPrompt = (prompt: CustomPrompt) => {
     addCustomPrompt(prompt);

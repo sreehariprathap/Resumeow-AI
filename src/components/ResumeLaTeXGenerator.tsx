@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { toast } from 'sonner';
 import { GoogleGenAI } from '@google/genai';
-import { Clipboard, Key } from 'lucide-react';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
+import { Clipboard } from 'lucide-react';
+import { useAuth } from '@/lib/authContext';
+import { getUserData } from '@/lib/firebase';
 
 interface ResumeLaTeXGeneratorProps {
   generatedPrompt: string;
@@ -15,17 +15,41 @@ export function ResumeLaTeXGenerator({
   generatedPrompt
 }: ResumeLaTeXGeneratorProps) {  const [isGenerating, setIsGenerating] = useState(false);
   const [generatedLatex, setGeneratedLatex] = useState<string | null>(null);
-  const [isEditingApiKey, setIsEditingApiKey] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState('');
-  // Use the API key from environment variable
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const [apiKey, setApiKey] = useState<string | null>(null);
+  const { currentUser } = useAuth();
+
+  // Try to get API key from environment or Firebase
+  useEffect(() => {
+    const fetchApiKey = async () => {
+      // First check environment variable
+      const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      
+      if (envApiKey) {
+        setApiKey(envApiKey);
+        return;
+      }
+      
+      // If no env API key and user is logged in, check Firebase
+      if (currentUser) {
+        try {
+          const userData = await getUserData(currentUser.uid, "settings");
+          if (userData && userData.googleApiKey) {
+            setApiKey(userData.googleApiKey as string);
+          }
+        } catch (error) {
+          console.error("Error loading API key from user settings:", error);
+        }
+      }
+    };
+    
+    fetchApiKey();
+  }, [currentUser]);
 
 
  
-
   const generateLatex = async () => {
     if (!apiKey) {
-      setIsEditingApiKey(true);
+      toast.error('Google API key is required. Please add it in the Settings.');
       return;
     }
 
@@ -61,11 +85,9 @@ export function ResumeLaTeXGenerator({
         toast.success('LaTeX resume generated successfully!');
       } else {
         toast.error('Failed to generate LaTeX content');
-      }
-    } catch (error) {
+      }    } catch (error) {
       console.error('Error generating LaTeX:', error);
-      toast.error('Failed to generate LaTeX resume. Please check your API key and try again.');
-      setIsEditingApiKey(true);
+      toast.error('Failed to generate LaTeX resume. Please check your API key in Settings and try again.');
     } finally {
       setIsGenerating(false);
     }
@@ -93,77 +115,46 @@ const copyToClipboard = () => {
             });
     }
 };
-
   return (
     <Card className="w-full mt-6 mb-4">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium">LaTeX Resume Generator</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {isEditingApiKey ? (
-          <div className="space-y-2">
-            <Label htmlFor="api-key" className="text-xs">Google Gemini API Key</Label>
-            <div className="flex gap-2">
-              <Input 
-                id="api-key"
-                type="password"
-                value={apiKeyInput}
-                onChange={(e) => setApiKeyInput(e.target.value)}
-                placeholder="Enter your Gemini API key"
-                className="h-8 text-sm flex-1"
-              />
+        <div className="flex flex-wrap justify-between items-center gap-2">
+          <Button 
+            onClick={generateLatex} 
+            disabled={isGenerating || !generatedPrompt || !apiKey}
+            className="h-8 text-sm"
+            size="sm"
+          >
+            {isGenerating ? 'Generating LaTeX...' : 'Generate LaTeX Resume'}
+          </Button>
+          
+          <div className="flex gap-2">
+            {generatedLatex && (
               <Button 
-                onClick={saveApiKey} 
+                variant="outline" 
+                onClick={copyToClipboard} 
+                className="h-8 text-sm"
                 size="sm"
-                className="h-8"
               >
-                Save Key
+                <Clipboard className="h-4 w-4 mr-2" />
+                Copy LaTeX
               </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Get your API key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="underline">Google AI Studio</a>
-            </p>
+            )}
           </div>
-        ) : (
-          <div className="flex flex-wrap justify-between items-center gap-2">
-            <Button 
-              onClick={generateLatex} 
-              disabled={isGenerating || !generatedPrompt }
-              className="h-8 text-sm"
-              size="sm"
-            >
-              {isGenerating ? 'Generating LaTeX...' : 'Generate LaTeX Resume'}
-            </Button>
-            
-            <div className="flex gap-2">
-              {apiKey && (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="h-8 text-xs"
-                  onClick={() => setIsEditingApiKey(true)}
-                >
-                  <Key className="h-3 w-3 mr-1" />
-                  Change API Key
-                </Button>
-              )}
-              
-              {generatedLatex && (
-                <Button 
-                  variant="outline" 
-                  onClick={copyToClipboard} 
-                  className="h-8 text-sm"
-                  size="sm"
-                >
-                  <Clipboard className="h-4 w-4 mr-2" />
-                  Copy LaTeX
-                </Button>
-              )}
-            </div>
+        </div>
+        
+        {!apiKey && (
+          <div className="mt-2">
+            <p className="text-xs text-muted-foreground">
+              Google API key is required. Please add it in the Settings dialog.
+            </p>
           </div>
         )}
         
-        {generatedLatex && !isEditingApiKey && (
+        {generatedLatex && (
           <div className="mt-2">
             <p className="text-xs text-muted-foreground">
               LaTeX code has been generated! Click the button above to copy it to your clipboard.
@@ -171,12 +162,6 @@ const copyToClipboard = () => {
           </div>
         )}
       </CardContent>
-    </Card>
-  );
-// Add a function to save the API key
-function saveApiKey() {
-  // Implement your API key saving logic here
-  setIsEditingApiKey(false);
-}
+    </Card>  );
 }
 
