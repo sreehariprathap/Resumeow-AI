@@ -1,7 +1,7 @@
 import type { PromptType, Template, CustomPrompt } from "@/types";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/authContext";
-import { saveUserData, getUserData } from "@/lib/firebase";
+import { saveUserData, getUserData } from "@/lib/firebaseWeb";
 
 // Default templates to show for first-time users
 const DEFAULT_RESUME_TEMPLATES: Template[] = [

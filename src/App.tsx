@@ -169,16 +169,10 @@ function App() {
   };
 
   return (
-    <div className="w-[400px] h-[600px] overflow-auto p-2">
-      <Card className="w-full shadow-none border-0">        <CardHeader className="px-4 py-3">
+    <div className="overflow-auto p-2">
+      <Card className="w-full shadow-none border-0">        
+        <CardHeader className="px-4 py-3">
         <div className="flex flex-col gap-2">
-          <CardTitle className="text-lg">
-            <img src="/Resumeow-d.png" />
-            <span className="">prompter</span>
-          </CardTitle>
-        <CardDescription className="text-xs">
-          Create custom prompts for resumes and cover letters with reusable templates
-        </CardDescription>
           <div className="flex justify-between items-center">
             <CardAction>
               <Button

@@ -9,7 +9,7 @@ import { Input } from "./ui/input";
 import { CustomPromptDialog } from "./CustomPromptDialog";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { useAuth } from "@/lib/authContext";
-import { saveUserData, getUserData } from "@/lib/firebase";
+import { saveUserData, getUserData } from "@/lib/firebaseWeb";
 import { toast } from "sonner";
 import type { CustomPrompt, PromptType } from "@/types";
 

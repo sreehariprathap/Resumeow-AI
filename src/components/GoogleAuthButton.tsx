@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { signInWithGoogle, logOut } from "@/lib/firebase";
+import { signInWithGoogle, logOut } from "@/lib/firebaseWeb";
 import { useAuth } from "@/lib/authContext";
 import { Button } from "./ui/button";
 import { LogIn, LogOut, User } from "lucide-react";

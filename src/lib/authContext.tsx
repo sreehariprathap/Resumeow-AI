@@ -1,14 +1,14 @@
 import { createContext, useState, useEffect, useContext } from "react";
 import type { ReactNode } from "react";
 import { 
-  auth, 
+  auth,
   getGoogleRedirectResult, 
   signInWithGoogle, 
   signInWithEmailAndPassword,
   registerWithEmailAndPassword,
   sendPasswordReset,
   logOut
-} from "./firebase";
+} from "./firebaseWeb";
 import type { User } from "firebase/auth";
 import { toast } from "sonner";
 

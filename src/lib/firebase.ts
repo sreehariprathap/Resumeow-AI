@@ -1,10 +1,9 @@
-// Firebase config and initialization for Chrome Extension
+// Firebase config and initialization for Web App
 import { initializeApp } from "firebase/app";
 import { 
   getAuth, 
   GoogleAuthProvider, 
   signInWithPopup,
-  signInWithCredential,
   signOut, 
   onAuthStateChanged,
   browserLocalPersistence,
@@ -42,22 +41,7 @@ setPersistence(auth, browserLocalPersistence).catch((error) => {
 
 // Helper to detect if running in a Chrome Extension context
 export const isExtensionContext = (): boolean => {
-  const isExtension = typeof window !== 'undefined' && 
-         typeof window.chrome !== 'undefined' && 
-         typeof window.chrome.runtime !== 'undefined' && 
-         typeof window.chrome.runtime.id === 'string';
-  
-  console.log("Environment check - isExtensionContext:", isExtension);
-  
-  // Check if Chrome identity API is available
-  if (isExtension && window.chrome?.identity) {
-    console.log("Chrome identity API available: true");
-  } else if (isExtension) {
-    console.log("Warning: In extension context but identity API is not available");
-    console.log("Chrome identity API available:", typeof window.chrome?.identity !== 'undefined');
-  }
-  
-  return isExtension;
+  return false; // We are now a web app, not an extension
 };
 
 /**
