@@ -278,6 +278,7 @@ const clearSavedLatex = () => {
                 Download .tex
               </Button>
             )}
+          </div>
             {currentUser && generatedLatex && (
               <Button
                 variant="outline"
@@ -299,7 +300,6 @@ const clearSavedLatex = () => {
                 )}
               </Button>
             )}
-          </div>
         </div>
         
         {!apiKey && (
