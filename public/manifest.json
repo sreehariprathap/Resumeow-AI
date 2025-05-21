@@ -1,10 +1,25 @@
 {
   "manifest_version": 3,
-  "name": "React Chrome Extension",
+  "name": "Prompter - Resume & Cover Letter Assistant",
   "version": "1.0.0",
-  "description": "A simple React app as a Chrome extension",
+  "description": "Create optimized resume and cover letter prompts for AI assistants",
   "action": {
-    "default_popup": "index.html"
+    "default_popup": "index.html",
+    "default_icon": "icon.png"
   },
-  "permissions": []
+  "permissions": [
+    "identity"
+  ],  "oauth2": {
+    "client_id": "963780069582-5l6qcts69piuldqsot55kn0behlhspc9.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile"
+    ]
+  },"host_permissions": [
+    "https://*.googleapis.com/*",
+    "https://*.firebaseapp.com/*",
+    "https://*.firebase.com/*"
+  ],  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://www.gstatic.com https://*.google.com wss://*.firebaseio.com https://*.firebaseapp.com https://*.firebase.com"
+  }
 }

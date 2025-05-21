@@ -8,7 +8,8 @@ import {
   signOut, 
   onAuthStateChanged,
   browserLocalPersistence,
-  setPersistence
+  setPersistence,
+  OAuthProvider
 } from "firebase/auth";
 import type { User } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
@@ -134,11 +135,11 @@ export const getGoogleRedirectResult = async (): Promise<User | null> => {
  * Log out the current user
  */
 export const logOut = async (): Promise<void> => {
-  try {    // If in extension context, also revoke the Chrome token
+  try {
+    // If in extension context, also revoke the Chrome token
     if (isExtensionContext() && window.chrome?.identity) {
       // Get current token
-      const chrome = window.chrome;
-      chrome.identity.getAuthToken({ interactive: false }, (token) => {
+      window.chrome.identity.getAuthToken({ interactive: false }, (token) => {
         if (token) {
           // Revoke token
           const xhr = new XMLHttpRequest();
@@ -146,7 +147,7 @@ export const logOut = async (): Promise<void> => {
           xhr.send();
           
           // Remove token from Chrome's cache
-          chrome.identity.removeCachedAuthToken({ token }, () => {
+          window.chrome.identity.removeCachedAuthToken({ token }, () => {
             console.log('Chrome identity token revoked and removed from cache');
           });
         }

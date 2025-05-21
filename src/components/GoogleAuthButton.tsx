@@ -7,17 +7,21 @@ import { toast } from "sonner";
 
 export function GoogleAuthButton() {
   const [isLoading, setIsLoading] = useState(false);
-  const { currentUser, isAuthenticated } = useAuth();
-
-  const handleSignIn = async () => {
+  const { currentUser, isAuthenticated } = useAuth();  const handleSignIn = async () => {
     try {
       setIsLoading(true);
-      await signInWithGoogle();
-      toast.success("Successfully signed in!");
+      const user = await signInWithGoogle();
+      
+      // If we got a user back, it means the popup worked
+      if (user) {
+        toast.success("Successfully signed in!");
+        setIsLoading(false);
+      }
+      // If user is null, a redirect is happening 
+      // The toast will be shown by AuthProvider after redirect completes
     } catch (error) {
       console.error("Error signing in:", error);
       toast.error("Failed to sign in. Please try again.");
-    } finally {
       setIsLoading(false);
     }
   };

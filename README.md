@@ -52,3 +52,35 @@ export default tseslint.config({
   },
 })
 ```
+
+## Firebase Authentication in Chrome Extension
+
+This extension uses Firebase Authentication with Google Sign-In. To properly set up authentication in your extension:
+
+1. Create a Firebase project at [firebase.google.com](https://firebase.google.com)
+2. Enable Google Authentication in the Firebase Console (Authentication > Sign-in method)
+3. Create a `.env` file in the project root with the following variables:
+   ```
+   VITE_FIREBASE_API_KEY=your_api_key
+   VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+   VITE_FIREBASE_PROJECT_ID=your_project_id
+   VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+   VITE_FIREBASE_APP_ID=your_app_id
+   ```
+
+4. Get your OAuth Client ID from the Google Cloud Console:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Navigate to your project
+   - Go to APIs & Services > Credentials
+   - Create an OAuth 2.0 Client ID
+   - Set the redirect URI to `https://<YOUR_EXTENSION_ID>.chromiumapp.org/`
+
+5. Replace `${OAUTH_CLIENT_ID}` in the `manifest.json` file with your actual OAuth Client ID when building for production.
+
+### How Authentication Works in This Extension
+
+The authentication flow is designed to handle different scenarios:
+- First attempts to use Firebase Auth popup method for better extension compatibility
+- Falls back to redirect method if popup is blocked
+- Auth state is properly stored to persist between extension sessions

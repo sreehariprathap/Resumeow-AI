@@ -1,0 +1,141 @@
+// Firebase config and initialization
+import { initializeApp } from "firebase/app";
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signInWithRedirect, 
+  getRedirectResult, 
+  signOut, 
+  onAuthStateChanged,
+  browserLocalPersistence,
+  setPersistence,
+  signInWithCredential
+} from "firebase/auth";
+import type { User } from "firebase/auth";
+import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
+
+// Your Firebase configuration
+// Using environment variables to keep sensitive information secure
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
+
+// Set persistence to local to ensure the user stays logged in
+// This is important for browser extensions
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.error("Error setting persistence:", error);
+});
+
+// Helper to detect if running in a Chrome Extension context
+export const isExtensionContext = (): boolean => {
+  return typeof window !== 'undefined' && 
+         typeof window.chrome !== 'undefined' && 
+         typeof window.chrome.runtime !== 'undefined' && 
+         typeof window.chrome.runtime.id === 'string';
+};
+
+// Authentication functions
+export const signInWithGoogle = async (): Promise<User | null> => {
+  try {
+    // Always start with the popup method for better extension compatibility
+    try {
+      console.log("Using Firebase popup authentication");
+      const result = await signInWithPopup(auth, googleProvider);
+      return result.user;
+    } catch (error) {
+      // If popup fails (e.g., blocked), try redirect as fallback
+      const authError = error as { code?: string };
+      
+      if (authError.code === 'auth/popup-blocked') {
+        console.log("Popup blocked, falling back to redirect authentication");
+        // For extensions, we should try to use signInWithRedirect as a last resort
+        await signInWithRedirect(auth, googleProvider);
+        return null; // User will be redirected, so return null for now
+      } else {
+        console.error("Error signing in with Google:", error);
+        throw error;
+      }
+    }
+  } catch (error) {
+    console.error("Authentication failed:", error);
+    throw error;
+  }
+};
+
+export const getGoogleRedirectResult = async (): Promise<User | null> => {
+  try {
+    // This should be called when the extension loads/reloads
+    // to check if there's a pending redirect authentication
+    const result = await getRedirectResult(auth);
+    return result?.user || null;
+  } catch (error) {
+    console.error("Error completing Google sign-in redirect:", error);
+    throw error;
+  }
+};
+
+export const logOut = async (): Promise<void> => {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error("Error signing out:", error);
+    throw error;
+  }
+};
+
+export const getCurrentUser = (): Promise<User | null> => {
+  return new Promise((resolve) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      unsubscribe();
+      resolve(user);
+    });
+  });
+};
+
+// Firestore data operations
+export const saveUserData = async (
+  userId: string, 
+  dataType: string, 
+  data: Record<string, unknown>
+): Promise<boolean> => {
+  try {
+    await setDoc(doc(db, "users", userId, dataType, "data"), data);
+    return true;
+  } catch (error) {
+    console.error(`Error saving ${dataType}:`, error);
+    throw error;
+  }
+};
+
+export const getUserData = async (
+  userId: string, 
+  dataType: string
+): Promise<Record<string, unknown> | null> => {
+  try {
+    const docRef = doc(db, "users", userId, dataType, "data");
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      return docSnap.data() as Record<string, unknown>;
+    } else {
+      return null;
+    }
+  } catch (error) {
+    console.error(`Error getting ${dataType}:`, error);
+    throw error;
+  }
+};
+
+export { auth, db };
