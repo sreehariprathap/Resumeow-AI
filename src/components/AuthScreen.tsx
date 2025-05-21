@@ -161,16 +161,23 @@ export function AuthScreen() {
   }  return (
     <Card className={`auth-screen-card ${inExtension ? "w-full" : "w-full max-w-md mx-auto"}`}>
       <CardHeader className={inExtension ? "p-4 pb-2" : ""}>
-        <CardTitle>
+        <CardTitle className="flex flex-col gap-5">
+           <img src="/Resumeow-d.png" />
+           <h1 className="text-center">
+
           {authMode === "login" ? "Sign In" : authMode === "register" ? "Create Account" : "Reset Password"}
+           </h1>
         </CardTitle>
         <CardDescription>
+          <h1 className="text-center">
+
           {authMode === "login" 
             ? "Enter your credentials to access your account" 
             : authMode === "register" 
               ? "Create a new account to get started"
               : "We'll send you an email to reset your password"
           }
+          </h1>
         </CardDescription>
       </CardHeader>      <CardContent className={inExtension ? "p-4 pt-0" : ""}>
         <Tabs value={authMode} onValueChange={(value: string) => setAuthMode(value as "login" | "register" | "reset")}>
@@ -181,7 +188,7 @@ export function AuthScreen() {
           </TabsList>
             <TabsContent value="login">
             <form onSubmit={handleEmailSignIn} className="space-y-3">
-              <div className="space-y-1">
+              <div className="space-y-1 flex flex-col gap-2">
                 <Label htmlFor="email" className={inExtension ? "text-xs" : ""}>Email</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -197,7 +204,7 @@ export function AuthScreen() {
                 </div>
               </div>
               
-              <div className="space-y-1">
+              <div className="space-y-1 flex flex-col gap-2">
                 <Label htmlFor="password" className={inExtension ? "text-xs" : ""}>Password</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -243,8 +250,9 @@ export function AuthScreen() {
             </Button>
           </TabsContent>
           
-          <TabsContent value="register">            <form onSubmit={handleRegister} className="space-y-3">
-              <div className="space-y-1">
+          <TabsContent value="register">            
+            <form onSubmit={handleRegister} className="space-y-3 ">
+              <div className="space-y-1flex flex-col gap-2">
                 <Label htmlFor="display-name" className={inExtension ? "text-xs" : ""}>Name (Optional)</Label>
                 <Input
                   id="display-name"
@@ -256,7 +264,7 @@ export function AuthScreen() {
                 />
               </div>
               
-              <div className="space-y-1">
+              <div className="space-y-1 flex flex-col gap-2">
                 <Label htmlFor="email-register" className={inExtension ? "text-xs" : ""}>Email</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -271,7 +279,7 @@ export function AuthScreen() {
                 </div>
               </div>
               
-              <div className="space-y-1">
+              <div className="space-y-1 flex flex-col gap-2">
                 <Label htmlFor="password-register" className={inExtension ? "text-xs" : ""}>Password</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -298,7 +306,7 @@ export function AuthScreen() {
           </TabsContent>
             <TabsContent value="reset">
             <form onSubmit={handlePasswordReset} className="space-y-3">
-              <div className="space-y-1">
+              <div className="space-y-1 flex flex-col gap-2">
                 <Label htmlFor="email-reset" className={inExtension ? "text-xs" : ""}>Email</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
