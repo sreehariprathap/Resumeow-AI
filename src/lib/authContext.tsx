@@ -1,6 +1,14 @@
 import { createContext, useState, useEffect, useContext } from "react";
 import type { ReactNode } from "react";
-import { auth, getGoogleRedirectResult } from "./firebase";
+import { 
+  auth, 
+  getGoogleRedirectResult, 
+  signInWithGoogle, 
+  signInWithEmailAndPassword,
+  registerWithEmailAndPassword,
+  sendPasswordReset,
+  logOut
+} from "./firebase";
 import type { User } from "firebase/auth";
 import { toast } from "sonner";
 
@@ -8,16 +16,25 @@ interface AuthContextType {
   currentUser: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  loginWithGoogle: () => Promise<User | null>;
+  loginWithEmail: (email: string, password: string) => Promise<User>;
+  registerWithEmail: (email: string, password: string, displayName?: string) => Promise<User>;
+  resetPassword: (email: string) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   currentUser: null,
   isLoading: true,
   isAuthenticated: false,
+  loginWithGoogle: async () => null,
+  loginWithEmail: async () => { throw new Error("Not implemented"); },
+  registerWithEmail: async () => { throw new Error("Not implemented"); },
+  resetPassword: async () => { throw new Error("Not implemented"); },
+  logout: async () => { throw new Error("Not implemented"); },
 });
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+export const AuthProvider = ({ children }: { children: ReactNode }) => {  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   // Handle authentication for browser extension
@@ -48,10 +65,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
+  // Authentication methods
+  const loginWithGoogle = async () => {
+    return await signInWithGoogle();
+  };
+
+  const loginWithEmail = async (email: string, password: string) => {
+    return await signInWithEmailAndPassword(email, password);
+  };
+
+  const registerWithEmail = async (email: string, password: string, displayName?: string) => {
+    return await registerWithEmailAndPassword(email, password, displayName);
+  };
+
+  const resetPassword = async (email: string) => {
+    await sendPasswordReset(email);
+  };
+
+  const logout = async () => {
+    await logOut();
+  };
+
   const value = {
     currentUser,
     isLoading,
     isAuthenticated: !!currentUser,
+    loginWithGoogle,
+    loginWithEmail,
+    registerWithEmail,
+    resetPassword,
+    logout
   };
 
   return (

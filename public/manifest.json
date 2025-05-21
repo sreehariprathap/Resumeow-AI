@@ -9,7 +9,7 @@
   },
   "permissions": [
     "identity"
-  ],  "oauth2": {
+  ],"oauth2": {
     "client_id": "963780069582-5l6qcts69piuldqsot55kn0behlhspc9.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/userinfo.email",

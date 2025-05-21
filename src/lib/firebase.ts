@@ -8,7 +8,11 @@ import {
   signOut, 
   onAuthStateChanged,
   browserLocalPersistence,
-  setPersistence
+  setPersistence,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword as firebaseSignInWithEmailAndPassword,
+  updateProfile,
+  sendPasswordResetEmail
 } from "firebase/auth";
 import type { User } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
@@ -38,10 +42,22 @@ setPersistence(auth, browserLocalPersistence).catch((error) => {
 
 // Helper to detect if running in a Chrome Extension context
 export const isExtensionContext = (): boolean => {
-  return typeof window !== 'undefined' && 
+  const isExtension = typeof window !== 'undefined' && 
          typeof window.chrome !== 'undefined' && 
          typeof window.chrome.runtime !== 'undefined' && 
          typeof window.chrome.runtime.id === 'string';
+  
+  console.log("Environment check - isExtensionContext:", isExtension);
+  
+  // Check if Chrome identity API is available
+  if (isExtension && window.chrome?.identity) {
+    console.log("Chrome identity API available: true");
+  } else if (isExtension) {
+    console.log("Warning: In extension context but identity API is not available");
+    console.log("Chrome identity API available:", typeof window.chrome?.identity !== 'undefined');
+  }
+  
+  return isExtension;
 };
 
 /**
@@ -208,6 +224,57 @@ export const getUserData = async (
     }
   } catch (error) {
     console.error(`Error getting ${dataType}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Register a new user with email and password
+ */
+export const registerWithEmailAndPassword = async (
+  email: string,
+  password: string,
+  displayName?: string
+): Promise<User> => {
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    
+    // If displayName is provided, update the user profile
+    if (displayName && userCredential.user) {
+      await updateProfile(userCredential.user, { displayName });
+    }
+    
+    return userCredential.user;
+  } catch (error) {
+    console.error("Error registering new user:", error);
+    throw error;
+  }
+};
+
+/**
+ * Sign in a user with email and password
+ */
+export const signInWithEmailAndPassword = async (
+  email: string,
+  password: string
+): Promise<User> => {
+  try {
+    const userCredential = await firebaseSignInWithEmailAndPassword(auth, email, password);
+    return userCredential.user;
+  } catch (error) {
+    console.error("Error signing in with email/password:", error);
+    throw error;
+  }
+};
+
+/**
+ * Send password reset email
+ */
+export const sendPasswordReset = async (email: string): Promise<void> => {
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (error) {
+    console.error("Error sending password reset email:", error);
     throw error;
   }
 };

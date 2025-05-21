@@ -1,0 +1,28 @@
+/* Extension popup specific styles */
+body.extension-popup {
+  width: 400px;
+  height: 580px;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+/* Hide scrollbar in extension popup while preserving functionality */
+body.extension-popup .auth-wrapper::-webkit-scrollbar {
+  width: 6px;
+}
+
+body.extension-popup .auth-wrapper::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+/* Compact styling for extension forms */
+body.extension-popup .form-group {
+  margin-bottom: 8px;
+}
+
+body.extension-popup .auth-screen-card {
+  box-shadow: none;
+  border: none;
+}
