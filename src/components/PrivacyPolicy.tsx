@@ -1,4 +1,3 @@
-import React from 'react';
 import { Button } from './ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
