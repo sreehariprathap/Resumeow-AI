@@ -16,11 +16,11 @@ export function PrivacyPolicy() {
       </div>
       
       <div className="prose dark:prose-invert max-w-none">
-        <h1 className="text-2xl font-bold mb-6">Privacy Policy for Resume & Cover Letter Prompter</h1>
+        <h1 className="text-2xl font-bold mb-6">Privacy Policy for Prompter by Resumeow - Resume & Cover Letter Assistant</h1>
         <p className="text-sm text-muted-foreground mb-6">Effective Date: May 25, 2025</p>
         
         <p>
-          Resume & Cover Letter Prompter ("the extension," "we," "us," or "our") is a Chrome extension 
+          Prompter by Resumeow - Resume & Cover Letter Assistant ("the extension," "we," "us," or "our") is a Chrome extension 
           developed by Sreehari Prathap. This privacy policy explains how we handle user data when you use our extension.
         </p>
         
