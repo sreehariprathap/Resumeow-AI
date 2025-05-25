@@ -5,22 +5,24 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
 import { GoogleGenAI } from '@google/genai';
-import { Clipboard, Download, FileEdit, Save, FileCode } from 'lucide-react';
+import { Clipboard, Download, FileEdit, Save, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/lib/authContext';
 import { getUserData } from '@/lib/firebase';
 
-interface ResumeLaTeXGeneratorProps {
+interface CoverLetterGeneratorProps {
   generatedPrompt: string;
+  generateLatex: boolean;
 }
 
-export function ResumeLaTeXGenerator({ 
-  generatedPrompt
-}: ResumeLaTeXGeneratorProps) {  
+export function CoverLetterGenerator({ 
+  generatedPrompt,
+  generateLatex
+}: CoverLetterGeneratorProps) {  
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedLatex, setGeneratedLatex] = useState<string | null>(null);
+  const [generatedCoverLetter, setGeneratedCoverLetter] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editedLatex, setEditedLatex] = useState<string>('');
+  const [editedCoverLetter, setEditedCoverLetter] = useState<string>('');
   const { currentUser } = useAuth();
 
   // Try to get API key from environment or Firebase
@@ -50,9 +52,7 @@ export function ResumeLaTeXGenerator({
     fetchApiKey();
   }, [currentUser]);
 
-
- 
-  const generateLatex = async () => {
+  const generateCoverLetter = async () => {
     if (!apiKey) {
       toast.error('Google API key is required. Please add it in the Settings.');
       return;
@@ -69,13 +69,10 @@ export function ResumeLaTeXGenerator({
       // Initialize the Gemini API client
       const ai = new GoogleGenAI({ apiKey });
       
-      // Prepare the prompt text
-      const promptText = `
-    ${generatedPrompt}
-
-        Return only the complete LaTeX code that can be compiled. Include all necessary LaTeX packages and document structure.
-        Do not include explanations, just return the LaTeX code.
-      `;
+      // Prepare the prompt text based on whether LaTeX is selected or not
+      const promptText = generateLatex
+        ? `${generatedPrompt}\n\nReturn only the complete LaTeX code that can be compiled. Include all necessary LaTeX packages and document structure. Do not include explanations, just return the LaTeX code.`
+        : `${generatedPrompt}\n\nReturn a well-formatted professional cover letter. Do not include explanations, just return the cover letter content.`;
 
       // Generate content using the model
       const response = await ai.models.generateContent({
@@ -86,107 +83,110 @@ export function ResumeLaTeXGenerator({
       const text = response.text;
       
       if (text) {
-        setGeneratedLatex(text);
-        toast.success('LaTeX resume generated successfully!');
+        setGeneratedCoverLetter(text);
+        toast.success(`Cover letter ${generateLatex ? 'LaTeX' : ''} generated successfully!`);
       } else {
-        toast.error('Failed to generate LaTeX content');
-      }    } catch (error) {
-      console.error('Error generating LaTeX:', error);
-      toast.error('Failed to generate LaTeX resume. Please check your API key in Settings and try again.');
+        toast.error('Failed to generate cover letter content');
+      }
+    } catch (error) {
+      console.error('Error generating cover letter:', error);
+      toast.error('Failed to generate cover letter. Please check your API key in Settings and try again.');
     } finally {
       setIsGenerating(false);
     }
   };
 
-const copyToClipboard = () => {
-    if (generatedLatex) {
-        // Trim ```latex from beginning and ``` from end if present
-        let cleanedLatex = generatedLatex;
-        
-        // Remove ```latex or ``` from beginning
-        cleanedLatex = cleanedLatex.replace(/^```(?:latex)?/m, '');
-        
-        // Remove ``` from end
-        cleanedLatex = cleanedLatex.replace(/```$/m, '');
-        
-        // Trim any extra whitespace
-        cleanedLatex = cleanedLatex.trim();
-        
-        navigator.clipboard.writeText(cleanedLatex)
-            .then(() => toast.success('LaTeX code copied to clipboard!'))
-            .catch((err) => {
-                console.error('Failed to copy: ', err);
-                toast.error('Failed to copy LaTeX code to clipboard');
-            });
+  const copyToClipboard = () => {
+    if (generatedCoverLetter) {
+      // Trim ```latex from beginning and ``` from end if present
+      let cleanedContent = generatedCoverLetter;
+      
+      // Remove ```latex or ``` from beginning
+      cleanedContent = cleanedContent.replace(/^```(?:latex)?/m, '');
+      
+      // Remove ``` from end
+      cleanedContent = cleanedContent.replace(/```$/m, '');
+      
+      // Trim any extra whitespace
+      cleanedContent = cleanedContent.trim();
+      
+      navigator.clipboard.writeText(cleanedContent)
+        .then(() => toast.success('Cover letter content copied to clipboard!'))
+        .catch((err) => {
+          console.error('Failed to copy: ', err);
+          toast.error('Failed to copy cover letter content to clipboard');
+        });
     }
-};
+  };
 
-const openEditDialog = () => {
-  if (generatedLatex) {
-    // Clean the LaTeX before editing
-    let cleanedLatex = generatedLatex;
-    cleanedLatex = cleanedLatex.replace(/^```(?:latex)?/m, '');
-    cleanedLatex = cleanedLatex.replace(/```$/m, '');
-    cleanedLatex = cleanedLatex.trim();
-    
-    setEditedLatex(cleanedLatex);
-    setIsDialogOpen(true);
-  }
-};
+  const openEditDialog = () => {
+    if (generatedCoverLetter) {
+      // Clean the content before editing
+      let cleanedContent = generatedCoverLetter;
+      cleanedContent = cleanedContent.replace(/^```(?:latex)?/m, '');
+      cleanedContent = cleanedContent.replace(/```$/m, '');
+      cleanedContent = cleanedContent.trim();
+      
+      setEditedCoverLetter(cleanedContent);
+      setIsDialogOpen(true);
+    }
+  };
 
-const saveEditedLatex = () => {
-  setGeneratedLatex(editedLatex);
-  setIsDialogOpen(false);
-  toast.success('LaTeX code updated successfully!');
-};
+  const saveEditedContent = () => {
+    setGeneratedCoverLetter(editedCoverLetter);
+    setIsDialogOpen(false);
+    toast.success('Cover letter content updated successfully!');
+  };
 
-const downloadAsTex = () => {
-  if (generatedLatex) {
-    // Clean the LaTeX before download
-    let cleanedLatex = generatedLatex;
-    cleanedLatex = cleanedLatex.replace(/^```(?:latex)?/m, '');
-    cleanedLatex = cleanedLatex.replace(/```$/m, '');
-    cleanedLatex = cleanedLatex.trim();
-    
-    // Create a blob with the LaTeX content
-    const blob = new Blob([cleanedLatex], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    
-    // Create a temporary anchor element
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'resume.tex';
-    
-    // Trigger the download
-    document.body.appendChild(a);
-    a.click();
-    
-    // Clean up
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    toast.success('LaTeX file downloaded successfully!');
-  }
-};return (
+  const downloadAsFile = () => {
+    if (generatedCoverLetter) {
+      // Clean the content before download
+      let cleanedContent = generatedCoverLetter;
+      cleanedContent = cleanedContent.replace(/^```(?:latex)?/m, '');
+      cleanedContent = cleanedContent.replace(/```$/m, '');
+      cleanedContent = cleanedContent.trim();
+      
+      // Create a blob with the content
+      const blob = new Blob([cleanedContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      
+      // Create a temporary anchor element
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = generateLatex ? 'cover-letter.tex' : 'cover-letter.txt';
+      
+      // Trigger the download
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success(`Cover letter ${generateLatex ? 'LaTeX ' : ''}file downloaded successfully!`);
+    }
+  };
+
+  return (
     <>
       <Card className="w-full mt-6 mb-4">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">LaTeX Resume Generator</CardTitle>
+          <CardTitle className="text-sm font-medium">Cover Letter Generator</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap justify-between items-center gap-2">
             <Button 
-              onClick={generateLatex} 
+              onClick={generateCoverLetter} 
               disabled={isGenerating || !generatedPrompt || !apiKey}
               className="h-8 text-sm"
               size="sm"
             >
-              <FileCode className="h-4 w-4 mr-2" />
-              {isGenerating ? 'Generating LaTeX...' : 'Ask AI to Generate LaTeX Resume'}
+              <MessageSquare className="h-4 w-4 mr-2" />
+              {isGenerating ? 'Generating Cover Letter...' : 'Ask AI to Generate Cover Letter'}
             </Button>
             
             <div className="flex gap-2">
-              {generatedLatex && (
+              {generatedCoverLetter && (
                 <>
                   <Button 
                     variant="outline" 
@@ -208,12 +208,12 @@ const downloadAsTex = () => {
                   </Button>
                   <Button 
                     variant="outline" 
-                    onClick={downloadAsTex} 
+                    onClick={downloadAsFile} 
                     className="h-8 text-sm"
                     size="sm"
                   >
                     <Download className="h-4 w-4 mr-2" />
-                    Download .tex
+                    Download {generateLatex ? '.tex' : '.txt'}
                   </Button>
                 </>
               )}
@@ -228,11 +228,11 @@ const downloadAsTex = () => {
             </div>
           )}
           
-          {generatedLatex && (
+          {generatedCoverLetter && (
             <div className="mt-4 border rounded-md p-3">
-              <h3 className="text-sm font-medium mb-2">Generated LaTeX Resume:</h3>
+              <h3 className="text-sm font-medium mb-2">Generated Cover Letter:</h3>
               <div className="h-48 overflow-y-auto">
-                <pre className="text-xs whitespace-pre-wrap">{generatedLatex}</pre>
+                <pre className="text-xs whitespace-pre-wrap">{generatedCoverLetter}</pre>
               </div>
             </div>
           )}
@@ -242,26 +242,26 @@ const downloadAsTex = () => {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit LaTeX Resume</DialogTitle>
+            <DialogTitle>Edit Cover Letter</DialogTitle>
           </DialogHeader>
           
           <div className="h-96 overflow-y-auto border rounded-md mt-4">
             <Textarea
-              value={editedLatex}
-              onChange={(e) => setEditedLatex(e.target.value)}
+              value={editedCoverLetter}
+              onChange={(e) => setEditedCoverLetter(e.target.value)}
               className="h-full resize-none font-mono text-xs leading-relaxed"
             />
           </div>
           
           <DialogFooter className="sticky bottom-0 pt-4 bg-background">
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveEditedLatex}>
+            <Button onClick={saveEditedContent}>
               <Save className="h-4 w-4 mr-2" />
               Save Changes
             </Button>
-            <Button variant="outline" onClick={downloadAsTex}>
+            <Button variant="outline" onClick={downloadAsFile}>
               <Download className="h-4 w-4 mr-2" />
-              Download .tex
+              Download {generateLatex ? '.tex' : '.txt'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -269,4 +269,3 @@ const downloadAsTex = () => {
     </>
   );
 }
-

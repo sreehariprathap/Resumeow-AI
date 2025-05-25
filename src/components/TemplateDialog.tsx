@@ -45,12 +45,14 @@ export const TemplateDialog = ({
         resumeLatex: resumeLatex
       });
     } else if (promptType === 'coverLetter') {
+      if (!coverLetterTemplate.trim()) return;
       onSave({
         name: templateName,
         coverLetterTemplate: coverLetterTemplate
       });
     }
   };
+  
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
@@ -58,7 +60,7 @@ export const TemplateDialog = ({
           <DialogTitle>
             {promptType === 'resume' 
               ? "Add Resume in LaTeX Format" 
-              : "Add Cover Letter Template"}
+              : "Add Cover Letter Template in LaTeX Format"}
           </DialogTitle>
           {currentUser && (
             <DialogDescription className="flex items-center gap-1 text-xs">
@@ -86,7 +88,8 @@ export const TemplateDialog = ({
 
           {promptType === 'resume' ? (
             <div className="grid gap-2">
-              <Label htmlFor="resumeLatex">Resume LaTeX Format</Label>              <div className="h-72 overflow-y-auto border rounded-md">
+              <Label htmlFor="resumeLatex">Resume LaTeX Format</Label>              
+              <div className="h-72 overflow-y-auto border rounded-md">
                 <Textarea
                   id="resumeLatex"
                   value={resumeLatex}
@@ -101,26 +104,27 @@ export const TemplateDialog = ({
             </div>
           ) : (
             <div className="grid gap-2">
-              <Label htmlFor="coverLetterTemplate">Cover Letter Template (Optional)</Label>
+              <Label htmlFor="coverLetterTemplate">Cover Letter LaTeX Format</Label>
               <div className="h-72 overflow-y-auto border rounded-md">
                 <Textarea
                   id="coverLetterTemplate"
                   value={coverLetterTemplate}
                   onChange={(e) => setCoverLetterTemplate(e.target.value)}
-                  placeholder="Enter a cover letter template (optional)"
+                  placeholder="Paste your cover letter template in LaTeX format here"
                   className="h-full resize-none font-mono text-xs leading-relaxed"
                 />
               </div>
               <p className="text-xs text-gray-500">
-                Provide a template structure for your cover letter{currentUser ? " (synced across devices)" : ""}.
+                Save your LaTeX cover letter template for quick access later{currentUser ? " (synced across devices)" : ""}.
               </p>
-            </div>          )}
+            </div>
+          )}
         </div>
         
         <DialogFooter className="sticky bottom-0 pt-4 bg-background">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={handleSave}>
-            {promptType === 'resume' ? "Save Resume" : "Save Template"}
+            {promptType === 'resume' ? "Save Resume" : "Save Cover Letter"}
           </Button>
         </DialogFooter>
       </DialogContent>

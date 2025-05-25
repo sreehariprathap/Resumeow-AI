@@ -7,12 +7,12 @@ import { TemplateSelector } from "./components/TemplateSelector";
 import { PromptTypeSelector } from "./components/PromptTypeSelector";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { ResumeLaTeXGenerator } from "./components/ResumeLaTeXGenerator";
+import { CoverLetterGenerator } from "./components/CoverLetterGenerator";
 import { GoogleAuthButton } from "./components/GoogleAuthButton";
 import { useTemplates } from "./hooks/useTemplates";
 import { usePromptGenerator } from "./hooks/usePromptGenerator";
 import { Card, CardContent, CardHeader, CardAction } from "./components/ui/card";
 import { Button } from "./components/ui/button";
-import { Textarea } from "./components/ui/textarea";
 import { Label } from "./components/ui/label";
 import { Checkbox } from "./components/ui/checkbox";
 import { Settings } from "lucide-react";
@@ -32,7 +32,6 @@ function App() {
   } = useTemplates();
 
   const { generateResumePrompt, generateCoverLetterPrompt } = usePromptGenerator();
-
   const [promptType, setPromptType] = useState<PromptType>('resume');
   const [jobDescription, setJobDescription] = useState("");
   const [resumeContent, setResumeContent] = useState("");
@@ -40,6 +39,7 @@ function App() {
   const [hasOptionalInstructions, setHasOptionalInstructions] = useState(false);
   const [optionalInstructions, setOptionalInstructions] = useState("");
   const [useTemporaryResume, setUseTemporaryResume] = useState(false);
+  const [generateLatex, setGenerateLatex] = useState<boolean>(true);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(() => {
     const saved = localStorage.getItem("selectedTemplateId");
     return saved && saved !== "" ? saved : "no-selection";
@@ -72,12 +72,13 @@ function App() {
   const handleGeneratePrompt = () => {
     if (!jobDescription) return;
 
+    // Get the selected resume template (shared for both resume and cover letter types)
+    const resumeTemplate = resumeTemplates.find(t => t.id === selectedTemplateId);
+    // Use the temporary resume text if selected, otherwise use the LaTeX template from the selected resume
+    const resumeToUse = useTemporaryResume ? resumeContent : (resumeTemplate?.resumeLatex || resumeContent);
+
     if (promptType === 'resume') {
       if (selectedTemplateId && selectedTemplateId !== "no-selection") {
-        // Get the template for access to resume content
-        const template = resumeTemplates.find(t => t.id === selectedTemplateId);
-        const resumeToUse = useTemporaryResume ? resumeContent : (template?.resumeLatex || resumeContent);
-
         const prompt = generateResumePrompt({
           jobDescription,
           resumeContent: resumeToUse,
@@ -90,16 +91,33 @@ function App() {
         if (!prompt.startsWith("Error:")) {
           toast.success("Resume prompt generated successfully!");
         }
-      }
-    } else if (promptType === 'coverLetter') {
-      if (selectedCoverLetterTemplateId && selectedCoverLetterTemplateId !== "no-selection") {
+      }    } else if (promptType === 'coverLetter') {
+      // For cover letters, we only need a template ID if we're generating LaTeX
+      const needsCoverLetterTemplateId = generateLatex;
+      
+      if (!needsCoverLetterTemplateId || (selectedCoverLetterTemplateId && selectedCoverLetterTemplateId !== "no-selection")) {
+        // Get the selected cover letter template
+        const coverTemplate = coverLetterTemplates.find(t => t.id === selectedCoverLetterTemplateId);
+        // Use the provided cover letter template or the one from the selected template if we're generating LaTeX
+        const coverLetterTemplateToUse = generateLatex ? (coverLetterTemplate || coverTemplate?.coverLetterTemplate || "") : "";
+        
+        // Add LaTeX instruction if the checkbox is checked
+        let additionalInstructions = hasOptionalInstructions ? optionalInstructions : "";
+        if (generateLatex) {
+          if (additionalInstructions) {
+            additionalInstructions += "\n\nReturn the output as pure LaTeX code.";
+          } else {
+            additionalInstructions = "Return the output as pure LaTeX code.";
+          }
+        }
+        
         const prompt = generateCoverLetterPrompt({
           jobDescription,
-          resumeContent: useTemporaryResume ? resumeContent : (resumeTemplates.find(t => t.id === selectedTemplateId)?.resumeLatex || resumeContent),
+          resumeContent: resumeToUse,  // Using the same resume as resume section
           templateId: selectedCoverLetterTemplateId,
           showResumeInput: true,
-          optionalInstructions: hasOptionalInstructions ? optionalInstructions : undefined,
-          coverLetterTemplate
+          optionalInstructions: additionalInstructions || undefined,
+          coverLetterTemplate: coverLetterTemplateToUse
         });
         setGeneratedPrompt(prompt);
 
@@ -126,15 +144,20 @@ function App() {
     if (template?.resumeLatex) {
       setResumeContent(template.resumeLatex);
     }
-  };
-
-  const handleCoverLetterTemplateChange = (templateId: string) => {
+  };  const handleCoverLetterTemplateChange = (templateId: string) => {
     setSelectedCoverLetterTemplateId(templateId || "no-selection");
 
     // Load cover letter template if available
     const template = coverLetterTemplates.find(t => t.id === templateId);
+    console.log("Selected cover letter template:", template);
+    
     if (template?.coverLetterTemplate) {
+      console.log("Found cover letter LaTeX content:", template.coverLetterTemplate.substring(0, 100) + "...");
       setCoverLetterTemplate(template.coverLetterTemplate);
+      toast.success("LaTeX cover letter template loaded successfully!");
+    } else {
+      console.log("No coverLetterTemplate found in the selected template");
+      toast.info("No LaTeX content found in the selected cover letter template.");
     }
   };
   const handleAddTemplate = (template: Template) => {
@@ -201,35 +224,46 @@ function App() {
             onChange={(e) => setJobDescription(e.target.value)}
           />
 
-          {promptType === 'resume' ? (
-            <TemplateSelector
-              templates={resumeTemplates}
-              selectedTemplateId={selectedTemplateId}
-              onSelectTemplate={handleTemplateChange}
-              onAddTemplate={handleAddTemplate}
-              onLoadResume={(resumeLatex) => setResumeContent(resumeLatex)}
-            />
-          ) : (
-            <>
-              <TemplateSelector
-                templates={coverLetterTemplates}
-                selectedTemplateId={selectedCoverLetterTemplateId}
-                onSelectTemplate={handleCoverLetterTemplateChange}
-                onAddTemplate={handleAddTemplate}
-              />
-
-              <div className="space-y-1">
-                <Label htmlFor="coverLetterTemplate" className="text-xs font-medium">Cover Letter Template (Optional)</Label>
-                <div className="h-28 overflow-y-auto border rounded-md">
-                  <Textarea
-                    id="coverLetterTemplate"
-                    value={coverLetterTemplate}
-                    onChange={(e) => setCoverLetterTemplate(e.target.value)}
-                    placeholder="Enter a cover letter template structure (optional)"
-                    className="text-sm w-full h-full resize-none border-0"
+          {/* Shared resume selector for both resume and cover letter types */}
+          <TemplateSelector
+            templates={resumeTemplates}
+            selectedTemplateId={selectedTemplateId}
+            onSelectTemplate={handleTemplateChange}
+            onAddTemplate={handleAddTemplate}
+            onLoadTemplate={(resumeLatex) => setResumeContent(resumeLatex)}
+            promptType="resume"
+            label="Saved Resume:"
+          />          {/* Only show cover letter template selector when in cover letter mode */}
+          {promptType === 'coverLetter' && (
+            <>              <div className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="generateLatex"
+                    checked={generateLatex}
+                    onCheckedChange={(checked) => setGenerateLatex(checked as boolean)}
                   />
+                  <Label htmlFor="generateLatex" className="text-xs cursor-pointer">
+                    Generate .tex LaTeX output
+                  </Label>
                 </div>
+                <p className="text-xs text-gray-500 ml-5">
+                  {generateLatex 
+                    ? "Cover letter will be returned as LaTeX code format" 
+                    : "Cover letter will be returned as plain text"}
+                </p>
               </div>
+              
+              {generateLatex && (
+                <TemplateSelector
+                  templates={coverLetterTemplates}
+                  selectedTemplateId={selectedCoverLetterTemplateId}
+                  onSelectTemplate={handleCoverLetterTemplateChange}
+                  onAddTemplate={handleAddTemplate}
+                  onLoadTemplate={(coverLetterTemplate) => setCoverLetterTemplate(coverLetterTemplate)}
+                  promptType="coverLetter"
+                  label="Cover Letter Template:"
+                />
+              )}
             </>)}
 
           <div className="flex items-center space-x-2">
@@ -254,24 +288,27 @@ function App() {
             instructions={optionalInstructions}
             onToggleInstructions={setHasOptionalInstructions}
             onInstructionsChange={(e) => setOptionalInstructions(e.target.value)}
-          />
-
-          <Button
+          />          <Button
             onClick={handleGeneratePrompt}
             className="w-full h-8 text-sm"
             disabled={!jobDescription ||
               (promptType === 'resume' && (!selectedTemplateId || selectedTemplateId === "no-selection")) ||
-              (promptType === 'coverLetter' && (!selectedCoverLetterTemplateId || selectedCoverLetterTemplateId === "no-selection"))
+              (promptType === 'coverLetter' && generateLatex && (!selectedCoverLetterTemplateId || selectedCoverLetterTemplateId === "no-selection"))
             }
           >
             Generate {promptType === 'resume' ? 'Resume' : 'Cover Letter'} Prompt
           </Button>          {generatedPrompt && (
             <PromptDisplay prompt={generatedPrompt} onCopy={copyPrompt} />
-          )}
-
-          {promptType === 'resume' && jobDescription && resumeContent && selectedTemplateId && selectedTemplateId !== "no-selection" && (
+          )}          {promptType === 'resume' && jobDescription && resumeContent && selectedTemplateId && selectedTemplateId !== "no-selection" && (
             <ResumeLaTeXGenerator
               generatedPrompt={generatedPrompt}
+            />
+          )}
+
+          {promptType === 'coverLetter' && generatedPrompt && (
+            <CoverLetterGenerator
+              generatedPrompt={generatedPrompt}
+              generateLatex={generateLatex}
             />
           )}
 
