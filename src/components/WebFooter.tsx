@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 export const WebFooter = () => {
   const currentYear = new Date().getFullYear();
   
@@ -8,13 +10,13 @@ export const WebFooter = () => {
           &copy; {currentYear} Prompter - Resume & Cover Letter Assistant
         </p>
         <div className="mt-2 flex gap-4 justify-center">
-          <a href="#" className="text-sm text-muted-foreground hover:text-primary">
+          <Link to="/privacy" className="text-sm text-muted-foreground hover:text-primary">
             Privacy Policy
-          </a>
+          </Link>
           <a href="#" className="text-sm text-muted-foreground hover:text-primary">
             Terms of Service
           </a>
-          <a href="#" className="text-sm text-muted-foreground hover:text-primary">
+          <a href="mailto:sreehariprathap1996@gmail.com" className="text-sm text-muted-foreground hover:text-primary">
             Contact
           </a>
         </div>

@@ -11,6 +11,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { useAuth } from "@/lib/authContext";
 import { saveUserData, getUserData } from "@/lib/firebaseWeb";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 import type { CustomPrompt, PromptType } from "@/types";
 
 interface SettingsDialogProps {
@@ -397,8 +398,7 @@ const handleSaveSettings = async () => {
             <TabsContent value="general" className="mt-4 space-y-4">
               <div>
                 <h3 className="text-sm font-medium mb-3">API Settings</h3>
-                <div className="space-y-3">
-                  <div className="space-y-2">
+                <div className="space-y-3">                <div className="space-y-2">
                     <Label htmlFor="googleApiKey" className="text-xs">
                       Custom Google API Key
                     </Label>
@@ -414,6 +414,21 @@ const handleSaveSettings = async () => {
                       Enter your personal Google API key for enhanced functionality.
                       Your key will be securely stored against your user account.
                     </p>
+                  </div>                  <div className="border-t pt-4 mt-4">
+                    <h4 className="text-sm font-medium mb-2">Legal</h4>
+                    <div className="flex flex-col gap-1.5">
+                      <Link 
+                        to="/privacy" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Privacy Policy
+                      </Link>
+                      <p className="text-xs text-muted-foreground">
+                        Learn how we handle your data and protect your privacy
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
