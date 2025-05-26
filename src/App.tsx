@@ -9,6 +9,7 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { ResumeLaTeXGenerator } from "./components/ResumeLaTeXGenerator";
 import { CoverLetterGenerator } from "./components/CoverLetterGenerator";
 import { GoogleAuthButton } from "./components/GoogleAuthButton";
+import { PromptTemplateSelector } from "./components/PromptTemplateSelector";
 import { useTemplates } from "./hooks/useTemplates";
 import { usePromptGenerator } from "./hooks/usePromptGenerator";
 import { Card, CardContent, CardHeader, CardAction } from "./components/ui/card";
@@ -69,6 +70,14 @@ function App() {
       localStorage.setItem("selectedCoverLetterTemplateId", selectedCoverLetterTemplateId);
     }
   }, [selectedCoverLetterTemplateId]);
+  
+  const handleSetActivePrompt = useCallback((type: PromptType, promptId: string) => {
+    setActivePrompt(type, promptId);
+    setActivePrompts(prev => ({
+      ...prev,
+      [type]: promptId
+    }));
+  }, [setActivePrompt]);
   const handleGeneratePrompt = () => {
     if (!jobDescription) return;
 
@@ -78,7 +87,7 @@ function App() {
     const resumeToUse = useTemporaryResume ? resumeContent : (resumeTemplate?.resumeLatex || resumeContent);
 
     if (promptType === 'resume') {
-      if (selectedTemplateId && selectedTemplateId !== "no-selection") {
+      if (selectedTemplateId && selectedTemplateId !== "no-selection" && activePrompts.resume && activePrompts.resume !== "placeholder") {
         const prompt = generateResumePrompt({
           jobDescription,
           resumeContent: resumeToUse,
@@ -91,9 +100,17 @@ function App() {
         if (!prompt.startsWith("Error:")) {
           toast.success("Resume prompt generated successfully!");
         }
+      } else {
+        toast.error("Please select a resume template and prompt template.");
       }    } else if (promptType === 'coverLetter') {
       // For cover letters, we only need a template ID if we're generating LaTeX
       const needsCoverLetterTemplateId = generateLatex;
+      const needsActivePrompt = !!activePrompts.coverLetter && activePrompts.coverLetter !== "placeholder";
+      
+      if (!needsActivePrompt) {
+        toast.error("Please select a cover letter prompt template.");
+        return;
+      }
       
       if (!needsCoverLetterTemplateId || (selectedCoverLetterTemplateId && selectedCoverLetterTemplateId !== "no-selection")) {
         // Get the selected cover letter template
@@ -124,9 +141,12 @@ function App() {
         if (!prompt.startsWith("Error:")) {
           toast.success("Cover letter prompt generated successfully!");
         }
+      } else {
+        toast.error("Please select a cover letter template for LaTeX generation.");
       }
     }
   };
+
   const copyPrompt = () => {
     navigator.clipboard
       .writeText(generatedPrompt)
@@ -136,6 +156,7 @@ function App() {
         toast.error("Failed to copy prompt to clipboard");
       });
   };
+
   const handleTemplateChange = (templateId: string) => {
     setSelectedTemplateId(templateId || "no-selection");
 
@@ -144,7 +165,9 @@ function App() {
     if (template?.resumeLatex) {
       setResumeContent(template.resumeLatex);
     }
-  };  const handleCoverLetterTemplateChange = (templateId: string) => {
+  };
+
+  const handleCoverLetterTemplateChange = (templateId: string) => {
     setSelectedCoverLetterTemplateId(templateId || "no-selection");
 
     // Load cover letter template if available
@@ -160,13 +183,21 @@ function App() {
       toast.info("No LaTeX content found in the selected cover letter template.");
     }
   };
+
   const handleAddTemplate = (template: Template) => {
     addTemplate(promptType, template);
     toast.success(`${promptType === 'resume' ? 'Resume' : 'Cover letter'} template added successfully!`);
   };
+
   const handlePromptTypeChange = useCallback((value: string) => {
     setPromptType(value as PromptType);
   }, []);
+    const handlePromptSelect = useCallback((promptId: string) => {
+    // Don't set placeholder as the active prompt
+    if (promptId !== "placeholder") {
+      handleSetActivePrompt(promptType, promptId);
+    }
+  }, [handleSetActivePrompt, promptType]);
 
   const handleAddCustomPrompt = (prompt: CustomPrompt) => {
     addCustomPrompt(prompt);
@@ -183,36 +214,28 @@ function App() {
     toast.success("Custom prompt deleted successfully!");
   };
 
-  const handleSetActivePrompt = (type: PromptType, promptId: string) => {
-    setActivePrompt(type, promptId);
-    setActivePrompts(prev => ({
-      ...prev,
-      [type]: promptId
-    }));
-  };
-
   return (
     <div className="overflow-auto p-2">
       <Card className="w-full shadow-none border-0">        
         <CardHeader className="px-4 py-3">
-        <div className="flex flex-col gap-2">
-          <div className="flex justify-between items-center">
-            <CardAction>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsSettingsOpen(true)}
-                className="h-8 w-8 p-0"
-                title="Settings"
-              >
-                <Settings className="h-4 w-4" />
-                <span className="sr-only">Settings</span>
-              </Button>
-            </CardAction>
-            <GoogleAuthButton />
+          <div className="flex flex-col gap-2">
+            <div className="flex justify-between items-center">
+              <CardAction>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="h-8 w-8 p-0"
+                  title="Settings"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span className="sr-only">Settings</span>
+                </Button>
+              </CardAction>
+              <GoogleAuthButton />
+            </div>
           </div>
-        </div>
-      </CardHeader>
+        </CardHeader>
         <CardContent className="space-y-4 px-4 py-3">
           <PromptTypeSelector
             promptType={promptType}
@@ -224,6 +247,15 @@ function App() {
             onChange={(e) => setJobDescription(e.target.value)}
           />
 
+          {/* Display prompt template selector based on prompt type */}
+          <PromptTemplateSelector
+            type={promptType}
+            prompts={customPrompts}
+            selectedPromptId={activePrompts[promptType] || ""}
+            onSelectPrompt={handlePromptSelect}
+            label={`${promptType === 'resume' ? 'Resume' : 'Cover Letter'} Prompt Template:`}
+          />
+
           {/* Shared resume selector for both resume and cover letter types */}
           <TemplateSelector
             templates={resumeTemplates}
@@ -233,9 +265,12 @@ function App() {
             onLoadTemplate={(resumeLatex) => setResumeContent(resumeLatex)}
             promptType="resume"
             label="Saved Resume:"
-          />          {/* Only show cover letter template selector when in cover letter mode */}
+          />
+
+          {/* Only show cover letter template selector when in cover letter mode */}
           {promptType === 'coverLetter' && (
-            <>              <div className="space-y-1">
+            <>
+              <div className="space-y-1">
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="generateLatex"
@@ -264,7 +299,8 @@ function App() {
                   label="Cover Letter Template:"
                 />
               )}
-            </>)}
+            </>
+          )}
 
           <div className="flex items-center space-x-2">
             <Checkbox
@@ -292,14 +328,19 @@ function App() {
             onClick={handleGeneratePrompt}
             className="w-full h-8 text-sm"
             disabled={!jobDescription ||
+              !activePrompts[promptType] || activePrompts[promptType] === "placeholder" ||
               (promptType === 'resume' && (!selectedTemplateId || selectedTemplateId === "no-selection")) ||
               (promptType === 'coverLetter' && generateLatex && (!selectedCoverLetterTemplateId || selectedCoverLetterTemplateId === "no-selection"))
             }
           >
             Generate {promptType === 'resume' ? 'Resume' : 'Cover Letter'} Prompt
-          </Button>          {generatedPrompt && (
+          </Button>
+
+          {generatedPrompt && (
             <PromptDisplay prompt={generatedPrompt} onCopy={copyPrompt} />
-          )}          {promptType === 'resume' && jobDescription && resumeContent && selectedTemplateId && selectedTemplateId !== "no-selection" && (
+          )}
+
+          {promptType === 'resume' && jobDescription && resumeContent && selectedTemplateId && selectedTemplateId !== "no-selection" && (
             <ResumeLaTeXGenerator
               generatedPrompt={generatedPrompt}
             />
@@ -333,4 +374,3 @@ function App() {
 }
 
 export default App;
-

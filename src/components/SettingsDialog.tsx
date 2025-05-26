@@ -86,9 +86,7 @@ const loadUserSettings = async () => {
     }
     setIsPromptDialogOpen(false);
     setEditingPrompt(undefined);
-  };
-
-  const handleCreatePrompt = () => {
+  };  const handleCreatePrompt = () => {
     setEditingPrompt(undefined);
     setIsPromptDialogOpen(true);
   };
@@ -481,14 +479,13 @@ const handleSaveSettings = async () => {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
-
-      <CustomPromptDialog
+      </Dialog>      <CustomPromptDialog
         isOpen={isPromptDialogOpen}
         onClose={() => setIsPromptDialogOpen(false)}
         onSave={handlePromptSave}
         initialPrompt={editingPrompt}
         isEditing={!!editingPrompt}
+        initialType={activeTab as PromptType}
       />
 
       <ConfirmDialog

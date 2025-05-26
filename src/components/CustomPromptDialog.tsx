@@ -14,6 +14,7 @@ interface CustomPromptDialogProps {
   onSave: (prompt: CustomPrompt) => void;
   initialPrompt?: CustomPrompt;
   isEditing?: boolean;
+  initialType?: PromptType;
 }
 
 export const CustomPromptDialog = ({
@@ -21,15 +22,15 @@ export const CustomPromptDialog = ({
   onClose,
   onSave,
   initialPrompt,
-  isEditing = false
+  isEditing = false,
+  initialType = 'resume'
 }: CustomPromptDialogProps) => {
-  const [promptType, setPromptType] = useState<PromptType>('resume');
+  const [promptType, setPromptType] = useState<PromptType>(initialType);
   const [promptName, setPromptName] = useState("");  const [promptContent, setPromptContent] = useState("");
   const [resumePosition, setResumePosition] = useState("{RESUME}");
   const [jobDescriptionPosition, setJobDescriptionPosition] = useState("{JOB_DESCRIPTION}");
   const [optionalInstructionsPosition, setOptionalInstructionsPosition] = useState("{OPTIONAL_INSTRUCTIONS}");
-  const [coverLetterTemplatePosition, setCoverLetterTemplatePosition] = useState("{COVER_LETTER_TEMPLATE}");
-  const [showPreview, setShowPreview] = useState(false);
+  const [coverLetterTemplatePosition, setCoverLetterTemplatePosition] = useState("{COVER_LETTER_TEMPLATE}");  const [showPreview, setShowPreview] = useState(false);
 
   // Reset form when dialog opens or load initial data if editing
   useEffect(() => {
@@ -44,16 +45,15 @@ export const CustomPromptDialog = ({
         setCoverLetterTemplatePosition(initialPrompt.placeholders.coverLetterTemplatePosition || "{COVER_LETTER_TEMPLATE}");
       } else {
         // Default values for new prompt
-        setPromptType('resume');
+        setPromptType(initialType); // Use the initialType provided
         setPromptName("");
         setPromptContent("Based on this job description:\n\n{JOB_DESCRIPTION}\n\nPlease tailor my resume:\n\n{RESUME}\n\n{OPTIONAL_INSTRUCTIONS}");
         setResumePosition("{RESUME}");
         setJobDescriptionPosition("{JOB_DESCRIPTION}");
         setOptionalInstructionsPosition("{OPTIONAL_INSTRUCTIONS}");
-        setCoverLetterTemplatePosition("{COVER_LETTER_TEMPLATE}");
-      }
+        setCoverLetterTemplatePosition("{COVER_LETTER_TEMPLATE}");      }
     }
-  }, [isOpen, initialPrompt, isEditing]);
+  }, [isOpen, initialPrompt, isEditing, initialType]);
 
   const handlePromptTypeChange = (value: string) => {
     const newType = value as PromptType;
