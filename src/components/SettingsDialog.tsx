@@ -13,6 +13,7 @@ import { saveUserData, getUserData } from "@/lib/firebaseWeb";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import type { CustomPrompt, PromptType } from "@/types";
+import { ModeToggle } from "./mode-toggle";
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -58,22 +59,22 @@ export const SettingsDialog = ({
   }, [isOpen, activePrompts]);
 
   // Load user settings including API key from Firebase
-const loadUserSettings = async () => {
-  if (currentUser) {
-    try {
-      const userData = await getUserData(currentUser.uid, "settings");
-      if (userData) {
-        if (userData.googleApiKey) setGoogleApiKey(userData.googleApiKey as string);
-        // Optionally, set active prompts from storage if needed
-        // Example:
-        // if (userData.activeResumePrompt) setActivePromptContent('resume', userData.activeResumePrompt.content);
-        // if (userData.activeCoverPrompt) setActivePromptContent('coverLetter', userData.activeCoverPrompt.content);
+  const loadUserSettings = async () => {
+    if (currentUser) {
+      try {
+        const userData = await getUserData(currentUser.uid, "settings");
+        if (userData) {
+          if (userData.googleApiKey) setGoogleApiKey(userData.googleApiKey as string);
+          // Optionally, set active prompts from storage if needed
+          // Example:
+          // if (userData.activeResumePrompt) setActivePromptContent('resume', userData.activeResumePrompt.content);
+          // if (userData.activeCoverPrompt) setActivePromptContent('coverLetter', userData.activeCoverPrompt.content);
+        }
+      } catch (error) {
+        console.error("Error loading user settings:", error);
       }
-    } catch (error) {
-      console.error("Error loading user settings:", error);
     }
-  }
-};
+  };
 
 
   const handlePromptSave = (prompt: CustomPrompt) => {
@@ -86,7 +87,7 @@ const loadUserSettings = async () => {
     }
     setIsPromptDialogOpen(false);
     setEditingPrompt(undefined);
-  };  const handleCreatePrompt = () => {
+  }; const handleCreatePrompt = () => {
     setEditingPrompt(undefined);
     setIsPromptDialogOpen(true);
   };
@@ -113,47 +114,47 @@ const loadUserSettings = async () => {
       toast.success("Prompt deleted successfully");
     }
   };
-const handleSaveSettings = async () => {
-  // Save the active prompts selection locally
-  Object.entries(localActivePrompts).forEach(([type, promptId]) => {
-    onSetActivePrompt(type as PromptType, promptId);
-  });
+  const handleSaveSettings = async () => {
+    // Save the active prompts selection locally
+    Object.entries(localActivePrompts).forEach(([type, promptId]) => {
+      onSetActivePrompt(type as PromptType, promptId);
+    });
 
-  // Get currently active prompt objects
-  const activeResumePrompt = customPrompts.find(p => p.id === localActivePrompts.resume);
-  const activeCoverPrompt = customPrompts.find(p => p.id === localActivePrompts.coverLetter);
+    // Get currently active prompt objects
+    const activeResumePrompt = customPrompts.find(p => p.id === localActivePrompts.resume);
+    const activeCoverPrompt = customPrompts.find(p => p.id === localActivePrompts.coverLetter);
 
-  // Prepare user settings
-  const userSettings = {
-    googleApiKey,
-    activeResumePrompt: activeResumePrompt ? {
-      id: activeResumePrompt.id,
-      name: activeResumePrompt.name,
-      content: activeResumePrompt.content,
-    } : null,
-    activeCoverPrompt: activeCoverPrompt ? {
-      id: activeCoverPrompt.id,
-      name: activeCoverPrompt.name,
-      content: activeCoverPrompt.content,
-    } : null,
-    updatedAt: new Date().toISOString()
-  };
+    // Prepare user settings
+    const userSettings = {
+      googleApiKey,
+      activeResumePrompt: activeResumePrompt ? {
+        id: activeResumePrompt.id,
+        name: activeResumePrompt.name,
+        content: activeResumePrompt.content,
+      } : null,
+      activeCoverPrompt: activeCoverPrompt ? {
+        id: activeCoverPrompt.id,
+        name: activeCoverPrompt.name,
+        content: activeCoverPrompt.content,
+      } : null,
+      updatedAt: new Date().toISOString()
+    };
 
-  // Save user settings including API key and prompts
-  if (currentUser) {
-    try {
-      await saveUserData(currentUser.uid, "settings", userSettings);
-      toast.success("Settings saved successfully");
-    } catch (error) {
-      console.error("Error saving user settings:", error);
-      toast.error("Failed to save settings");
+    // Save user settings including API key and prompts
+    if (currentUser) {
+      try {
+        await saveUserData(currentUser.uid, "settings", userSettings);
+        toast.success("Settings saved successfully");
+      } catch (error) {
+        console.error("Error saving user settings:", error);
+        toast.error("Failed to save settings");
+      }
+    } else {
+      toast.success("Prompt settings saved successfully");
     }
-  } else {
-    toast.success("Prompt settings saved successfully");
-  }
 
-  onClose();
-};
+    onClose();
+  };
 
 
   const exportPrompts = () => {
@@ -397,27 +398,30 @@ const handleSaveSettings = async () => {
               <div>
                 <h3 className="text-sm font-medium mb-3">API Settings</h3>
                 <div className="space-y-3">                <div className="space-y-2">
-                    <Label htmlFor="googleApiKey" className="text-xs">
-                      Custom Google API Key
-                    </Label>
-                    <Input
-                      id="googleApiKey"
-                      type="password"
-                      value={googleApiKey}
-                      onChange={(e) => setGoogleApiKey(e.target.value)}
-                      placeholder="Enter your Google API Key"
-                      className="h-8 text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Enter your personal Google API key for enhanced functionality.
-                      Your key will be securely stored against your user account.
-                    </p>
-                  </div>                  <div className="border-t pt-4 mt-4">
+                  <Label htmlFor="googleApiKey" className="text-xs">
+                    Custom Google API Key
+                  </Label>
+                  <Input
+                    id="googleApiKey"
+                    type="password"
+                    value={googleApiKey}
+                    onChange={(e) => setGoogleApiKey(e.target.value)}
+                    placeholder="Enter your Google API Key"
+                    className="h-8 text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter your personal Google API key for enhanced functionality.
+                    Your key will be securely stored against your user account.
+                  </p>
+                </div>
+                  <h3 className="text-sm font-medium mb-3">Other</h3>
+                  <ModeToggle />
+                  <div className="border-t pt-4 mt-4">
                     <h4 className="text-sm font-medium mb-2">Legal</h4>
                     <div className="flex flex-col gap-1.5">
-                      <Link 
-                        to="/privacy" 
-                        target="_blank" 
+                      <Link
+                        to="/privacy"
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-primary hover:underline"
                       >
@@ -429,6 +433,7 @@ const handleSaveSettings = async () => {
                     </div>
                   </div>
                 </div>
+
               </div>
             </TabsContent>
           </Tabs>

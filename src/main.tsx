@@ -8,19 +8,22 @@ import { Toaster } from './components/ui/sonner'
 import { AuthProvider } from './lib/authContext.tsx'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import PrivacyPolicy from './components/PrivacyPolicy.tsx'
+import { ThemeProvider } from './components/theme-provider.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <AuthWrapper>
-          <Routes>
-            <Route path="/" element={<App />} />
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-          </Routes>
-        </AuthWrapper>
-        <Toaster />
-      </AuthProvider>
-    </BrowserRouter>
+    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+      <BrowserRouter>
+        <AuthProvider>
+          <AuthWrapper>
+            <Routes>
+              <Route path="/" element={<App />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+            </Routes>
+          </AuthWrapper>
+          <Toaster />
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   </StrictMode>,
 )

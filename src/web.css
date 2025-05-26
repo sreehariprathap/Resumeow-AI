@@ -22,8 +22,8 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  background-color: #ffffff;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background-color: var(--background);
+  border-bottom: 1px solid var(--border);
 }
 
 .web-header .logo {
@@ -46,8 +46,8 @@ body {
 .web-footer {
   margin-top: 2rem;
   padding: 1.5rem;
-  background-color: #f9fafb;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  background-color: var(--background);
+  border-top: 1px solid var(--border);
   text-align: center;
 }
 
