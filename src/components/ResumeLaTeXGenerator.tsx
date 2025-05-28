@@ -167,7 +167,23 @@ const downloadAsTex = () => {
     
     toast.success('LaTeX file downloaded successfully!');
   }
-};return (
+};
+
+const openInOverleaf = () => {
+  if (!generatedLatex) return;
+  let cleanedLatex = generatedLatex.replace(/^```(?:latex)?/m, '');
+  cleanedLatex = cleanedLatex.replace(/```$/m, '');
+  cleanedLatex = cleanedLatex.trim();
+  // Set the value and submit the form
+  const form = document.getElementById('ol_form') as HTMLFormElement | null;
+  const input = document.getElementById('ol_encoded_snip') as HTMLInputElement | null;
+  if (form && input) {
+    input.value = encodeURIComponent(cleanedLatex);
+    form.submit();
+  }
+};
+
+  return (
     <>
       <Card className="w-full mt-6 mb-4">
         <CardHeader className="pb-2">
@@ -214,6 +230,15 @@ const downloadAsTex = () => {
                   >
                     <Download className="h-4 w-4 mr-2" />
                     Download .tex
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => openInOverleaf()}
+                    className="h-8 text-sm"
+                    size="sm"
+                  >
+                    <FileCode className="h-4 w-4 mr-2" />
+                    Open in Overleaf
                   </Button>
                 </>
               )}
@@ -266,6 +291,10 @@ const downloadAsTex = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <form id="ol_form" action="https://www.overleaf.com/docs" method="post" target="_blank" style={{ display: 'none' }}>
+        <input id="ol_encoded_snip" type="hidden" name="encoded_snip" />
+      </form>
     </>
   );
 }
