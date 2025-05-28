@@ -5,9 +5,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
 import { GoogleGenAI } from '@google/genai';
-import { Clipboard, Download, FileEdit, Save, FileCode } from 'lucide-react';
+import { Clipboard, Download, FileEdit, Save, FileCode, Eye } from 'lucide-react';
 import { useAuth } from '@/lib/authContext';
 import { getUserData } from '@/lib/firebase';
+import { displayLatexInNewWindow } from '@/lib/latexRenderer';
 
 interface ResumeLaTeXGeneratorProps {
   generatedPrompt: string;
@@ -167,7 +168,23 @@ const downloadAsTex = () => {
     
     toast.success('LaTeX file downloaded successfully!');
   }
-};return (
+};
+
+const previewLatex = () => {
+  if (generatedLatex) {
+    // Clean the LaTeX before preview
+    let cleanedLatex = generatedLatex;
+    cleanedLatex = cleanedLatex.replace(/^```(?:latex)?/m, '');
+    cleanedLatex = cleanedLatex.replace(/```$/m, '');
+    cleanedLatex = cleanedLatex.trim();
+    
+    // Display LaTeX in a new window
+    displayLatexInNewWindow(cleanedLatex, 'Resume Preview');
+    toast.success('Opening LaTeX preview in new window');
+  }
+};
+
+return (
     <>
       <Card className="w-full mt-6 mb-4">
         <CardHeader className="pb-2">
@@ -215,6 +232,15 @@ const downloadAsTex = () => {
                     <Download className="h-4 w-4 mr-2" />
                     Download .tex
                   </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={previewLatex} 
+                    className="h-8 text-sm"
+                    size="sm"
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    View HTML
+                  </Button>
                 </>
               )}
             </div>
@@ -254,14 +280,21 @@ const downloadAsTex = () => {
           </div>
           
           <DialogFooter className="sticky bottom-0 pt-4 bg-background">
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveEditedLatex}>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>            <Button onClick={saveEditedLatex}>
               <Save className="h-4 w-4 mr-2" />
               Save Changes
             </Button>
             <Button variant="outline" onClick={downloadAsTex}>
               <Download className="h-4 w-4 mr-2" />
               Download .tex
+            </Button>
+            <Button variant="outline" onClick={() => {
+              // Display LaTeX in a new window
+              displayLatexInNewWindow(editedLatex, 'Resume Preview');
+              toast.success('Opening LaTeX preview in new window');
+            }}>
+              <Eye className="h-4 w-4 mr-2" />
+              Preview HTML
             </Button>
           </DialogFooter>
         </DialogContent>

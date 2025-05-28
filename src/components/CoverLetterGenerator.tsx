@@ -5,9 +5,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
 import { GoogleGenAI } from '@google/genai';
-import { Clipboard, Download, FileEdit, Save, MessageSquare } from 'lucide-react';
+import { Clipboard, Download, FileEdit, Save, MessageSquare, Eye } from 'lucide-react';
 import { useAuth } from '@/lib/authContext';
 import { getUserData } from '@/lib/firebase';
+import { displayLatexInNewWindow } from '@/lib/latexRenderer';
 
 interface CoverLetterGeneratorProps {
   generatedPrompt: string;
@@ -167,6 +168,20 @@ export function CoverLetterGenerator({
     }
   };
 
+  const previewCoverLetter = () => {
+    if (generatedCoverLetter && generateLatex) {
+      // Clean the content before preview (only for LaTeX)
+      let cleanedContent = generatedCoverLetter;
+      cleanedContent = cleanedContent.replace(/^```(?:latex)?/m, '');
+      cleanedContent = cleanedContent.replace(/```$/m, '');
+      cleanedContent = cleanedContent.trim();
+      
+      // Display LaTeX in a new window
+      displayLatexInNewWindow(cleanedContent, 'Cover Letter Preview');
+      toast.success('Opening LaTeX preview in new window');
+    }
+  };
+
   return (
     <>
       <Card className="w-full mt-6 mb-4">
@@ -214,7 +229,29 @@ export function CoverLetterGenerator({
                   >
                     <Download className="h-4 w-4 mr-2" />
                     Download {generateLatex ? '.tex' : '.txt'}
-                  </Button>
+                  </Button>                  {generateLatex && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        if (generatedCoverLetter) {
+                          // Clean the content before preview
+                          let cleanedContent = generatedCoverLetter;
+                          cleanedContent = cleanedContent.replace(/^```(?:latex)?/m, '');
+                          cleanedContent = cleanedContent.replace(/```$/m, '');
+                          cleanedContent = cleanedContent.trim();
+                          
+                          // Display LaTeX in a new window
+                          displayLatexInNewWindow(cleanedContent, 'Cover Letter Preview');
+                          toast.success('Opening LaTeX preview in new window');
+                        }
+                      }}
+                      className="h-8 text-sm"
+                      size="sm"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View HTML
+                    </Button>
+                  )}
                 </>
               )}
             </div>
@@ -254,8 +291,7 @@ export function CoverLetterGenerator({
           </div>
           
           <DialogFooter className="sticky bottom-0 pt-4 bg-background">
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveEditedContent}>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>            <Button onClick={saveEditedContent}>
               <Save className="h-4 w-4 mr-2" />
               Save Changes
             </Button>
@@ -263,6 +299,16 @@ export function CoverLetterGenerator({
               <Download className="h-4 w-4 mr-2" />
               Download {generateLatex ? '.tex' : '.txt'}
             </Button>
+            {generateLatex && (
+              <Button variant="outline" onClick={() => {
+                // Display LaTeX in a new window
+                displayLatexInNewWindow(editedCoverLetter, 'Cover Letter Preview');
+                toast.success('Opening LaTeX preview in new window');
+              }}>
+                <Eye className="h-4 w-4 mr-2" />
+                Preview HTML
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
