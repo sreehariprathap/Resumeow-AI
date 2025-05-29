@@ -8,6 +8,7 @@ import { PromptTypeSelector } from "./components/PromptTypeSelector";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { ResumeLaTeXGenerator } from "./components/ResumeLaTeXGenerator";
 import { CoverLetterGenerator } from "./components/CoverLetterGenerator";
+import { ATSScoreTracker } from "./components/ATSScoreTracker";
 import { GoogleAuthButton } from "./components/GoogleAuthButton";
 import { PromptTemplateSelector } from "./components/PromptTemplateSelector";
 import { useTemplates } from "./hooks/useTemplates";
@@ -40,9 +41,9 @@ function App() {
   const [coverLetterTemplate, setCoverLetterTemplate] = useState("");
   const [hasOptionalInstructions, setHasOptionalInstructions] = useState(false);
   const [optionalInstructions, setOptionalInstructions] = useState("");
-  const [useTemporaryResume, setUseTemporaryResume] = useState(false);
-  const [generateLatex, setGenerateLatex] = useState<boolean>(true);
+  const [useTemporaryResume, setUseTemporaryResume] = useState(false);  const [generateLatex, setGenerateLatex] = useState<boolean>(true);
   const [fastCompile, setFastCompile] = useState(false);
+  const [originalResumeContent, setOriginalResumeContent] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(() => {
     const saved = localStorage.getItem("selectedTemplateId");
     return saved && saved !== "" ? saved : "no-selection";
@@ -72,6 +73,13 @@ function App() {
       localStorage.setItem("selectedCoverLetterTemplateId", selectedCoverLetterTemplateId);
     }
   }, [selectedCoverLetterTemplateId]);
+
+  // Reset ATS tracking when job description changes
+  useEffect(() => {
+    if (jobDescription && !originalResumeContent && resumeContent) {
+      setOriginalResumeContent(resumeContent);
+    }
+  }, [jobDescription, originalResumeContent, resumeContent]);
   
   const handleSetActivePrompt = useCallback((type: PromptType, promptId: string) => {
     setActivePrompt(type, promptId);
@@ -197,13 +205,16 @@ function App() {
         toast.error("Failed to copy prompt to clipboard");
       });
   };
-
   const handleTemplateChange = (templateId: string) => {
     setSelectedTemplateId(templateId || "no-selection");
 
     // Load resume content if available in the template
     const template = resumeTemplates.find(t => t.id === templateId);
     if (template?.resumeLatex) {
+      // Store original content for ATS comparison
+      if (!originalResumeContent) {
+        setOriginalResumeContent(template.resumeLatex);
+      }
       setResumeContent(template.resumeLatex);
     }
   };
@@ -374,13 +385,17 @@ function App() {
                 <Label htmlFor="useTemporaryResume" className="text-xs cursor-pointer">
                   Use temporary resume text
                 </Label>
-              </div>
-
-              <ResumeInput
-                resumeContent={resumeContent}
-                onChange={(e) => setResumeContent(e.target.value)}
-                visible={useTemporaryResume}
-              />
+              </div>          <ResumeInput
+            resumeContent={resumeContent}
+            onChange={(e) => {
+              // Store original content if not already set
+              if (!originalResumeContent && resumeContent && resumeContent !== e.target.value) {
+                setOriginalResumeContent(resumeContent);
+              }
+              setResumeContent(e.target.value);
+            }}
+            visible={useTemporaryResume}
+          />
 
               <OptionalInstructions
                 hasInstructions={hasOptionalInstructions}
@@ -421,12 +436,20 @@ function App() {
               generatedPrompt={generatedPrompt}
               autoGenerate={fastCompile && !!generatedPrompt}
             />
-          )}
-
-          {promptType === 'coverLetter' && generatedPrompt && (
+          )}          {promptType === 'coverLetter' && generatedPrompt && (
             <CoverLetterGenerator
               generatedPrompt={generatedPrompt}
               generateLatex={generateLatex}
+            />
+          )}
+
+          {/* ATS Score Tracker - show when we have job description and resume content */}
+          {jobDescription && (originalResumeContent || resumeContent) && (
+            <ATSScoreTracker
+              jobDescription={jobDescription}
+              originalResume={originalResumeContent || resumeContent}
+              tailoredResume={resumeContent !== originalResumeContent ? resumeContent : undefined}
+              showComparison={!!originalResumeContent && resumeContent !== originalResumeContent}
             />
           )}
 
