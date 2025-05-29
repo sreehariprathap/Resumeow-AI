@@ -64,7 +64,7 @@ export const TemplateDialog = ({
           </DialogTitle>
           {currentUser && (
             <DialogDescription className="flex items-center gap-1 text-xs">
-              <Cloud className="h-3.5 w-3.5 text-blue-500" />
+              <Cloud className="h-3.5 w-3.5 text-rose-500" />
               <span>Your templates will be saved to the cloud</span>
             </DialogDescription>
           )}

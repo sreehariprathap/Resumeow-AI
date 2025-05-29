@@ -22,22 +22,22 @@ interface ATSInsightsProps {
 
 export function ATSInsights({ originalScore, improvedScore, className }: ATSInsightsProps) {
   const getTrendIcon = (original: number, improved: number) => {
-    if (improved > original) return <TrendingUp className="h-4 w-4 text-green-600" />;
-    if (improved < original) return <TrendingDown className="h-4 w-4 text-red-600" />;
+    if (improved > original) return <TrendingUp className="h-4 w-4 text-emerald-600" />;
+    if (improved < original) return <TrendingDown className="h-4 w-4 text-red-400" />;
     return <Minus className="h-4 w-4 text-gray-600" />;
   };
 
   const getImprovementBadge = (original: number, improved: number) => {
     const diff = improved - original;
-    if (diff > 0) return { variant: 'default' as const, text: `+${diff}%`, color: 'text-green-600' };
-    if (diff < 0) return { variant: 'destructive' as const, text: `${diff}%`, color: 'text-red-600' };
+    if (diff > 0) return { variant: 'default' as const, text: `+${diff}%`, color: 'text-emerald-600' };
+    if (diff < 0) return { variant: 'destructive' as const, text: `${diff}%`, color: 'text-red-400' };
     return { variant: 'secondary' as const, text: '0%', color: 'text-gray-600' };
   };
 
   const getScoreLevel = (score: number) => {
-    if (score >= 80) return { label: 'Excellent', color: 'text-green-600' };
+    if (score >= 80) return { label: 'Excellent', color: 'text-emerald-600' };
     if (score >= 60) return { label: 'Good', color: 'text-yellow-600' };
-    return { label: 'Needs Improvement', color: 'text-red-600' };
+    return { label: 'Needs Improvement', color: 'text-red-400' };
   };
 
   const categories = [
@@ -74,7 +74,7 @@ export function ATSInsights({ originalScore, improvedScore, className }: ATSInsi
     <Card className={`w-full ${className}`}>
       <CardHeader>
         <CardTitle className="text-lg font-semibold flex items-center gap-2">
-          <BarChart3 className="h-5 w-5 text-blue-600" />
+          <BarChart3 className="h-5 w-5 text-rose-600" />
           Resume Improvement Insights
           <Badge 
             variant={overallImprovement > 0 ? 'default' : overallImprovement < 0 ? 'destructive' : 'secondary'}
@@ -88,7 +88,7 @@ export function ATSInsights({ originalScore, improvedScore, className }: ATSInsi
         {/* Summary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="text-center p-4 border rounded-lg">
-            <div className="text-2xl font-bold text-blue-600">{totalImprovements}/4</div>
+            <div className="text-2xl font-bold text-rose-600">{totalImprovements}/4</div>
             <div className="text-sm text-muted-foreground">Categories Improved</div>
           </div>
           
@@ -102,7 +102,7 @@ export function ATSInsights({ originalScore, improvedScore, className }: ATSInsi
           </div>
           
           <div className="text-center p-4 border rounded-lg">
-            <div className={`text-2xl font-bold ${overallImprovement > 0 ? 'text-green-600' : overallImprovement < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+            <div className={`text-2xl font-bold ${overallImprovement > 0 ? 'text-emerald-600' : overallImprovement < 0 ? 'text-red-400' : 'text-gray-600'}`}>
               {overallImprovement > 0 ? '+' : ''}{overallImprovement}%
             </div>
             <div className="text-sm text-muted-foreground">Improvement</div>
@@ -160,12 +160,12 @@ export function ATSInsights({ originalScore, improvedScore, className }: ATSInsi
         {/* Key Improvements */}
         {improvedScore.missingKeywords.length < originalScore.missingKeywords.length && (
           <div className="space-y-2">
-            <h4 className="text-sm font-medium text-green-600">✓ Keywords Added</h4>
+            <h4 className="text-sm font-medium text-emerald-600">✓ Keywords Added</h4>
             <div className="flex flex-wrap gap-1">
               {originalScore.missingKeywords
                 .filter(keyword => !improvedScore.missingKeywords.includes(keyword))
                 .map((keyword, index) => (
-                  <Badge key={index} variant="outline" className="text-xs bg-green-50 border-green-200">
+                  <Badge key={index}  className="text-xs ">
                     {keyword}
                   </Badge>
                 ))}
@@ -176,10 +176,10 @@ export function ATSInsights({ originalScore, improvedScore, className }: ATSInsi
         {/* Still Missing Keywords */}
         {improvedScore.missingKeywords.length > 0 && (
           <div className="space-y-2">
-            <h4 className="text-sm font-medium text-orange-600">⚠ Keywords Still Missing</h4>
+            <h4 className="text-sm font-medium text-orange-600">Keywords Still Missing</h4>
             <div className="flex flex-wrap gap-1">
               {improvedScore.missingKeywords.map((keyword, index) => (
-                <Badge key={index} variant="outline" className="text-xs bg-orange-50 border-orange-200">
+                <Badge key={index} variant="outline" className="text-xs ">
                   {keyword}
                 </Badge>
               ))}
@@ -192,17 +192,17 @@ export function ATSInsights({ originalScore, improvedScore, className }: ATSInsi
           <h4 className="text-sm font-medium mb-2">Performance Summary</h4>
           <div className="text-sm space-y-1">
             {overallImprovement > 0 && (
-              <p className="text-green-600">
+              <p className="text-emerald-600">
                 ✓ Your resume's ATS compatibility improved by {overallImprovement} percentage points
               </p>
             )}
             {totalImprovements > 0 && (
-              <p className="text-blue-600">
+              <p className="text-rose-600">
                 ✓ {totalImprovements} out of 4 key areas showed improvement
               </p>
             )}
             {improvedScore.overall >= 80 && (
-              <p className="text-green-600">
+              <p className="text-emerald-600">
                 ✓ Your resume now has excellent ATS compatibility
               </p>
             )}

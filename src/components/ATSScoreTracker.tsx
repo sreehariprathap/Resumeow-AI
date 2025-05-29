@@ -169,8 +169,8 @@ Provide specific, actionable feedback. Return only valid JSON.
   };
 
   const getTrendIcon = (original: number, tailored: number) => {
-    if (tailored > original) return <TrendingUp className="h-4 w-4 text-green-600" />;
-    if (tailored < original) return <TrendingDown className="h-4 w-4 text-red-600" />;
+    if (tailored > original) return <TrendingUp className="h-4 w-4 text-emerald-600" />;
+    if (tailored < original) return <TrendingDown className="h-4 w-4 text-red-400" />;
     return <Minus className="h-4 w-4 text-gray-600" />;
   };
 
@@ -228,7 +228,11 @@ Provide specific, actionable feedback. Return only valid JSON.
               <h4 className="text-sm font-medium mb-2">Missing Keywords:</h4>
               <div className="flex flex-wrap gap-1">
                 {score.missingKeywords.map((keyword, index) => (
-                  <Badge key={index} variant="outline" className="text-xs">
+                  <Badge 
+                    key={index} 
+                    variant="outline" 
+                    className="text-xs text-foreground dark:text-foreground"
+                  >
                     {keyword}
                   </Badge>
                 ))}

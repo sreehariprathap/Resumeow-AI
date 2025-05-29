@@ -157,11 +157,10 @@ Provide specific, actionable feedback. Return only valid JSON.
       setIsAnalyzing(false);
     }
   };
-
   const getScoreLevel = (score: number) => {
-    if (score >= 80) return { label: 'Excellent', color: 'text-green-600', variant: 'default' as const };
-    if (score >= 60) return { label: 'Good', color: 'text-yellow-600', variant: 'secondary' as const };
-    return { label: 'Needs Improvement', color: 'text-red-600', variant: 'destructive' as const };
+    if (score >= 80) return { label: 'Excellent', color: 'text-primary', variant: 'default' as const };
+    if (score >= 60) return { label: 'Good', color: 'text-secondary-foreground', variant: 'secondary' as const };
+    return { label: 'Needs Improvement', color: 'text-destructive', variant: 'destructive' as const };
   };
 
   if (!jobDescription || !resumeContent) {
@@ -173,12 +172,11 @@ Provide specific, actionable feedback. Return only valid JSON.
       <CardHeader>
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <BarChart3 className="h-4 w-4" />
-          Initial ATS Analysis
-          {isAnalyzing && (
-            <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />
+          Initial ATS Analysis          {isAnalyzing && (
+            <RefreshCw className="h-4 w-4 animate-spin text-primary" />
           )}
           {analysisComplete && (
-            <CheckCircle className="h-4 w-4 text-green-600" />
+            <CheckCircle className="h-4 w-4 text-primary" />
           )}
           {currentScore && (
             <Badge variant={getScoreLevel(currentScore.overall).variant} className="ml-auto">
@@ -197,7 +195,7 @@ Provide specific, actionable feedback. Return only valid JSON.
 
         {isAnalyzing && (
           <div className="text-center p-6">
-            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-3 text-blue-600" />
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-3 text-rose-600" />
             <p className="text-sm text-muted-foreground">
               Analyzing your resume against the job description...
             </p>
@@ -264,7 +262,7 @@ Provide specific, actionable feedback. Return only valid JSON.
             {/* Missing Keywords */}
             {currentScore.missingKeywords.length > 0 && (
               <div className="space-y-2">
-                <h4 className="text-sm font-medium text-red-600">🚨 Missing Keywords ({currentScore.missingKeywords.length})</h4>
+                <h4 className="text-sm font-medium text-red-400">🚨 Missing Keywords ({currentScore.missingKeywords.length})</h4>
                 <div className="flex flex-wrap gap-1">
                   {currentScore.missingKeywords.map((keyword, index) => (
                     <Badge key={index} variant="destructive" className="text-xs">
@@ -272,7 +270,7 @@ Provide specific, actionable feedback. Return only valid JSON.
                     </Badge>
                   ))}
                 </div>
-                <div className="text-xs text-muted-foreground p-2 bg-red-50 border border-red-200 rounded">
+                <div className="text-xs text-muted-foreground p-2 border border-red-200 rounded">
                   💡 These keywords will be automatically added to your prompt instructions to improve ATS compatibility.
                 </div>
               </div>
@@ -287,7 +285,7 @@ Provide specific, actionable feedback. Return only valid JSON.
                     <li key={index}>• {rec}</li>
                   ))}
                   {currentScore.recommendations.length > 3 && (
-                    <li className="text-blue-600">+ {currentScore.recommendations.length - 3} more recommendations available in suggestions section</li>
+                    <li className="text-rose-600">+ {currentScore.recommendations.length - 3} more recommendations available in suggestions section</li>
                   )}
                 </ul>
               </div>
