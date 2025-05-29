@@ -17,28 +17,31 @@ export const WebHeader = () => {
   return (
     <header className="web-header">
       <div className="container flex justify-between items-center">        
-        <div className="flex gap-0 flex-col">            <img 
-              src={theme === 'dark' ? "/Resumeow..png" : "/Resumeow-d.png"} 
-              className="w-32 lg:w-44" 
-              alt="Resumeow logo"
-            />
-            <span className="text-sm font-normal text-foreground">prompter</span>
+        <div className="flex gap-0 flex-col">            
+          <img 
+            src={theme === 'dark' ? "/Resumeow..png" : "/Resumeow-d.png"} 
+            className="w-32 lg:w-44" 
+            alt="Resumeow logo"
+          />
+          <span className="text-sm font-normal text-foreground">prompter</span>
         </div>
-        <nav className="nav-links">
-          <div className="flex items-center gap-4">
-            <ModeToggle />
-            {currentUser && (
-              <>
-                <span className="text-sm hidden lg:flex text-muted-foreground">
-                  Hello, {currentUser.displayName || currentUser.email}
-                </span>
-                <Button variant="outline" size="sm" onClick={handleLogout}>
-                  Log Out
-                </Button>
-              </>
-            )}
-          </div>
-        </nav>
+          <div className="flex flex-col items-end gap-2">
+          <nav className="nav-links">
+            <div className="flex items-center gap-4">
+              <ModeToggle />
+              {currentUser && (
+                <>
+                  <span className="text-sm hidden lg:flex text-muted-foreground">
+                    Hello, {currentUser.displayName || currentUser.email}
+                  </span>
+                  <Button variant="outline" size="sm" onClick={handleLogout}>
+                    Log Out
+                  </Button>
+                </>
+              )}
+            </div>
+          </nav>
+        </div>
       </div>
     </header>
   );

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
@@ -11,11 +11,13 @@ import { getUserData } from '@/lib/firebase';
 
 interface ResumeLaTeXGeneratorProps {
   generatedPrompt: string;
+  autoGenerate?: boolean;
 }
 
 export function ResumeLaTeXGenerator({ 
-  generatedPrompt
-}: ResumeLaTeXGeneratorProps) {  
+  generatedPrompt,
+  autoGenerate = false
+}: ResumeLaTeXGeneratorProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedLatex, setGeneratedLatex] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string | null>(null);
@@ -47,12 +49,9 @@ export function ResumeLaTeXGenerator({
       }
     };
     
-    fetchApiKey();
-  }, [currentUser]);
+    fetchApiKey();  }, [currentUser]);
 
-
- 
-  const generateLatex = async () => {
+  const generateLatex = useCallback(async () => {
     if (!apiKey) {
       toast.error('Google API key is required. Please add it in the Settings.');
       return;
@@ -94,9 +93,15 @@ export function ResumeLaTeXGenerator({
       console.error('Error generating LaTeX:', error);
       toast.error('Failed to generate LaTeX resume. Please check your API key in Settings and try again.');
     } finally {
-      setIsGenerating(false);
+      setIsGenerating(false);    }
+  }, [apiKey, generatedPrompt]);
+
+  // Auto-generate when autoGenerate is true and we have all requirements
+  useEffect(() => {
+    if (autoGenerate && apiKey && generatedPrompt && !isGenerating && !generatedLatex) {
+      generateLatex();
     }
-  };
+  }, [autoGenerate, apiKey, generatedPrompt, isGenerating, generatedLatex, generateLatex]);
 
 const copyToClipboard = () => {
     if (generatedLatex) {
