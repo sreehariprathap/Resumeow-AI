@@ -12,11 +12,13 @@ import { getUserData } from '@/lib/firebase';
 interface ResumeLaTeXGeneratorProps {
   generatedPrompt: string;
   autoGenerate?: boolean;
+  onLatexGenerated?: (latex: string) => void;
 }
 
 export function ResumeLaTeXGenerator({ 
   generatedPrompt,
-  autoGenerate = false
+  autoGenerate = false,
+  onLatexGenerated
 }: ResumeLaTeXGeneratorProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedLatex, setGeneratedLatex] = useState<string | null>(null);
@@ -83,18 +85,18 @@ export function ResumeLaTeXGenerator({
       });
       
       const text = response.text;
-      
-      if (text) {
+        if (text) {
         setGeneratedLatex(text);
+        onLatexGenerated?.(text);
         toast.success('LaTeX resume generated successfully!');
       } else {
         toast.error('Failed to generate LaTeX content');
-      }    } catch (error) {
+      }} catch (error) {
       console.error('Error generating LaTeX:', error);
       toast.error('Failed to generate LaTeX resume. Please check your API key in Settings and try again.');
     } finally {
       setIsGenerating(false);    }
-  }, [apiKey, generatedPrompt]);
+  }, [apiKey, generatedPrompt, onLatexGenerated]);
 
   // Auto-generate when autoGenerate is true and we have all requirements
   useEffect(() => {

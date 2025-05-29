@@ -8,7 +8,9 @@ import { PromptTypeSelector } from "./components/PromptTypeSelector";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { ResumeLaTeXGenerator } from "./components/ResumeLaTeXGenerator";
 import { CoverLetterGenerator } from "./components/CoverLetterGenerator";
-import { ATSScoreTracker } from "./components/ATSScoreTracker";
+import { ATSInsightsTracker } from "./components/ATSInsightsTracker";
+import { ATSSuggestions } from "./components/ATSSuggestions";
+import { InitialATSAnalysis } from "./components/InitialATSAnalysis";
 import { GoogleAuthButton } from "./components/GoogleAuthButton";
 import { PromptTemplateSelector } from "./components/PromptTemplateSelector";
 import { useTemplates } from "./hooks/useTemplates";
@@ -20,6 +22,17 @@ import { Checkbox } from "./components/ui/checkbox";
 import { Settings } from "lucide-react";
 import { toast } from "sonner";
 import type { CustomPrompt, Template, PromptType } from "./types";
+
+interface ATSScore {
+  overall: number;
+  keywordMatch: number;
+  skillsAlignment: number;
+  experienceMatch: number;
+  formatCompliance: number;
+  feedback: string[];
+  missingKeywords: string[];
+  recommendations: string[];
+}
 
 function App() {
   const {
@@ -41,9 +54,20 @@ function App() {
   const [coverLetterTemplate, setCoverLetterTemplate] = useState("");
   const [hasOptionalInstructions, setHasOptionalInstructions] = useState(false);
   const [optionalInstructions, setOptionalInstructions] = useState("");
-  const [useTemporaryResume, setUseTemporaryResume] = useState(false);  const [generateLatex, setGenerateLatex] = useState<boolean>(true);
-  const [fastCompile, setFastCompile] = useState(false);
-  const [originalResumeContent, setOriginalResumeContent] = useState("");
+  const [useTemporaryResume, setUseTemporaryResume] = useState(false);  const [generateLatex, setGenerateLatex] = useState<boolean>(true);  const [fastCompile, setFastCompile] = useState(false);  const [originalResumeContent, setOriginalResumeContent] = useState("");
+  const [atsSuggestions, setAtsSuggestions] = useState<string[]>([]);
+  const [initialATSScore, setInitialATSScore] = useState<{
+    overall: number;
+    keywordMatch: number;
+    skillsAlignment: number;
+    experienceMatch: number;
+    formatCompliance: number;
+    feedback: string[];
+    missingKeywords: string[];
+    recommendations: string[];
+  } | null>(null);
+  const [missingKeywords, setMissingKeywords] = useState<string[]>([]);
+  const [generatedResumeLatex, setGeneratedResumeLatex] = useState<string>("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(() => {
     const saved = localStorage.getItem("selectedTemplateId");
     return saved && saved !== "" ? saved : "no-selection";
@@ -73,13 +97,59 @@ function App() {
       localStorage.setItem("selectedCoverLetterTemplateId", selectedCoverLetterTemplateId);
     }
   }, [selectedCoverLetterTemplateId]);
-
   // Reset ATS tracking when job description changes
   useEffect(() => {
     if (jobDescription && !originalResumeContent && resumeContent) {
       setOriginalResumeContent(resumeContent);
     }
   }, [jobDescription, originalResumeContent, resumeContent]);
+  // Auto-update optional instructions when ATS suggestions or missing keywords change
+  useEffect(() => {
+    const instructionParts: string[] = [];
+    
+    // Add missing keywords first
+    if (missingKeywords.length > 0) {
+      instructionParts.push(`--- Missing Keywords to Include ---\nPlease ensure these important keywords are naturally incorporated into the resume: ${missingKeywords.join(', ')}`);
+    }
+    
+    // Add ATS suggestions
+    if (atsSuggestions.length > 0) {
+      instructionParts.push(`--- ATS Improvement Suggestions ---\n${atsSuggestions.join('\n\n')}`);
+    }
+    
+    if (instructionParts.length > 0) {
+      const combinedInstructions = instructionParts.join('\n\n');
+      
+      if (hasOptionalInstructions) {
+        // If user already has instructions, check if we need to update
+        const hasKeywords = optionalInstructions.includes('Missing Keywords to Include');
+        const hasSuggestions = optionalInstructions.includes('ATS Improvement Suggestions');
+        
+        if (!hasKeywords || !hasSuggestions) {          setOptionalInstructions(prev => {
+            // Remove existing ATS sections and add new combined instructions
+            const updated = prev.replace(/--- Missing Keywords to Include ---[\s\S]*?(?=---|$)/g, '')
+                             .replace(/--- ATS Improvement Suggestions ---[\s\S]*?(?=---|$)/g, '')
+                             .trim();
+            return updated ? `${updated}\n\n${combinedInstructions}` : combinedInstructions;
+          });
+        }
+      } else {
+        // Auto-enable optional instructions and set combined instructions
+        setHasOptionalInstructions(true);
+        setOptionalInstructions(combinedInstructions);
+      }
+    }
+  }, [atsSuggestions, missingKeywords, hasOptionalInstructions, optionalInstructions]);
+  const handleInitialATSAnalysis = useCallback((score: ATSScore) => {
+    setInitialATSScore(score);
+  }, []);
+
+  const handleMissingKeywords = useCallback((keywords: string[]) => {
+    setMissingKeywords(keywords);
+  }, []);
+  const handleLatexGenerated = useCallback((latex: string) => {
+    setGeneratedResumeLatex(latex);
+  }, []);
   
   const handleSetActivePrompt = useCallback((type: PromptType, promptId: string) => {
     setActivePrompt(type, promptId);
@@ -136,8 +206,7 @@ function App() {
     const resumeToUse = useTemporaryResume ? resumeContent : (resumeTemplate?.resumeLatex || resumeContent);
 
     if (promptType === 'resume') {
-      if (selectedTemplateId && selectedTemplateId !== "no-selection" && activePrompts.resume && activePrompts.resume !== "placeholder") {
-        const prompt = generateResumePrompt({
+      if (selectedTemplateId && selectedTemplateId !== "no-selection" && activePrompts.resume && activePrompts.resume !== "placeholder") {        const prompt = generateResumePrompt({
           jobDescription,
           resumeContent: resumeToUse,
           templateId: selectedTemplateId,
@@ -394,8 +463,28 @@ function App() {
               }
               setResumeContent(e.target.value);
             }}
-            visible={useTemporaryResume}
-          />
+            visible={useTemporaryResume}          />
+
+          {/* Initial ATS Analysis - run immediately when job description and resume are available */}
+          {promptType === 'resume' && jobDescription && resumeContent && (
+            <InitialATSAnalysis
+              jobDescription={jobDescription}
+              resumeContent={resumeContent}
+              onAnalysisComplete={handleInitialATSAnalysis}
+              onMissingKeywords={handleMissingKeywords}
+              disabled={!selectedTemplateId || selectedTemplateId === "no-selection"}
+            />
+          )}
+
+          {/* ATS Suggestions - show after job description and resume are available */}
+          {promptType === 'resume' && jobDescription && resumeContent && (
+            <ATSSuggestions
+              jobDescription={jobDescription}
+              resumeContent={resumeContent}
+              onSuggestionsChange={setAtsSuggestions}
+              disabled={!selectedTemplateId || selectedTemplateId === "no-selection"}
+            />
+          )}
 
               <OptionalInstructions
                 hasInstructions={hasOptionalInstructions}
@@ -435,21 +524,21 @@ function App() {
             <ResumeLaTeXGenerator
               generatedPrompt={generatedPrompt}
               autoGenerate={fastCompile && !!generatedPrompt}
+              onLatexGenerated={handleLatexGenerated}
             />
           )}          {promptType === 'coverLetter' && generatedPrompt && (
             <CoverLetterGenerator
               generatedPrompt={generatedPrompt}
               generateLatex={generateLatex}
             />
-          )}
-
-          {/* ATS Score Tracker - show when we have job description and resume content */}
-          {jobDescription && (originalResumeContent || resumeContent) && (
-            <ATSScoreTracker
+          )}          {/* ATS Insights Tracker - show when we have job description and generated LaTeX resume */}
+          {promptType === 'resume' && jobDescription && originalResumeContent && generatedResumeLatex && (
+            <ATSInsightsTracker
               jobDescription={jobDescription}
-              originalResume={originalResumeContent || resumeContent}
-              tailoredResume={resumeContent !== originalResumeContent ? resumeContent : undefined}
-              showComparison={!!originalResumeContent && resumeContent !== originalResumeContent}
+              originalResume={originalResumeContent}
+              tailoredResume={generatedResumeLatex}
+              autoAnalyze={true}
+              initialScore={initialATSScore}
             />
           )}
 
