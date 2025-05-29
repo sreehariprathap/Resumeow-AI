@@ -19,7 +19,7 @@ export const WebHeader = () => {
       <div className="container flex justify-between items-center">        
         <div className="flex gap-0 flex-col">            <img 
               src={theme === 'dark' ? "/Resumeow..png" : "/Resumeow-d.png"} 
-              className="w-44" 
+              className="w-32 lg:w-44" 
               alt="Resumeow logo"
             />
             <span className="text-sm font-normal text-foreground">prompter</span>

@@ -204,42 +204,42 @@ const openInOverleaf = () => {
             <div className="flex gap-2">
               {generatedLatex && (
                 <>
-                  <Button 
+                    <Button 
                     variant="outline" 
                     onClick={copyToClipboard} 
                     className="h-8 text-sm"
                     size="sm"
-                  >
-                    <Clipboard className="h-4 w-4 mr-2" />
-                    Copy
-                  </Button>
-                  <Button 
+                    >
+                    <Clipboard className="h-4 w-4 md:mr-2" />
+                    <span className="hidden md:inline">Copy</span>
+                    </Button>
+                    <Button 
                     variant="outline" 
                     onClick={openEditDialog} 
                     className="h-8 text-sm"
                     size="sm"
-                  >
-                    <FileEdit className="h-4 w-4 mr-2" />
-                    Edit
-                  </Button>
-                  <Button 
+                    >
+                    <FileEdit className="h-4 w-4 md:mr-2" />
+                    <span className="hidden md:inline">Edit</span>
+                    </Button>
+                    <Button 
                     variant="outline" 
                     onClick={downloadAsTex} 
                     className="h-8 text-sm"
                     size="sm"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download .tex
-                  </Button>
-                  <Button
+                    >
+                    <Download className="h-4 w-4 md:mr-2" />
+                    <span className="hidden md:inline">Download .tex</span>
+                    </Button>
+                    <Button
                     variant="outline"
                     onClick={() => openInOverleaf()}
                     className="h-8 text-sm"
                     size="sm"
-                  >
-                    <FileCode className="h-4 w-4 mr-2" />
-                    Open in Overleaf
-                  </Button>
+                    >
+                    <FileCode className="h-4 w-4 md:mr-2" />
+                    <span className="hidden md:inline">Open in Overleaf</span>
+                    </Button>
                 </>
               )}
             </div>
@@ -278,7 +278,7 @@ const openInOverleaf = () => {
             />
           </div>
           
-          <DialogFooter className="sticky bottom-0 pt-4 bg-background">
+          <DialogFooter className="sticky bottom-0 pt-4 bg-background gap-2">
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
             <Button onClick={saveEditedLatex}>
               <Save className="h-4 w-4 mr-2" />
