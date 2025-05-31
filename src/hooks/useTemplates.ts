@@ -285,6 +285,27 @@ export function useTemplates() {
     localStorage.setItem(`activePrompt_${type}`, promptId);
   }, []);
 
+  // Reset to default templates and clear storage
+  const resetTemplates = useCallback(() => {
+    setResumeTemplates(DEFAULT_RESUME_TEMPLATES);
+    setCoverLetterTemplates(DEFAULT_COVER_LETTER_TEMPLATES);
+    setCustomPrompts(DEFAULT_CUSTOM_PROMPTS);
+    
+    // Clear user's saved data
+    localStorage.removeItem("resumeTemplates");
+    localStorage.removeItem("coverLetterTemplates");
+    localStorage.removeItem("customPrompts");
+    localStorage.removeItem("activePrompt_resume");
+    localStorage.removeItem("activePrompt_coverLetter");
+    localStorage.removeItem("selectedTemplateId");
+    localStorage.removeItem("selectedCoverLetterTemplateId");
+    
+    // Add back defaults to localStorage
+    localStorage.setItem("resumeTemplates", JSON.stringify(DEFAULT_RESUME_TEMPLATES));
+    localStorage.setItem("coverLetterTemplates", JSON.stringify(DEFAULT_COVER_LETTER_TEMPLATES));
+    localStorage.setItem("customPrompts", JSON.stringify(DEFAULT_CUSTOM_PROMPTS));
+  }, []);
+
   return {
     resumeTemplates,
     coverLetterTemplates,
@@ -295,6 +316,7 @@ export function useTemplates() {
     updateCustomPrompt,
     deleteCustomPrompt,
     getActivePrompt,
-    setActivePrompt
+    setActivePrompt,
+    resetTemplates
   };
 }

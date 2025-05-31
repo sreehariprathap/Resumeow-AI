@@ -19,7 +19,7 @@ import { Card, CardContent, CardHeader, CardAction } from "./components/ui/card"
 import { Button } from "./components/ui/button";
 import { Label } from "./components/ui/label";
 import { Checkbox } from "./components/ui/checkbox";
-import { Settings } from "lucide-react";
+import { Settings, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { CustomPrompt, Template, PromptType } from "./types";
 
@@ -35,8 +35,7 @@ interface ATSScore {
 }
 
 function App() {
-  const {
-    resumeTemplates,
+  const {    resumeTemplates,
     coverLetterTemplates,
     customPrompts,
     addTemplate,
@@ -44,7 +43,8 @@ function App() {
     updateCustomPrompt,
     deleteCustomPrompt,
     setActivePrompt,
-    getActivePrompt
+    getActivePrompt,
+    resetTemplates
   } = useTemplates();
 
   const { generateResumePrompt, generateCoverLetterPrompt } = usePromptGenerator();
@@ -333,25 +333,76 @@ function App() {
   const handleDeleteCustomPrompt = (promptId: string) => {
     deleteCustomPrompt(promptId);
     toast.success("Custom prompt deleted successfully!");
-  };  return (
+  };  
+  const handleClearAll = () => {
+    // Reset all state
+    setJobDescription("");
+    setResumeContent("");
+    setCoverLetterTemplate("");
+    setHasOptionalInstructions(false);
+    setOptionalInstructions("");
+    setUseTemporaryResume(false);
+    setGenerateLatex(true);
+    setFastCompile(false);
+    setOriginalResumeContent("");
+    setAtsSuggestions([]);
+    setInitialATSScore(null);
+    setMissingKeywords([]);
+    setGeneratedResumeLatex("");
+    setSelectedTemplateId("no-selection");
+    setSelectedCoverLetterTemplateId("no-selection");
+    setGeneratedPrompt("");
+    
+    // Reset active prompts
+    setActivePrompts({
+      resume: '',
+      coverLetter: ''
+    });
+    
+    // Reset templates to defaults
+    resetTemplates();
+    
+    // Clear localStorage
+    localStorage.removeItem("selectedTemplateId");
+    localStorage.removeItem("selectedCoverLetterTemplateId");
+    localStorage.removeItem("activePrompt_resume");
+    localStorage.removeItem("activePrompt_coverLetter");
+    
+    toast.success("All data has been cleared!");
+  };
+
+  return (
     <div className="overflow-auto">
       <div className="p-2">
-        <Card className="w-full shadow-none border-0">        
-          <CardHeader className="px-4 py-3">
+        <Card className="w-full shadow-none border-0">          <CardHeader className="px-4 py-3">
             <div className="flex flex-col gap-2">
               <div className="flex justify-between items-center">
-                <CardAction>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsSettingsOpen(true)}
-                    className="h-8 w-8 p-0"
-                    title="Settings"
-                  >
-                    <Settings className="h-4 w-4" />
-                    <span className="sr-only">Settings</span>
-                  </Button>
-                </CardAction>
+                <div className="flex gap-2">
+                  <CardAction>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsSettingsOpen(true)}
+                      className="h-8 w-8 p-0"
+                      title="Settings"
+                    >
+                      <Settings className="h-4 w-4" />
+                      <span className="sr-only">Settings</span>
+                    </Button>
+                  </CardAction>
+                  <CardAction>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleClearAll}
+                      className="flex items-center gap-1 text-red-500 hover:text-red-600 hover:bg-red-50"
+                      title="Clear all data"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="text-xs">Clear All</span>
+                    </Button>
+                  </CardAction>
+                </div>
                 <GoogleAuthButton />
               </div>
             </div>
