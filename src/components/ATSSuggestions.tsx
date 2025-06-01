@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Checkbox } from './ui/checkbox';
@@ -9,6 +9,7 @@ import { GoogleGenAI } from '@google/genai';
 import { TrendingUp, RefreshCw, CheckSquare, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/authContext';
 import { getUserData } from '@/lib/firebase';
+import { useGeminiModel } from '@/hooks/useGeminiModel';
 
 interface ATSSuggestion {
   id: string;
@@ -35,6 +36,7 @@ export function ATSSuggestions({
   const [suggestions, setSuggestions] = useState<ATSSuggestion[]>([]);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const { currentUser } = useAuth();
+  const { selectedModel } = useGeminiModel();
 
   // Get API key from environment or Firebase
   useEffect(() => {
@@ -58,17 +60,16 @@ export function ATSSuggestions({
       }
     };
     
-    fetchApiKey();
-  }, [currentUser]);
+    fetchApiKey();  }, [currentUser]);
 
-  // Auto-analyze when job description and resume content are available
-  useEffect(() => {
-    if (jobDescription && resumeContent && apiKey && !disabled) {
-      analyzeSuggestions();
-    }
-  }, [jobDescription, resumeContent, apiKey, disabled]);
+  const updateSelectedSuggestions = useCallback((currentSuggestions: ATSSuggestion[]) => {
+    const selectedSuggestions = currentSuggestions
+      .filter(s => s.selected)
+      .map(s => `${s.category}: ${s.suggestion}`);
+    onSuggestionsChange(selectedSuggestions);
+  }, [onSuggestionsChange]);
 
-  const analyzeSuggestions = async (): Promise<void> => {
+  const analyzeSuggestions = useCallback(async (): Promise<void> => {
     if (!apiKey) {
       toast.error('Google API key is required. Please add it in Settings.');
       return;
@@ -124,7 +125,7 @@ Provide 5-10 actionable suggestions. Each suggestion should be specific and impl
 `;
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: selectedModel,
         contents: prompt
       });
       
@@ -155,14 +156,13 @@ Provide 5-10 actionable suggestions. Each suggestion should be specific and impl
     } finally {
       setIsAnalyzing(false);
     }
-  };
+  }, [apiKey, jobDescription, resumeContent, selectedModel, updateSelectedSuggestions]);
 
-  const updateSelectedSuggestions = (currentSuggestions: ATSSuggestion[]) => {
-    const selectedSuggestions = currentSuggestions
-      .filter(s => s.selected)
-      .map(s => `${s.category}: ${s.suggestion}`);
-    onSuggestionsChange(selectedSuggestions);
-  };
+  // Auto-analyze when job description and resume content are available
+  useEffect(() => {
+    if (jobDescription && resumeContent && apiKey && !disabled) {
+      analyzeSuggestions();
+    }  }, [jobDescription, resumeContent, apiKey, disabled, analyzeSuggestions]);
 
   const toggleSuggestion = (suggestionId: string) => {
     const updatedSuggestions = suggestions.map(s => 

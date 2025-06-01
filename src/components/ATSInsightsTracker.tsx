@@ -7,6 +7,7 @@ import { GoogleGenAI } from '@google/genai';
 import { TrendingUp, TrendingDown, Minus, BarChart3, Target, Award, RefreshCw, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/lib/authContext';
 import { getUserData } from '@/lib/firebase';
+import { useGeminiModel } from '@/hooks/useGeminiModel';
 
 interface ATSScore {
   overall: number;
@@ -40,6 +41,7 @@ export function ATSInsightsTracker({
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const { currentUser } = useAuth();
+  const { selectedModel } = useGeminiModel();
 
   // Get API key from environment or Firebase
   useEffect(() => {
@@ -124,10 +126,8 @@ Consider:
 - Required qualifications coverage
 
 Provide specific, actionable feedback. Return only valid JSON.
-`;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+`;      const response = await ai.models.generateContent({
+        model: selectedModel,
         contents: prompt
       });
       
@@ -147,9 +147,8 @@ Provide specific, actionable feedback. Return only valid JSON.
     } catch (error) {
       console.error('Error analyzing resume:', error);
       toast.error('Failed to analyze resume. Please check your API key and try again.');
-      return null;
-    }
-  }, [apiKey, jobDescription]);const analyzeComparison = useCallback(async () => {
+      return null;    }
+  }, [apiKey, jobDescription, selectedModel]);const analyzeComparison = useCallback(async () => {
     setIsAnalyzing(true);
     setAnalysisComplete(false);
     

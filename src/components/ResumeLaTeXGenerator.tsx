@@ -8,6 +8,7 @@ import { GoogleGenAI } from '@google/genai';
 import { Clipboard, Download, FileEdit, Save, FileCode } from 'lucide-react';
 import { useAuth } from '@/lib/authContext';
 import { getUserData } from '@/lib/firebase';
+import { useGeminiModel } from '@/hooks/useGeminiModel';
 
 interface ResumeLaTeXGeneratorProps {
   generatedPrompt: string;
@@ -26,6 +27,7 @@ export function ResumeLaTeXGenerator({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editedLatex, setEditedLatex] = useState<string>('');
   const { currentUser } = useAuth();
+  const { selectedModel } = useGeminiModel();
 
   // Try to get API key from environment or Firebase
   useEffect(() => {
@@ -76,11 +78,9 @@ export function ResumeLaTeXGenerator({
 
         Return only the complete LaTeX code that can be compiled. Include all necessary LaTeX packages and document structure.
         Do not include explanations, just return the LaTeX code.
-      `;
-
-      // Generate content using the model
+      `;      // Generate content using the model
       const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: selectedModel,
         contents: promptText
       });
       
@@ -93,10 +93,10 @@ export function ResumeLaTeXGenerator({
         toast.error('Failed to generate LaTeX content');
       }} catch (error) {
       console.error('Error generating LaTeX:', error);
-      toast.error('Failed to generate LaTeX resume. Please check your API key in Settings and try again.');
-    } finally {
-      setIsGenerating(false);    }
-  }, [apiKey, generatedPrompt, onLatexGenerated]);
+      toast.error('Failed to generate LaTeX resume. Please check your API key in Settings and try again.');    } finally {
+      setIsGenerating(false);
+    }
+  }, [apiKey, generatedPrompt, onLatexGenerated, selectedModel]);
 
   // Auto-generate when autoGenerate is true and we have all requirements
   useEffect(() => {

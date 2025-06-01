@@ -8,6 +8,7 @@ import { GoogleGenAI } from '@google/genai';
 import { TrendingUp, TrendingDown, Minus, BarChart3, FileText, Target } from 'lucide-react';
 import { useAuth } from '@/lib/authContext';
 import { getUserData } from '@/lib/firebase';
+import { useGeminiModel } from '@/hooks/useGeminiModel';
 
 interface ATSScore {
   overall: number;
@@ -38,6 +39,7 @@ export function ATSScoreTracker({
   const [tailoredScore, setTailoredScore] = useState<ATSScore | null>(null);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const { currentUser } = useAuth();
+  const { selectedModel } = useGeminiModel();
 
   // Get API key from environment or Firebase
   useEffect(() => {
@@ -109,7 +111,7 @@ Consider:
 
 Provide specific, actionable feedback. Return only valid JSON.
 `;      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: selectedModel,
         contents: prompt
       });
       

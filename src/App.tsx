@@ -34,8 +34,7 @@ interface ATSScore {
   recommendations: string[];
 }
 
-function App() {
-  const {    resumeTemplates,
+function App() {  const {    resumeTemplates,
     coverLetterTemplates,
     customPrompts,
     addTemplate,
@@ -333,9 +332,8 @@ function App() {
   const handleDeleteCustomPrompt = (promptId: string) => {
     deleteCustomPrompt(promptId);
     toast.success("Custom prompt deleted successfully!");
-  };  
-  const handleClearAll = () => {
-    // Reset all state
+  };    const handleClearAll = () => {
+    // Reset all working state (but preserve saved templates)
     setJobDescription("");
     setResumeContent("");
     setCoverLetterTemplate("");
@@ -359,16 +357,13 @@ function App() {
       coverLetter: ''
     });
     
-    // Reset templates to defaults
-    resetTemplates();
-    
-    // Clear localStorage
+    // Clear localStorage selections (but preserve saved templates)
     localStorage.removeItem("selectedTemplateId");
     localStorage.removeItem("selectedCoverLetterTemplateId");
     localStorage.removeItem("activePrompt_resume");
     localStorage.removeItem("activePrompt_coverLetter");
     
-    toast.success("All data has been cleared!");
+    toast.success("All working data has been cleared!");
   };
 
   return (
@@ -597,9 +592,7 @@ function App() {
             <GoogleAuthButton />
           </div>        </CardContent>
       </Card>
-      </div>
-
-      <SettingsDialog
+      </div>      <SettingsDialog
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         customPrompts={customPrompts}
@@ -608,6 +601,7 @@ function App() {
         onUpdateCustomPrompt={handleUpdateCustomPrompt}
         onDeleteCustomPrompt={handleDeleteCustomPrompt}
         onSetActivePrompt={handleSetActivePrompt}
+        resetTemplates={resetTemplates}
       />
     </div>
   );

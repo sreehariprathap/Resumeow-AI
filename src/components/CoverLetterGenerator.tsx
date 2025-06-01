@@ -8,6 +8,7 @@ import { GoogleGenAI } from '@google/genai';
 import { Clipboard, Download, FileEdit, Save, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/lib/authContext';
 import { getUserData } from '@/lib/firebase';
+import { useGeminiModel } from '@/hooks/useGeminiModel';
 
 interface CoverLetterGeneratorProps {
   generatedPrompt: string;
@@ -24,6 +25,7 @@ export function CoverLetterGenerator({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editedCoverLetter, setEditedCoverLetter] = useState<string>('');
   const { currentUser } = useAuth();
+  const { selectedModel } = useGeminiModel();
 
   // Try to get API key from environment or Firebase
   useEffect(() => {
@@ -72,11 +74,9 @@ export function CoverLetterGenerator({
       // Prepare the prompt text based on whether LaTeX is selected or not
       const promptText = generateLatex
         ? `${generatedPrompt}\n\nReturn only the complete LaTeX code that can be compiled. Include all necessary LaTeX packages and document structure. Do not include explanations, just return the LaTeX code.`
-        : `${generatedPrompt}\n\nReturn a well-formatted professional cover letter. Do not include explanations, just return the cover letter content.`;
-
-      // Generate content using the model
+        : `${generatedPrompt}\n\nReturn a well-formatted professional cover letter. Do not include explanations, just return the cover letter content.`;      // Generate content using the model
       const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: selectedModel,
         contents: promptText
       });
       

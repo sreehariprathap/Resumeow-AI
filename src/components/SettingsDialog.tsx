@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "./ui/button";
 import { Plus, Edit, Trash, Check, Download, Upload } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import type { CustomPrompt, PromptType } from "@/types";
 import { ModeToggle } from "./mode-toggle";
+import { useGeminiModel } from "@/hooks/useGeminiModel";
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ interface SettingsDialogProps {
   onUpdateCustomPrompt: (promptId: string, prompt: CustomPrompt) => void;
   onDeleteCustomPrompt: (promptId: string) => void;
   onSetActivePrompt: (type: PromptType, promptId: string) => void;
+  resetTemplates: () => void;
 }
 
 export const SettingsDialog = ({
@@ -34,37 +36,32 @@ export const SettingsDialog = ({
   onAddCustomPrompt,
   onUpdateCustomPrompt,
   onDeleteCustomPrompt,
-  onSetActivePrompt
+  onSetActivePrompt,
+  resetTemplates
 }: SettingsDialogProps) => {
   const { currentUser } = useAuth();
+  const { selectedModel, setSelectedModel } = useGeminiModel();
   const [activeTab, setActiveTab] = useState<string>("resume");
   const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState<CustomPrompt | undefined>(undefined);
   const [localActivePrompts, setLocalActivePrompts] = useState<Record<PromptType, string>>(activePrompts);
-  const [googleApiKey, setGoogleApiKey] = useState<string>("");
-  const [confirmDialogState, setConfirmDialogState] = useState({
+  const [googleApiKey, setGoogleApiKey] = useState<string>("");const [confirmDialogState, setConfirmDialogState] = useState({
     isOpen: false,
     title: "",
     message: "",
     promptIdToDelete: "",
     isImportReplace: false,
-    importData: null as unknown
-  });
-  // Reset local state when dialog opens
-  useEffect(() => {
-    if (isOpen) {
-      setLocalActivePrompts(activePrompts);
-      loadUserSettings();
-    }
-  }, [isOpen, activePrompts]);
+    isResetTemplates: false,
+    importData: null as unknown  });
 
   // Load user settings including API key from Firebase
-  const loadUserSettings = async () => {
+  const loadUserSettings = useCallback(async () => {
     if (currentUser) {
       try {
         const userData = await getUserData(currentUser.uid, "settings");
         if (userData) {
           if (userData.googleApiKey) setGoogleApiKey(userData.googleApiKey as string);
+          // Note: Model preference is loaded automatically by useGeminiModel hook
           // Optionally, set active prompts from storage if needed
           // Example:
           // if (userData.activeResumePrompt) setActivePromptContent('resume', userData.activeResumePrompt.content);
@@ -74,7 +71,15 @@ export const SettingsDialog = ({
         console.error("Error loading user settings:", error);
       }
     }
-  };
+  }, [currentUser]);
+
+  // Reset local state when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      setLocalActivePrompts(activePrompts);
+      loadUserSettings();
+    }
+  }, [isOpen, activePrompts, loadUserSettings]);
 
 
   const handlePromptSave = (prompt: CustomPrompt) => {
@@ -96,7 +101,6 @@ export const SettingsDialog = ({
     setEditingPrompt(prompt);
     setIsPromptDialogOpen(true);
   };
-
   const handleDeletePrompt = (promptId: string) => {
     setConfirmDialogState({
       isOpen: true,
@@ -104,6 +108,7 @@ export const SettingsDialog = ({
       message: "Are you sure you want to delete this prompt?",
       promptIdToDelete: promptId,
       isImportReplace: false,
+      isResetTemplates: false,
       importData: null
     });
   };
@@ -192,14 +197,14 @@ export const SettingsDialog = ({
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const importedData = JSON.parse(e.target?.result as string);
-        if (importedData.customPrompts && Array.isArray(importedData.customPrompts)) {
+        const importedData = JSON.parse(e.target?.result as string);        if (importedData.customPrompts && Array.isArray(importedData.customPrompts)) {
           setConfirmDialogState({
             isOpen: true,
             title: "Import Prompts",
             message: "Do you want to replace all existing prompts with the imported ones? Click Cancel to merge instead.",
             promptIdToDelete: "",
             isImportReplace: true,
+            isResetTemplates: false,
             importData: importedData
           });
         } else {
@@ -260,6 +265,23 @@ export const SettingsDialog = ({
       ...prev,
       [type]: promptId
     }));
+  };
+  const handleResetTemplates = () => {
+    setConfirmDialogState({
+      isOpen: true,
+      title: "Reset All Templates",
+      message: "Are you sure you want to reset all templates? This will permanently delete all your saved resume templates, cover letter templates, and custom prompts. This action cannot be undone.",
+      promptIdToDelete: "",
+      isImportReplace: false,
+      isResetTemplates: true,
+      importData: null
+    });
+  };
+
+  const confirmResetTemplates = () => {
+    resetTemplates();
+    toast.success("All templates have been reset to defaults");
+    onClose(); // Close the settings dialog
   };
 
   return (
@@ -408,14 +430,71 @@ export const SettingsDialog = ({
                     onChange={(e) => setGoogleApiKey(e.target.value)}
                     placeholder="Enter your Google API Key"
                     className="h-8 text-sm"
-                  />
-                  <p className="text-xs text-muted-foreground">
+                  />                  <p className="text-xs text-muted-foreground">
                     Enter your personal Google API key for enhanced functionality.
                     Your key will be securely stored against your user account.
                   </p>
                 </div>
-                  <h3 className="text-sm font-medium mb-3">Other</h3>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium mb-3">AI Model Settings</h3>
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label className="text-xs">
+                      Gemini Model Selection
+                    </Label>
+                    <RadioGroup
+                      value={selectedModel}
+                      onValueChange={(value) => setSelectedModel(value as 'gemini-2.0-flash' | 'gemini-2.5-pro-preview-tts')}
+                      className="space-y-2"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="gemini-2.0-flash" id="gemini-2.0-flash" />
+                        <Label htmlFor="gemini-2.0-flash" className="text-sm cursor-pointer">
+                          Gemini 2.0 Flash (Default)
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="gemini-2.5-pro-preview-tts" id="gemini-2.5-pro-preview-tts" />
+                        <Label htmlFor="gemini-2.5-pro-preview-tts" className="text-sm cursor-pointer">
+                          Gemini 2.5 Pro Preview TTS
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                    <p className="text-xs text-muted-foreground">
+                      Choose which Gemini model to use for AI-powered features like resume generation, cover letter creation, and ATS analysis.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium mb-3">Other</h3>
                   <ModeToggle />
+                  
+                  {/* Reset Templates Section */}
+                  <div className="border-t pt-4 mt-4">
+                    <h4 className="text-sm font-medium mb-2">Data Management</h4>
+                    <div className="space-y-3">
+                      <div className="p-3 border rounded-md bg-muted/10">
+                        <h5 className="text-xs font-medium mb-1">Reset All Templates</h5>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          This will permanently delete all your saved resume templates, cover letter templates, and custom prompts. 
+                          You will lose all your saved data and it cannot be recovered.
+                        </p>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={handleResetTemplates}
+                          className="h-7 text-xs"
+                        >
+                          Reset All Templates
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  
                   <div className="border-t pt-4 mt-4">
                     <h4 className="text-sm font-medium mb-2">Legal</h4>
                     <div className="flex flex-col gap-1.5">
@@ -491,16 +570,32 @@ export const SettingsDialog = ({
         initialPrompt={editingPrompt}
         isEditing={!!editingPrompt}
         initialType={activeTab as PromptType}
-      />
-
-      <ConfirmDialog
+      />      <ConfirmDialog
         isOpen={confirmDialogState.isOpen}
         onClose={() => setConfirmDialogState(prev => ({ ...prev, isOpen: false }))}
-        onConfirm={confirmDialogState.promptIdToDelete ? confirmDeletePrompt : confirmImport}
+        onConfirm={
+          confirmDialogState.promptIdToDelete 
+            ? confirmDeletePrompt 
+            : confirmDialogState.isResetTemplates 
+              ? confirmResetTemplates 
+              : confirmImport
+        }
         title={confirmDialogState.title}
         message={confirmDialogState.message}
-        confirmText={confirmDialogState.promptIdToDelete ? "Delete" : "Replace"}
-        cancelText={confirmDialogState.promptIdToDelete ? "Cancel" : "Merge"}
+        confirmText={
+          confirmDialogState.promptIdToDelete 
+            ? "Delete" 
+            : confirmDialogState.isResetTemplates 
+              ? "Reset All Templates" 
+              : "Replace"
+        }
+        cancelText={
+          confirmDialogState.promptIdToDelete 
+            ? "Cancel" 
+            : confirmDialogState.isResetTemplates 
+              ? "Cancel" 
+              : "Merge"
+        }
       />
     </>
   );

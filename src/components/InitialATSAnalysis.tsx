@@ -7,6 +7,7 @@ import { GoogleGenAI } from '@google/genai';
 import { AlertCircle, BarChart3, RefreshCw, CheckCircle, Target, Award } from 'lucide-react';
 import { useAuth } from '@/lib/authContext';
 import { getUserData } from '@/lib/firebase';
+import { useGeminiModel } from '@/hooks/useGeminiModel';
 
 interface ATSScore {
   overall: number;
@@ -39,6 +40,7 @@ export function InitialATSAnalysis({
   const [currentScore, setCurrentScore] = useState<ATSScore | null>(null);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const { currentUser } = useAuth();
+  const { selectedModel } = useGeminiModel();
 
   // Get API key from environment or Firebase
   useEffect(() => {
@@ -118,10 +120,8 @@ Consider:
 
 Focus particularly on identifying ALL missing keywords from the job description that should be in the resume.
 Provide specific, actionable feedback. Return only valid JSON.
-`;
-
-      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+`;      const response = await ai.models.generateContent({
+        model: selectedModel,
         contents: prompt
       });
       
@@ -262,10 +262,10 @@ Provide specific, actionable feedback. Return only valid JSON.
             {/* Missing Keywords */}
             {currentScore.missingKeywords.length > 0 && (
               <div className="space-y-2">
-                <h4 className="text-sm font-medium text-red-400">🚨 Missing Keywords ({currentScore.missingKeywords.length})</h4>
+                <h4 className="text-sm font-medium">🚨 Missing Keywords ({currentScore.missingKeywords.length})</h4>
                 <div className="flex flex-wrap gap-1">
                   {currentScore.missingKeywords.map((keyword, index) => (
-                    <Badge key={index} variant="destructive" className="text-xs">
+                    <Badge key={index} className="text-xs">
                       {keyword}
                     </Badge>
                   ))}
