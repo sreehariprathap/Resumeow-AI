@@ -14,11 +14,13 @@ import { GoogleAuthButton } from "./components/GoogleAuthButton";
 import { PromptTemplateSelector } from "./components/PromptTemplateSelector";
 import { useTemplates } from "./hooks/useTemplates";
 import { usePromptGenerator } from "./hooks/usePromptGenerator";
+import { useAIProvider } from "./lib/aiProviderContext";
 import { Card, CardContent, CardHeader, CardAction } from "./components/ui/card";
 import { Button } from "./components/ui/button";
 import { Label } from "./components/ui/label";
 import { Checkbox } from "./components/ui/checkbox";
-import { Settings, Trash2 } from "lucide-react";
+import { Badge } from "./components/ui/badge";
+import { Settings, Trash2, Bot, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import type { CustomPrompt, Template, PromptType } from "./types";
 
@@ -43,10 +45,10 @@ function App() {
     deleteCustomPrompt,
     setActivePrompt,
     getActivePrompt,
-    resetTemplates
-  } = useTemplates();
+    resetTemplates  } = useTemplates();
 
   const { generateResumePrompt, generateCoverLetterPrompt } = usePromptGenerator();
+  const { selectedModel } = useAIProvider();
   const [promptType, setPromptType] = useState<PromptType>('resume');
   const [jobDescription, setJobDescription] = useState("");
   const [resumeContent, setResumeContent] = useState("");
@@ -372,7 +374,17 @@ function App() {
   return (
     <div className="overflow-auto">
       <div className="p-2">
-        <Card className="w-full shadow-none border-0">          <CardHeader className="px-4 py-3">
+        {/* AI Provider Status Display */}        <div className="mb-2">
+          <Badge variant="outline" className="flex items-center gap-1 w-fit">
+            <Bot className="h-3 w-3" />
+            <span className="text-xs">AI Model:</span>
+            <span className="text-xs font-medium">{selectedModel.name}</span>
+            <Sparkles className="h-3 w-3" />
+          </Badge>
+        </div>
+        
+        <Card className="w-full shadow-none border-0">
+          <CardHeader className="px-4 py-3">
           <div className="flex flex-col gap-2">
             <div className="flex justify-between items-center">
               <div className="flex gap-2">

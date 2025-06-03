@@ -19,11 +19,8 @@ import { Progress } from './ui/progress';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
 import { toast } from 'sonner';
-import { GoogleGenAI } from '@google/genai';
 import { AlertCircle, BarChart3, RefreshCw, CheckCircle, TrendingUp, CheckSquare } from 'lucide-react';
-import { useAuth } from '@/lib/authContext';
-import { getUserData } from '@/lib/firebase';
-import { useGeminiModel } from '@/hooks/useGeminiModel';
+import { useAIProvider } from '@/lib/aiProviderContext';
 
 interface ATSScore {
   overall: number;
@@ -67,39 +64,13 @@ export function CombinedATSAnalysis({
   onMissingKeywords,
   onSuggestionsChange,
   disabled = false
-}: CombinedATSAnalysisProps) {  const [isAnalyzing, setIsAnalyzing] = useState(false);
+}: CombinedATSAnalysisProps) {
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [analysisFailed, setAnalysisFailed] = useState(false);
   const [currentScore, setCurrentScore] = useState<ATSScore | null>(null);
   const [suggestions, setSuggestions] = useState<ATSSuggestion[]>([]);
-  const [apiKey, setApiKey] = useState<string | null>(null);
-  const { currentUser } = useAuth();
-  const { selectedModel } = useGeminiModel();
-
-  // Get API key from environment or Firebase
-  useEffect(() => {
-    const fetchApiKey = async () => {
-      const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      
-      if (envApiKey) {
-        setApiKey(envApiKey);
-        return;
-      }
-      
-      if (currentUser) {
-        try {
-          const userData = await getUserData(currentUser.uid, "settings");
-          if (userData && userData.googleApiKey) {
-            setApiKey(userData.googleApiKey as string);
-          }
-        } catch (error) {
-          console.error("Error loading API key from user settings:", error);
-        }
-      }
-    };
-    
-    fetchApiKey();
-  }, [currentUser]);
+  const { makeAICall } = useAIProvider();
 
   const updateSelectedSuggestions = useCallback((currentSuggestions: ATSSuggestion[]) => {
     const selectedSuggestions = currentSuggestions
@@ -110,18 +81,12 @@ export function CombinedATSAnalysis({
 
   // Auto-analyze when all data is available
   useEffect(() => {
-    if (apiKey && jobDescription && resumeContent && !disabled && !analysisComplete) {
+    if (jobDescription && resumeContent && !disabled && !analysisComplete) {
       performCombinedAnalysis();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiKey, jobDescription, resumeContent, disabled, analysisComplete]);
-
+  }, [jobDescription, resumeContent, disabled, analysisComplete]);
   const performCombinedAnalysis = async (): Promise<void> => {
-    if (!apiKey) {
-      toast.error('Google API key is required. Please add it in Settings.');
-      return;
-    }
-
     if (!jobDescription || !resumeContent) {
       toast.error('Job description and resume content are required');
       return;
@@ -129,8 +94,6 @@ export function CombinedATSAnalysis({
 
     setIsAnalyzing(true);
     try {
-      const ai = new GoogleGenAI({ apiKey });
-      
       const prompt = `
 Analyze this resume against the job description and provide both ATS (Applicant Tracking System) compatibility scoring AND specific improvement suggestions in a single comprehensive analysis.
 
@@ -193,14 +156,9 @@ Focus on:
 IMPORTANT: Always include at least one suggestion about adding key skills from the job description naturally throughout the resume.
 
 Provide 5-10 actionable suggestions. Each suggestion should be specific and implementable. Return only valid JSON.
-`;
-
-      const response = await ai.models.generateContent({
-        model: selectedModel,
-        contents: prompt
-      });
+`;      const response = await makeAICall(prompt);
       
-      const text = response.text;
+      const text = response;
       
       if (!text) {
         throw new Error('No response text received');
@@ -337,14 +295,7 @@ Provide 5-10 actionable suggestions. Each suggestion should be specific and impl
               </Badge>
             )}
           </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">          {!apiKey && (
-            <div className="text-xs text-muted-foreground p-3 bg-muted rounded-lg flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
-              Google API key is required for ATS analysis. Please add it in Settings.
-            </div>
-          )}
-
+        </CardHeader>        <CardContent className="space-y-4">
           {analysisFailed && (
             <div className="text-center p-6 space-y-3">
               <AlertCircle className="h-8 w-8 mx-auto mb-3 text-destructive" />

@@ -11,12 +11,12 @@ interface AuthWrapperProps {
 export default function AuthWrapper({ children }: AuthWrapperProps) {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
-  
-  // Check if the current path is the privacy policy page
+    // Check if the current path is the privacy policy page or test page
   const isPrivacyPage = location.pathname === "/privacy";
+  const isTestPage = location.pathname === "/test";
   
-  // If it's the privacy policy page, render it without authentication check
-  if (isPrivacyPage) {
+  // If it's the privacy policy page or test page, render it without authentication check
+  if (isPrivacyPage || isTestPage) {
     return (
       <>
         <WebHeader />

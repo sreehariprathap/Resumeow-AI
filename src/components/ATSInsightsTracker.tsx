@@ -3,11 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { toast } from 'sonner';
-import { GoogleGenAI } from '@google/genai';
 import { TrendingUp, TrendingDown, Minus, BarChart3, Target, Award, RefreshCw, CheckCircle } from 'lucide-react';
-import { useAuth } from '@/lib/authContext';
-import { getUserData } from '@/lib/firebase';
-import { useGeminiModel } from '@/hooks/useGeminiModel';
+import { useAIProvider } from '@/lib/aiProviderContext';
 
 interface ATSScore {
   overall: number;
@@ -38,38 +35,12 @@ export function ATSInsightsTracker({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [originalScore, setOriginalScore] = useState<ATSScore | null>(null);
   const [tailoredScore, setTailoredScore] = useState<ATSScore | null>(null);
-  const [apiKey, setApiKey] = useState<string | null>(null);
-  const [analysisComplete, setAnalysisComplete] = useState(false);
-  const { currentUser } = useAuth();
-  const { selectedModel } = useGeminiModel();
+  const [analysisComplete, setAnalysisComplete] = useState(false);  const { makeAICall, openRouterApiKey, geminiApiKey } = useAIProvider();
 
-  // Get API key from environment or Firebase
-  useEffect(() => {
-    const fetchApiKey = async () => {
-      const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      
-      if (envApiKey) {
-        setApiKey(envApiKey);
-        return;
-      }
-      
-      if (currentUser) {
-        try {
-          const userData = await getUserData(currentUser.uid, "settings");
-          if (userData && userData.googleApiKey) {
-            setApiKey(userData.googleApiKey as string);
-          }
-        } catch (error) {
-          console.error("Error loading API key from user settings:", error);
-        }
-      }
-    };
-    
-    fetchApiKey();
-  }, [currentUser]);  // Auto-analyze when all data is available
+  // Auto-analyze when all data is available
   useEffect(() => {
     const runAnalysis = async () => {
-      if (autoAnalyze && apiKey && jobDescription && tailoredResume && !analysisComplete) {
+      if (autoAnalyze && jobDescription && tailoredResume && !analysisComplete) {
         // If we have an initial score, use it; otherwise analyze the original resume
         if (initialScore) {
           setOriginalScore(initialScore);
@@ -81,21 +52,13 @@ export function ATSInsightsTracker({
     
     runAnalysis();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoAnalyze, apiKey, jobDescription, originalResume, tailoredResume, analysisComplete, initialScore]);
-  const analyzeResume = useCallback(async (resumeContent: string): Promise<ATSScore | null> => {
-    if (!apiKey) {
-      toast.error('Google API key is required. Please add it in Settings.');
-      return null;
-    }
-
+  }, [autoAnalyze, jobDescription, originalResume, tailoredResume, analysisComplete, initialScore]);  const analyzeResume = useCallback(async (resumeContent: string): Promise<ATSScore | null> => {
     if (!jobDescription || !resumeContent) {
       toast.error('Job description and resume content are required');
       return null;
     }
 
     try {
-      const ai = new GoogleGenAI({ apiKey });
-      
       const prompt = `
 Analyze this resume against the job description and provide an ATS (Applicant Tracking System) compatibility score.
 
@@ -126,19 +89,15 @@ Consider:
 - Required qualifications coverage
 
 Provide specific, actionable feedback. Return only valid JSON.
-`;      const response = await ai.models.generateContent({
-        model: selectedModel,
-        contents: prompt
-      });
+`;      
+      const response = await makeAICall(prompt);
       
-      const text = response.text;
-      
-      if (!text) {
+      if (!response) {
         throw new Error('No response text received');
       }
       
       // Try to extract JSON from the response
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0]);
       } else {
@@ -146,9 +105,10 @@ Provide specific, actionable feedback. Return only valid JSON.
       }
     } catch (error) {
       console.error('Error analyzing resume:', error);
-      toast.error('Failed to analyze resume. Please check your API key and try again.');
-      return null;    }
-  }, [apiKey, jobDescription, selectedModel]);const analyzeComparison = useCallback(async () => {
+      toast.error('Failed to analyze resume. Please try again.');
+      return null;
+    }
+  }, [jobDescription, makeAICall]);const analyzeComparison = useCallback(async () => {
     setIsAnalyzing(true);
     setAnalysisComplete(false);
     
@@ -277,10 +237,9 @@ Provide specific, actionable feedback. Return only valid JSON.
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {!apiKey && (
+      <CardContent className="space-y-6">        {!openRouterApiKey && !geminiApiKey && (
           <div className="text-xs text-muted-foreground p-3 bg-muted rounded-lg">
-            Google API key is required for ATS analysis. Please add it in Settings.
+            API key is required for ATS analysis. Please add it in Settings.
           </div>
         )}
 

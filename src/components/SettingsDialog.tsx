@@ -8,7 +8,9 @@ import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { CustomPromptDialog } from "./CustomPromptDialog";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { AIProviderSelector } from "./AIProviderSelector";
 import { useAuth } from "@/lib/authContext";
+import { useAIProvider } from "@/lib/aiProviderContext";
 import { saveUserData, getUserData } from "@/lib/firebaseWeb";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
@@ -38,14 +40,15 @@ export const SettingsDialog = ({
   onDeleteCustomPrompt,
   onSetActivePrompt,
   resetTemplates
-}: SettingsDialogProps) => {
-  const { currentUser } = useAuth();
+}: SettingsDialogProps) => {  const { currentUser } = useAuth();
   const { selectedModel, setSelectedModel } = useGeminiModel();
+  const { openRouterApiKey, setOpenRouterApiKey } = useAIProvider();
   const [activeTab, setActiveTab] = useState<string>("resume");
   const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState<CustomPrompt | undefined>(undefined);
   const [localActivePrompts, setLocalActivePrompts] = useState<Record<PromptType, string>>(activePrompts);
-  const [googleApiKey, setGoogleApiKey] = useState<string>("");const [confirmDialogState, setConfirmDialogState] = useState({
+  const [googleApiKey, setGoogleApiKey] = useState<string>("");
+  const [localOpenRouterApiKey, setLocalOpenRouterApiKey] = useState<string>("");const [confirmDialogState, setConfirmDialogState] = useState({
     isOpen: false,
     title: "",
     message: "",
@@ -53,14 +56,13 @@ export const SettingsDialog = ({
     isImportReplace: false,
     isResetTemplates: false,
     importData: null as unknown  });
-
   // Load user settings including API key from Firebase
   const loadUserSettings = useCallback(async () => {
     if (currentUser) {
       try {
-        const userData = await getUserData(currentUser.uid, "settings");
-        if (userData) {
+        const userData = await getUserData(currentUser.uid, "settings");        if (userData) {
           if (userData.googleApiKey) setGoogleApiKey(userData.googleApiKey as string);
+          if (userData.openRouterApiKey) setLocalOpenRouterApiKey(userData.openRouterApiKey as string);
           // Note: Model preference is loaded automatically by useGeminiModel hook
           // Optionally, set active prompts from storage if needed
           // Example:
@@ -72,14 +74,14 @@ export const SettingsDialog = ({
       }
     }
   }, [currentUser]);
-
   // Reset local state when dialog opens
   useEffect(() => {
     if (isOpen) {
       setLocalActivePrompts(activePrompts);
+      setLocalOpenRouterApiKey(openRouterApiKey);
       loadUserSettings();
     }
-  }, [isOpen, activePrompts, loadUserSettings]);
+  }, [isOpen, activePrompts, openRouterApiKey, loadUserSettings]);
 
 
   const handlePromptSave = (prompt: CustomPrompt) => {
@@ -118,20 +120,21 @@ export const SettingsDialog = ({
       onDeleteCustomPrompt(confirmDialogState.promptIdToDelete);
       toast.success("Prompt deleted successfully");
     }
-  };
-  const handleSaveSettings = async () => {
+  };  const handleSaveSettings = async () => {
     // Save the active prompts selection locally
     Object.entries(localActivePrompts).forEach(([type, promptId]) => {
       onSetActivePrompt(type as PromptType, promptId);
-    });
+    });    // Update OpenRouter API key in context
+    if (localOpenRouterApiKey !== openRouterApiKey) {
+      setOpenRouterApiKey(localOpenRouterApiKey);
+    }
 
     // Get currently active prompt objects
     const activeResumePrompt = customPrompts.find(p => p.id === localActivePrompts.resume);
-    const activeCoverPrompt = customPrompts.find(p => p.id === localActivePrompts.coverLetter);
-
-    // Prepare user settings
+    const activeCoverPrompt = customPrompts.find(p => p.id === localActivePrompts.coverLetter);    // Prepare user settings
     const userSettings = {
       googleApiKey,
+      openRouterApiKey: localOpenRouterApiKey,
       activeResumePrompt: activeResumePrompt ? {
         id: activeResumePrompt.id,
         name: activeResumePrompt.name,
@@ -414,35 +417,63 @@ export const SettingsDialog = ({
                     No cover letter prompts created yet. Click 'Create' to add one.
                   </div>)}
               </div>
-            </TabsContent>
-
-            <TabsContent value="general" className="mt-4 space-y-4">
+            </TabsContent>            <TabsContent value="general" className="mt-4 space-y-4">
               <div>
                 <h3 className="text-sm font-medium mb-3">API Settings</h3>
-                <div className="space-y-3">                <div className="space-y-2">
-                  <Label htmlFor="googleApiKey" className="text-xs">
-                    Custom Google API Key
-                  </Label>
-                  <Input
-                    id="googleApiKey"
-                    type="password"
-                    value={googleApiKey}
-                    onChange={(e) => setGoogleApiKey(e.target.value)}
-                    placeholder="Enter your Google API Key"
-                    className="h-8 text-sm"
-                  />                  <p className="text-xs text-muted-foreground">
-                    Enter your personal Google API key for enhanced functionality.
-                    Your key will be securely stored against your user account.
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="openrouterApiKey" className="text-xs">
+                      OpenRouter API Key
+                    </Label>                    <Input
+                      id="openrouterApiKey"
+                      type="password"
+                      value={localOpenRouterApiKey}
+                      onChange={(e) => setLocalOpenRouterApiKey(e.target.value)}
+                      placeholder="Enter your OpenRouter API Key"
+                      className="h-8 text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Enter your OpenRouter API key for DeepSeek and other models.
+                      Your key will be securely stored against your user account.
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="googleApiKey" className="text-xs">
+                      Custom Google API Key
+                    </Label>
+                    <Input
+                      id="googleApiKey"
+                      type="password"
+                      value={googleApiKey}
+                      onChange={(e) => setGoogleApiKey(e.target.value)}
+                      placeholder="Enter your Google API Key"
+                      className="h-8 text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Enter your personal Google API key for enhanced functionality.
+                      Your key will be securely stored against your user account.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium mb-3">AI Provider Settings</h3>
+                <div className="space-y-3">
+                  <AIProviderSelector className="space-y-2" />
+                  <p className="text-xs text-muted-foreground">
+                    Choose your preferred AI provider and model. The system will automatically failover to the alternative provider if the primary one fails.
                   </p>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-sm font-medium mb-3">AI Model Settings</h3>
+                <h3 className="text-sm font-medium mb-3">Legacy Model Settings</h3>
                 <div className="space-y-3">
                   <div className="space-y-2">
                     <Label className="text-xs">
-                      Gemini Model Selection
+                      Gemini Model Selection (Legacy)
                     </Label>
                     <RadioGroup
                       value={selectedModel}
@@ -463,14 +494,13 @@ export const SettingsDialog = ({
                       </div>
                     </RadioGroup>
                     <p className="text-xs text-muted-foreground">
-                      Choose which Gemini model to use for AI-powered features like resume generation, cover letter creation, and ATS analysis.
+                      Legacy Gemini model selection (use AI Provider Settings above for new functionality).
                     </p>
                   </div>
                 </div>
-              </div>
-
-              <div>
+              </div>              <div>
                 <h3 className="text-sm font-medium mb-3">Other</h3>
+                <div className="space-y-3">
                   <ModeToggle />
                   
                   {/* Reset Templates Section */}
@@ -512,7 +542,6 @@ export const SettingsDialog = ({
                     </div>
                   </div>
                 </div>
-
               </div>
             </TabsContent>
           </Tabs>
