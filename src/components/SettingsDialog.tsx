@@ -13,7 +13,6 @@ import { useAuth } from "@/lib/authContext";
 import { useAIProvider } from "@/lib/aiProviderContext";
 import { saveUserData, getUserData } from "@/lib/firebaseWeb";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
 import type { CustomPrompt, PromptType } from "@/types";
 import { ModeToggle } from "./mode-toggle";
 import { useGeminiModel } from "@/hooks/useGeminiModel";
@@ -524,18 +523,15 @@ export const SettingsDialog = ({
                       </div>
                     </div>
                   </div>
-                  
-                  <div className="border-t pt-4 mt-4">
+                    <div className="border-t pt-4 mt-4">
                     <h4 className="text-sm font-medium mb-2">Legal</h4>
                     <div className="flex flex-col gap-1.5">
-                      <Link
-                        to="/privacy"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-primary hover:underline"
+                      <button
+                        onClick={() => window.open('/privacy', '_blank')}
+                        className="text-xs text-primary hover:underline text-left"
                       >
                         Privacy Policy
-                      </Link>
+                      </button>
                       <p className="text-xs text-muted-foreground">
                         Learn how we handle your data and protect your privacy
                       </p>

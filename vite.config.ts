@@ -2,10 +2,33 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from "path"
 import tailwindcss from "@tailwindcss/vite"
+import { viteStaticCopy } from 'vite-plugin-static-copy'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(), 
+    tailwindcss(),    viteStaticCopy({
+      targets: [
+        {
+          src: 'public/manifest.json',
+          dest: ''
+        },
+        {
+          src: 'public/icon.png',
+          dest: ''
+        },
+        {
+          src: 'public/sidepanel.html',
+          dest: ''
+        },
+        {
+          src: 'public/service-worker.js',
+          dest: ''
+        }
+      ]
+    })
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -13,7 +36,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'build',
-    sourcemap: true,
+    sourcemap: false,
     minify: 'terser',
     cssMinify: true,
     rollupOptions: {
@@ -21,17 +44,15 @@ export default defineConfig({
         main: './index.html',
       },
       output: {
-        manualChunks: {
-          'firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-          'ui': [
-            '@radix-ui/react-dialog', 
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-radio-group',
-            '@radix-ui/react-checkbox'
-          ]
-        }
+        entryFileNames: 'assets/[name].js',
+        chunkFileNames: 'assets/[name].js',
+        assetFileNames: 'assets/[name].[ext]',
+        manualChunks: undefined
       }
-    },
+    }
+  },
+  define: {
+    global: 'globalThis',
   },
   server: {
     port: 3000,
