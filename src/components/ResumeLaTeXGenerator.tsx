@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
 import { GoogleGenAI } from '@google/genai';
-import { Clipboard, Download, FileEdit, Save, FileCode } from 'lucide-react';
+import { Clipboard, Download, FileEdit, Save, FileCode, RefreshCw, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/authContext';
 import { getUserData } from '@/lib/firebase';
 import { useGeminiModel } from '@/hooks/useGeminiModel';
@@ -20,9 +20,9 @@ export function ResumeLaTeXGenerator({
   generatedPrompt,
   autoGenerate = false,
   onLatexGenerated
-}: ResumeLaTeXGeneratorProps) {
-  const [isGenerating, setIsGenerating] = useState(false);
+}: ResumeLaTeXGeneratorProps) {  const [isGenerating, setIsGenerating] = useState(false);
   const [generatedLatex, setGeneratedLatex] = useState<string | null>(null);
+  const [generationFailed, setGenerationFailed] = useState(false);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editedLatex, setEditedLatex] = useState<string>('');
@@ -84,15 +84,17 @@ export function ResumeLaTeXGenerator({
         contents: promptText
       });
       
-      const text = response.text;
-        if (text) {
+      const text = response.text;        if (text) {
         setGeneratedLatex(text);
+        setGenerationFailed(false);
         onLatexGenerated?.(text);
         toast.success('LaTeX resume generated successfully!');
       } else {
+        setGenerationFailed(true);
         toast.error('Failed to generate LaTeX content');
       }} catch (error) {
       console.error('Error generating LaTeX:', error);
+      setGenerationFailed(true);
       toast.error('Failed to generate LaTeX resume. Please check your API key in Settings and try again.');    } finally {
       setIsGenerating(false);
     }
@@ -126,6 +128,11 @@ const copyToClipboard = () => {
                 toast.error('Failed to copy LaTeX code to clipboard');
             });
     }
+};
+
+const retryGeneration = () => {
+  setGenerationFailed(false);
+  generateLatex();
 };
 
 const openEditDialog = () => {
@@ -195,8 +202,7 @@ const openInOverleaf = () => {
       <Card className="w-full mt-6 mb-4">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium">LaTeX Resume Generator</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+        </CardHeader>        <CardContent className="space-y-3">
           <div className="flex flex-wrap justify-between items-center gap-2">
             <Button 
               onClick={generateLatex} 
@@ -251,12 +257,35 @@ const openInOverleaf = () => {
               )}
             </div>
           </div>
-          
-          {!apiKey && (
+            {!apiKey && (
             <div className="mt-2">
               <p className="text-xs text-muted-foreground">
                 Google API key is required. Please add it in the Settings dialog.
               </p>
+            </div>
+          )}
+
+          {generationFailed && !isGenerating && (
+            <div className="mt-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="h-4 w-4 text-destructive" />
+                <p className="text-xs text-destructive font-medium">
+                  LaTeX generation failed
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                Please check your API key and try again.
+              </p>
+              <Button
+                onClick={retryGeneration}
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                disabled={isGenerating}
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Retry Generation
+              </Button>
             </div>
           )}
           

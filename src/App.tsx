@@ -9,8 +9,7 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { ResumeLaTeXGenerator } from "./components/ResumeLaTeXGenerator";
 import { CoverLetterGenerator } from "./components/CoverLetterGenerator";
 import { ATSInsightsTracker } from "./components/ATSInsightsTracker";
-import { ATSSuggestions } from "./components/ATSSuggestions";
-import { InitialATSAnalysis } from "./components/InitialATSAnalysis";
+import { CombinedATSAnalysis } from "./components/CombinedATSAnalysis";
 import { GoogleAuthButton } from "./components/GoogleAuthButton";
 import { PromptTemplateSelector } from "./components/PromptTemplateSelector";
 import { useTemplates } from "./hooks/useTemplates";
@@ -34,7 +33,8 @@ interface ATSScore {
   recommendations: string[];
 }
 
-function App() {  const {    resumeTemplates,
+function App() {
+  const { resumeTemplates,
     coverLetterTemplates,
     customPrompts,
     addTemplate,
@@ -53,7 +53,7 @@ function App() {  const {    resumeTemplates,
   const [coverLetterTemplate, setCoverLetterTemplate] = useState("");
   const [hasOptionalInstructions, setHasOptionalInstructions] = useState(false);
   const [optionalInstructions, setOptionalInstructions] = useState("");
-  const [useTemporaryResume, setUseTemporaryResume] = useState(false);  const [generateLatex, setGenerateLatex] = useState<boolean>(true);  const [fastCompile, setFastCompile] = useState(false);  const [originalResumeContent, setOriginalResumeContent] = useState("");
+  const [useTemporaryResume, setUseTemporaryResume] = useState(false); const [generateLatex, setGenerateLatex] = useState<boolean>(true); const [fastCompile, setFastCompile] = useState(false); const [originalResumeContent, setOriginalResumeContent] = useState("");
   const [atsSuggestions, setAtsSuggestions] = useState<string[]>([]);
   const [initialATSScore, setInitialATSScore] = useState<{
     overall: number;
@@ -105,30 +105,31 @@ function App() {  const {    resumeTemplates,
   // Auto-update optional instructions when ATS suggestions or missing keywords change
   useEffect(() => {
     const instructionParts: string[] = [];
-    
+
     // Add missing keywords first
     if (missingKeywords.length > 0) {
       instructionParts.push(`--- Missing Keywords to Include ---\nPlease ensure these important keywords are naturally incorporated into the resume: ${missingKeywords.join(', ')}`);
     }
-    
+
     // Add ATS suggestions
     if (atsSuggestions.length > 0) {
       instructionParts.push(`--- ATS Improvement Suggestions ---\n${atsSuggestions.join('\n\n')}`);
     }
-    
+
     if (instructionParts.length > 0) {
       const combinedInstructions = instructionParts.join('\n\n');
-      
+
       if (hasOptionalInstructions) {
         // If user already has instructions, check if we need to update
         const hasKeywords = optionalInstructions.includes('Missing Keywords to Include');
         const hasSuggestions = optionalInstructions.includes('ATS Improvement Suggestions');
-        
-        if (!hasKeywords || !hasSuggestions) {          setOptionalInstructions(prev => {
+
+        if (!hasKeywords || !hasSuggestions) {
+          setOptionalInstructions(prev => {
             // Remove existing ATS sections and add new combined instructions
             const updated = prev.replace(/--- Missing Keywords to Include ---[\s\S]*?(?=---|$)/g, '')
-                             .replace(/--- ATS Improvement Suggestions ---[\s\S]*?(?=---|$)/g, '')
-                             .trim();
+              .replace(/--- ATS Improvement Suggestions ---[\s\S]*?(?=---|$)/g, '')
+              .trim();
             return updated ? `${updated}\n\n${combinedInstructions}` : combinedInstructions;
           });
         }
@@ -149,7 +150,7 @@ function App() {  const {    resumeTemplates,
   const handleLatexGenerated = useCallback((latex: string) => {
     setGeneratedResumeLatex(latex);
   }, []);
-  
+
   const handleSetActivePrompt = useCallback((type: PromptType, promptId: string) => {
     setActivePrompt(type, promptId);
     setActivePrompts(prev => ({
@@ -164,9 +165,9 @@ function App() {  const {    resumeTemplates,
     // Fast Compile logic for resume
     if (fastCompile && promptType === 'resume') {
       // Use last used template or default
-      const templateIdToUse = selectedTemplateId !== "no-selection" ? selectedTemplateId : 
+      const templateIdToUse = selectedTemplateId !== "no-selection" ? selectedTemplateId :
         (resumeTemplates.length > 0 ? resumeTemplates[0].id : "");
-      
+
       if (!templateIdToUse) {
         toast.error("No resume template available. Please add a template first.");
         return;
@@ -190,7 +191,7 @@ function App() {  const {    resumeTemplates,
         showResumeInput: true,
         optionalInstructions: "Return the output as pure LaTeX code."
       });
-      
+
       setGeneratedPrompt(prompt);
       if (!prompt.startsWith("Error:")) {
         toast.success("Superfast LaTeX resume prompt generated!");
@@ -205,7 +206,8 @@ function App() {  const {    resumeTemplates,
     const resumeToUse = useTemporaryResume ? resumeContent : (resumeTemplate?.resumeLatex || resumeContent);
 
     if (promptType === 'resume') {
-      if (selectedTemplateId && selectedTemplateId !== "no-selection" && activePrompts.resume && activePrompts.resume !== "placeholder") {        const prompt = generateResumePrompt({
+      if (selectedTemplateId && selectedTemplateId !== "no-selection" && activePrompts.resume && activePrompts.resume !== "placeholder") {
+        const prompt = generateResumePrompt({
           jobDescription,
           resumeContent: resumeToUse,
           templateId: selectedTemplateId,
@@ -219,22 +221,23 @@ function App() {  const {    resumeTemplates,
         }
       } else {
         toast.error("Please select a resume template and prompt template.");
-      }    } else if (promptType === 'coverLetter') {
+      }
+    } else if (promptType === 'coverLetter') {
       // For cover letters, we only need a template ID if we're generating LaTeX
       const needsCoverLetterTemplateId = generateLatex;
       const needsActivePrompt = !!activePrompts.coverLetter && activePrompts.coverLetter !== "placeholder";
-      
+
       if (!needsActivePrompt) {
         toast.error("Please select a cover letter prompt template.");
         return;
       }
-      
+
       if (!needsCoverLetterTemplateId || (selectedCoverLetterTemplateId && selectedCoverLetterTemplateId !== "no-selection")) {
         // Get the selected cover letter template
         const coverTemplate = coverLetterTemplates.find(t => t.id === selectedCoverLetterTemplateId);
         // Use the provided cover letter template or the one from the selected template if we're generating LaTeX
         const coverLetterTemplateToUse = generateLatex ? (coverLetterTemplate || coverTemplate?.coverLetterTemplate || "") : "";
-        
+
         // Add LaTeX instruction if the checkbox is checked
         let additionalInstructions = hasOptionalInstructions ? optionalInstructions : "";
         if (generateLatex) {
@@ -244,7 +247,7 @@ function App() {  const {    resumeTemplates,
             additionalInstructions = "Return the output as pure LaTeX code.";
           }
         }
-        
+
         const prompt = generateCoverLetterPrompt({
           jobDescription,
           resumeContent: resumeToUse,  // Using the same resume as resume section
@@ -293,7 +296,7 @@ function App() {  const {    resumeTemplates,
     // Load cover letter template if available
     const template = coverLetterTemplates.find(t => t.id === templateId);
     console.log("Selected cover letter template:", template);
-    
+
     if (template?.coverLetterTemplate) {
       console.log("Found cover letter LaTeX content:", template.coverLetterTemplate.substring(0, 100) + "...");
       setCoverLetterTemplate(template.coverLetterTemplate);
@@ -312,7 +315,7 @@ function App() {  const {    resumeTemplates,
   const handlePromptTypeChange = useCallback((value: string) => {
     setPromptType(value as PromptType);
   }, []);
-    const handlePromptSelect = useCallback((promptId: string) => {
+  const handlePromptSelect = useCallback((promptId: string) => {
     // Don't set placeholder as the active prompt
     if (promptId !== "placeholder") {
       handleSetActivePrompt(promptType, promptId);
@@ -332,7 +335,7 @@ function App() {  const {    resumeTemplates,
   const handleDeleteCustomPrompt = (promptId: string) => {
     deleteCustomPrompt(promptId);
     toast.success("Custom prompt deleted successfully!");
-  };    const handleClearAll = () => {
+  }; const handleClearAll = () => {
     // Reset all working state (but preserve saved templates)
     setJobDescription("");
     setResumeContent("");
@@ -350,19 +353,19 @@ function App() {  const {    resumeTemplates,
     setSelectedTemplateId("no-selection");
     setSelectedCoverLetterTemplateId("no-selection");
     setGeneratedPrompt("");
-    
+
     // Reset active prompts
     setActivePrompts({
       resume: '',
       coverLetter: ''
     });
-    
+
     // Clear localStorage selections (but preserve saved templates)
     localStorage.removeItem("selectedTemplateId");
     localStorage.removeItem("selectedCoverLetterTemplateId");
     localStorage.removeItem("activePrompt_resume");
     localStorage.removeItem("activePrompt_coverLetter");
-    
+
     toast.success("All working data has been cleared!");
   };
 
@@ -370,229 +373,221 @@ function App() {  const {    resumeTemplates,
     <div className="overflow-auto">
       <div className="p-2">
         <Card className="w-full shadow-none border-0">          <CardHeader className="px-4 py-3">
-            <div className="flex flex-col gap-2">
-              <div className="flex justify-between items-center">
-                <div className="flex gap-2">
-                  <CardAction>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsSettingsOpen(true)}
-                      className="h-8 w-8 p-0"
-                      title="Settings"
-                    >
-                      <Settings className="h-4 w-4" />
-                      <span className="sr-only">Settings</span>
-                    </Button>
-                  </CardAction>
-                  <CardAction>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleClearAll}
-                      className="flex items-center gap-1 text-red-500 hover:text-red-600 hover:bg-red-50"
-                      title="Clear all data"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      <span className="text-xs">Clear All</span>
-                    </Button>
-                  </CardAction>
-                </div>
-                <GoogleAuthButton />
+          <div className="flex flex-col gap-2">
+            <div className="flex justify-between items-center">
+              <div className="flex gap-2">
+                <CardAction>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="h-8 w-8 p-0"
+                    title="Settings"
+                  >
+                    <Settings className="h-4 w-4" />
+                    <span className="sr-only">Settings</span>
+                  </Button>
+                </CardAction>
+                <CardAction>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearAll}
+                    className="flex items-center gap-1 text-red-500 hover:text-red-600 hover:bg-red-50"
+                    title="Clear all data"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="text-xs">Clear All</span>
+                  </Button>
+                </CardAction>
               </div>
+              <GoogleAuthButton />
             </div>
-          </CardHeader><CardContent className="space-y-4 px-4 py-3">
-          <PromptTypeSelector
-            promptType={promptType}
-            onChange={handlePromptTypeChange}
-          />
+          </div>
+        </CardHeader><CardContent className="space-y-4 px-4 py-3">
+            <PromptTypeSelector
+              promptType={promptType}
+              onChange={handlePromptTypeChange}
+            />
 
-          {/* Fast Compile toggle - only show for resume type */}
-          {promptType === 'resume' && (
-            <div className="space-y-1">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="fastCompile"
-                  checked={fastCompile}
-                  onCheckedChange={(checked) => setFastCompile(checked as boolean)}
-                />
-                <Label htmlFor="fastCompile" className="text-xs cursor-pointer">
-                  Fast Compile Mode
-                </Label>
-              </div>
-              <p className="text-xs text-gray-500 ml-5">
-                {fastCompile 
-                  ? "One-click: Generate prompt and LaTeX resume automatically" 
-                  : "Standard mode with manual template selection"}
-              </p>
-            </div>
-          )}<JobDescriptionInput
-            jobDescription={jobDescription}
-            onChange={(e) => setJobDescription(e.target.value)}
-          />
-
-          {/* Hide these sections when Fast Compile is enabled for resume */}
-          {!(fastCompile && promptType === 'resume') && (
-            <>
-              {/* Display prompt template selector based on prompt type */}
-              <PromptTemplateSelector
-                type={promptType}
-                prompts={customPrompts}
-                selectedPromptId={activePrompts[promptType] || ""}
-                onSelectPrompt={handlePromptSelect}
-                label={`${promptType === 'resume' ? 'Resume' : 'Cover Letter'} Prompt Template:`}
-              />
-
-              {/* Shared resume selector for both resume and cover letter types */}
-              <TemplateSelector
-                templates={resumeTemplates}
-                selectedTemplateId={selectedTemplateId}
-                onSelectTemplate={handleTemplateChange}
-                onAddTemplate={handleAddTemplate}
-                onLoadTemplate={(resumeLatex) => setResumeContent(resumeLatex)}
-                promptType="resume"
-                label="Saved Resume:"
-              />
-            </>
-          )}
-
-          {/* Only show cover letter template selector when in cover letter mode */}
-          {promptType === 'coverLetter' && (
-            <>
+            {/* Fast Compile toggle - only show for resume type */}
+            {promptType === 'resume' && (
               <div className="space-y-1">
                 <div className="flex items-center space-x-2">
                   <Checkbox
-                    id="generateLatex"
-                    checked={generateLatex}
-                    onCheckedChange={(checked) => setGenerateLatex(checked as boolean)}
+                    id="fastCompile"
+                    checked={fastCompile}
+                    onCheckedChange={(checked) => setFastCompile(checked as boolean)}
                   />
-                  <Label htmlFor="generateLatex" className="text-xs cursor-pointer">
-                    Generate .tex LaTeX output
+                  <Label htmlFor="fastCompile" className="text-xs cursor-pointer">
+                    Fast Compile Mode
                   </Label>
                 </div>
                 <p className="text-xs text-gray-500 ml-5">
-                  {generateLatex 
-                    ? "Cover letter will be returned as LaTeX code format" 
-                    : "Cover letter will be returned as plain text"}
+                  {fastCompile
+                    ? "One-click: Generate prompt and LaTeX resume automatically"
+                    : "Standard mode with manual template selection"}
                 </p>
               </div>
-              
-              {generateLatex && (
+            )}<JobDescriptionInput
+              jobDescription={jobDescription}
+              onChange={(e) => setJobDescription(e.target.value)}
+            />
+
+            {/* Hide these sections when Fast Compile is enabled for resume */}
+            {!(fastCompile && promptType === 'resume') && (
+              <>
+                {/* Display prompt template selector based on prompt type */}
+                <PromptTemplateSelector
+                  type={promptType}
+                  prompts={customPrompts}
+                  selectedPromptId={activePrompts[promptType] || ""}
+                  onSelectPrompt={handlePromptSelect}
+                  label={`${promptType === 'resume' ? 'Resume' : 'Cover Letter'} Prompt Template:`}
+                />
+
+                {/* Shared resume selector for both resume and cover letter types */}
                 <TemplateSelector
-                  templates={coverLetterTemplates}
-                  selectedTemplateId={selectedCoverLetterTemplateId}
-                  onSelectTemplate={handleCoverLetterTemplateChange}
+                  templates={resumeTemplates}
+                  selectedTemplateId={selectedTemplateId}
+                  onSelectTemplate={handleTemplateChange}
                   onAddTemplate={handleAddTemplate}
-                  onLoadTemplate={(coverLetterTemplate) => setCoverLetterTemplate(coverLetterTemplate)}
-                  promptType="coverLetter"
-                  label="Cover Letter Template:"
+                  onLoadTemplate={(resumeLatex) => setResumeContent(resumeLatex)}
+                  promptType="resume"
+                  label="Saved Resume:"
                 />
-              )}
-            </>
-          )}          {!(fastCompile && promptType === 'resume') && (
-            <>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="useTemporaryResume"
-                  checked={useTemporaryResume}
-                  onCheckedChange={(checked) => setUseTemporaryResume(checked as boolean)}
+              </>
+            )}
+
+            {/* Only show cover letter template selector when in cover letter mode */}
+            {promptType === 'coverLetter' && (
+              <>
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="generateLatex"
+                      checked={generateLatex}
+                      onCheckedChange={(checked) => setGenerateLatex(checked as boolean)}
+                    />
+                    <Label htmlFor="generateLatex" className="text-xs cursor-pointer">
+                      Generate .tex LaTeX output
+                    </Label>
+                  </div>
+                  <p className="text-xs text-gray-500 ml-5">
+                    {generateLatex
+                      ? "Cover letter will be returned as LaTeX code format"
+                      : "Cover letter will be returned as plain text"}
+                  </p>
+                </div>
+
+                {generateLatex && (
+                  <TemplateSelector
+                    templates={coverLetterTemplates}
+                    selectedTemplateId={selectedCoverLetterTemplateId}
+                    onSelectTemplate={handleCoverLetterTemplateChange}
+                    onAddTemplate={handleAddTemplate}
+                    onLoadTemplate={(coverLetterTemplate) => setCoverLetterTemplate(coverLetterTemplate)}
+                    promptType="coverLetter"
+                    label="Cover Letter Template:"
+                  />
+                )}
+              </>
+            )}          
+            {!(fastCompile && promptType === 'resume') && (
+              <>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="useTemporaryResume"
+                    checked={useTemporaryResume}
+                    onCheckedChange={(checked) => setUseTemporaryResume(checked as boolean)}
+                  />
+                  <Label htmlFor="useTemporaryResume" className="text-xs cursor-pointer">
+                    Use temporary resume text
+                  </Label>
+                </div>          <ResumeInput
+                  resumeContent={resumeContent}
+                  onChange={(e) => {
+                    // Store original content if not already set
+                    if (!originalResumeContent && resumeContent && resumeContent !== e.target.value) {
+                      setOriginalResumeContent(resumeContent);
+                    }
+                    setResumeContent(e.target.value);
+                  }}
+                  visible={useTemporaryResume} />                {/* Combined ATS Analysis & Suggestions - single API call for both scoring and suggestions */}
+                {promptType === 'resume' && jobDescription && resumeContent && (
+                  <CombinedATSAnalysis
+                    jobDescription={jobDescription}
+                    resumeContent={resumeContent}
+                    onAnalysisComplete={handleInitialATSAnalysis}
+                    onMissingKeywords={handleMissingKeywords}
+                    onSuggestionsChange={setAtsSuggestions}
+                    disabled={!selectedTemplateId || selectedTemplateId === "no-selection"}
+                  />
+                )}
+
+                <OptionalInstructions
+                  hasInstructions={hasOptionalInstructions}
+                  instructions={optionalInstructions}
+                  onToggleInstructions={setHasOptionalInstructions}
+                  onInstructionsChange={(e) => setOptionalInstructions(e.target.value)}
                 />
-                <Label htmlFor="useTemporaryResume" className="text-xs cursor-pointer">
-                  Use temporary resume text
-                </Label>
-              </div>          <ResumeInput
-            resumeContent={resumeContent}
-            onChange={(e) => {
-              // Store original content if not already set
-              if (!originalResumeContent && resumeContent && resumeContent !== e.target.value) {
-                setOriginalResumeContent(resumeContent);
+              </>
+            )}          <Button
+              onClick={handleGeneratePrompt}
+              className="w-full h-8 text-sm"
+              disabled={
+                !jobDescription ||
+                (fastCompile && promptType === 'resume' ?
+                  // Fast Compile mode for resume - only need job description
+                  false :
+                  // Normal mode - need all the usual requirements
+                  (!activePrompts[promptType] || activePrompts[promptType] === "placeholder" ||
+                    (promptType === 'resume' && (!selectedTemplateId || selectedTemplateId === "no-selection")) ||
+                    (promptType === 'coverLetter' && generateLatex && (!selectedCoverLetterTemplateId || selectedCoverLetterTemplateId === "no-selection")))
+                )
               }
-              setResumeContent(e.target.value);
-            }}
-            visible={useTemporaryResume}          />
+            >
+              {fastCompile && promptType === 'resume'
+                ? 'Fast Generate LaTeX Resume'
+                : `Generate ${promptType === 'resume' ? 'Resume' : 'Cover Letter'} Prompt`
+              }
+            </Button>
 
-          {/* Initial ATS Analysis - run immediately when job description and resume are available */}
-          {promptType === 'resume' && jobDescription && resumeContent && (
-            <InitialATSAnalysis
-              jobDescription={jobDescription}
-              resumeContent={resumeContent}
-              onAnalysisComplete={handleInitialATSAnalysis}
-              onMissingKeywords={handleMissingKeywords}
-              disabled={!selectedTemplateId || selectedTemplateId === "no-selection"}
-            />
-          )}
-
-          {/* ATS Suggestions - show after job description and resume are available */}
-          {promptType === 'resume' && jobDescription && resumeContent && (
-            <ATSSuggestions
-              jobDescription={jobDescription}
-              resumeContent={resumeContent}
-              onSuggestionsChange={setAtsSuggestions}
-              disabled={!selectedTemplateId || selectedTemplateId === "no-selection"}
-            />
-          )}
-
-              <OptionalInstructions
-                hasInstructions={hasOptionalInstructions}
-                instructions={optionalInstructions}
-                onToggleInstructions={setHasOptionalInstructions}
-                onInstructionsChange={(e) => setOptionalInstructions(e.target.value)}
+            {generatedPrompt && (
+              <PromptDisplay prompt={generatedPrompt} onCopy={copyPrompt} />
+            )}          {promptType === 'resume' && (
+              // Show for fast compile mode when we have job description, or normal mode when we have all requirements
+              (fastCompile && jobDescription) ||
+              (!fastCompile && jobDescription && resumeContent && selectedTemplateId && selectedTemplateId !== "no-selection")
+            ) && (
+                <ResumeLaTeXGenerator
+                  generatedPrompt={generatedPrompt}
+                  autoGenerate={fastCompile && !!generatedPrompt}
+                  onLatexGenerated={handleLatexGenerated}
+                />
+              )}          {promptType === 'coverLetter' && generatedPrompt && (
+                <CoverLetterGenerator
+                  generatedPrompt={generatedPrompt}
+                  generateLatex={generateLatex}
+                />
+              )}          {/* ATS Insights Tracker - show when we have job description and generated LaTeX resume */}
+            {promptType === 'resume' && jobDescription && originalResumeContent && generatedResumeLatex && (
+              <ATSInsightsTracker
+                jobDescription={jobDescription}
+                originalResume={originalResumeContent}
+                tailoredResume={generatedResumeLatex}
+                autoAnalyze={true}
+                initialScore={initialATSScore}
               />
-            </>
-          )}          <Button
-            onClick={handleGeneratePrompt}
-            className="w-full h-8 text-sm"
-            disabled={
-              !jobDescription ||
-              (fastCompile && promptType === 'resume' ? 
-                // Fast Compile mode for resume - only need job description
-                false :
-                // Normal mode - need all the usual requirements
-                (!activePrompts[promptType] || activePrompts[promptType] === "placeholder" ||
-                (promptType === 'resume' && (!selectedTemplateId || selectedTemplateId === "no-selection")) ||
-                (promptType === 'coverLetter' && generateLatex && (!selectedCoverLetterTemplateId || selectedCoverLetterTemplateId === "no-selection")))
-              )
-            }
-          >
-            {fastCompile && promptType === 'resume' 
-              ? 'Fast Generate LaTeX Resume' 
-              : `Generate ${promptType === 'resume' ? 'Resume' : 'Cover Letter'} Prompt`
-            }
-          </Button>
+            )}
 
-          {generatedPrompt && (
-            <PromptDisplay prompt={generatedPrompt} onCopy={copyPrompt} />
-          )}          {promptType === 'resume' && (
-            // Show for fast compile mode when we have job description, or normal mode when we have all requirements
-            (fastCompile && jobDescription) || 
-            (!fastCompile && jobDescription && resumeContent && selectedTemplateId && selectedTemplateId !== "no-selection")
-          ) && (
-            <ResumeLaTeXGenerator
-              generatedPrompt={generatedPrompt}
-              autoGenerate={fastCompile && !!generatedPrompt}
-              onLatexGenerated={handleLatexGenerated}
-            />
-          )}          {promptType === 'coverLetter' && generatedPrompt && (
-            <CoverLetterGenerator
-              generatedPrompt={generatedPrompt}
-              generateLatex={generateLatex}
-            />
-          )}          {/* ATS Insights Tracker - show when we have job description and generated LaTeX resume */}
-          {promptType === 'resume' && jobDescription && originalResumeContent && generatedResumeLatex && (
-            <ATSInsightsTracker
-              jobDescription={jobDescription}
-              originalResume={originalResumeContent}
-              tailoredResume={generatedResumeLatex}
-              autoAnalyze={true}
-              initialScore={initialATSScore}
-            />
-          )}
-
-          <div className="mt-4">
-            <GoogleAuthButton />
-          </div>        </CardContent>
-      </Card>
-      </div>      <SettingsDialog
+            <div className="mt-4">
+              <GoogleAuthButton />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      <SettingsDialog
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         customPrompts={customPrompts}
