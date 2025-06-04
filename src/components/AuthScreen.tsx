@@ -7,7 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { toast } from "sonner";
 import { LogIn, LogOut, User, Mail, Lock, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
-import { Link } from "react-router-dom";
 
 export function AuthScreen() {
   const [isLoading, setIsLoading] = useState(false);
@@ -325,14 +324,14 @@ export function AuthScreen() {
       
       <CardFooter className="p-4 pt-2 flex justify-center">
         <div className="text-center">
-          <Link 
-            to="/privacy" 
+          <a 
+            href="https://github.com/sreehariprathap/Resumeow-AI/blob/awesome-resumeow/privacy-policy.md" 
             className="text-xs text-primary hover:underline"
             target="_blank"
             rel="noopener noreferrer"
           >
             Privacy Policy
-          </Link>
+          </a>
         </div>
       </CardFooter>
     </Card>

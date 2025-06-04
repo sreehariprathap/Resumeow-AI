@@ -527,7 +527,7 @@ export const SettingsDialog = ({
                     <h4 className="text-sm font-medium mb-2">Legal</h4>
                     <div className="flex flex-col gap-1.5">
                       <button
-                        onClick={() => window.open('/privacy', '_blank')}
+                        onClick={() => window.open('https://github.com/sreehariprathap/Resumeow-AI/blob/awesome-resumeow/privacy-policy.md', '_blank')}
                         className="text-xs text-primary hover:underline text-left"
                       >
                         Privacy Policy

@@ -49,7 +49,7 @@ export const TemplateSelector = ({
   };
   
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 flex flex-col gap-2">
       <div className="flex justify-between items-center">
         <label className="text-xs font-medium">
           {label}

@@ -409,7 +409,7 @@ function App() {
                     title="Clear all data"
                   >
                     <Trash2 className="h-4 w-4" />
-                    <span className="text-xs">Clear All</span>
+                    <span className="text-xs sr-only">Clear All</span>
                   </Button>
                 </CardAction>
               </div>
@@ -441,7 +441,8 @@ function App() {
                     : "Standard mode with manual template selection"}
                 </p>
               </div>
-            )}<JobDescriptionInput
+            )}
+            <JobDescriptionInput
               jobDescription={jobDescription}
               onChange={(e) => setJobDescription(e.target.value)}
             />

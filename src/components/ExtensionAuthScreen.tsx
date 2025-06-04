@@ -331,7 +331,7 @@ export function ExtensionAuthScreen() {
       <CardFooter className="p-4 pt-2 flex justify-center">
         <div className="text-center">
           <button 
-            onClick={() => window.open('https://yourwebsite.com/privacy', '_blank')}
+            onClick={() => window.open('https://github.com/sreehariprathap/Resumeow-AI/blob/awesome-resumeow/privacy-policy.md', '_blank')}
             className="text-xs text-primary hover:underline"
           >
             Privacy Policy

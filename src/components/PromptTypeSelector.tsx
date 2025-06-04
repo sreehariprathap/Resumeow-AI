@@ -11,7 +11,7 @@ type Props = {
 // Using memo to prevent unnecessary re-renders
 export const PromptTypeSelector = memo(({ promptType, onChange }: Props) => {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 flex flex-col gap-2">
       <label className="text-xs font-medium">Choose Prompt Type:</label>
       <RadioGroup value={promptType} onValueChange={onChange} className="flex space-x-4">
         <div className="flex items-center space-x-2">

@@ -2,7 +2,6 @@ import { useAuth } from "@/lib/authContext";
 import { AuthScreen } from "./components/AuthScreen";
 import { WebHeader } from "./components/WebHeader";
 import { WebFooter } from "./components/WebFooter";
-import { useLocation } from "react-router-dom";
 
 interface AuthWrapperProps {
   children: React.ReactNode;
@@ -10,13 +9,10 @@ interface AuthWrapperProps {
 
 export default function AuthWrapper({ children }: AuthWrapperProps) {
   const { isAuthenticated, isLoading } = useAuth();
-  const location = useLocation();
     // Check if the current path is the privacy policy page or test page
-  const isPrivacyPage = location.pathname === "/privacy";
-  const isTestPage = location.pathname === "/test";
-  
+  const isPrivacyPage = "https://github.com/sreehariprathap/Resumeow-AI/blob/awesome-resumeow/privacy-policy.md"
   // If it's the privacy policy page or test page, render it without authentication check
-  if (isPrivacyPage || isTestPage) {
+  if (isPrivacyPage) {
     return (
       <>
         <WebHeader />
