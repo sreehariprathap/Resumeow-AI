@@ -65,19 +65,21 @@ export function useTemplates() {
   const initialLoadRef = useRef(false);
   const prevUserRef = useRef<string | null>(null);
   const pendingSaveRef = useRef(false);
-  
-  // Function to save to localStorage
+    // Function to save to localStorage with user isolation
   const saveToLocalStorage = useCallback(() => {
+    if (!currentUser) return; // Only save to localStorage if user is logged in
+    
+    const userKey = `user_${currentUser.uid}`;
     if (resumeTemplates.length > 0) {
-      localStorage.setItem("resumeTemplates", JSON.stringify(resumeTemplates));
+      localStorage.setItem(`${userKey}_resumeTemplates`, JSON.stringify(resumeTemplates));
     }
     if (coverLetterTemplates.length > 0) {
-      localStorage.setItem("coverLetterTemplates", JSON.stringify(coverLetterTemplates));
+      localStorage.setItem(`${userKey}_coverLetterTemplates`, JSON.stringify(coverLetterTemplates));
     }
     if (customPrompts.length > 0) {
-      localStorage.setItem("customPrompts", JSON.stringify(customPrompts));
+      localStorage.setItem(`${userKey}_customPrompts`, JSON.stringify(customPrompts));
     }
-  }, [resumeTemplates, coverLetterTemplates, customPrompts]);
+  }, [currentUser, resumeTemplates, coverLetterTemplates, customPrompts]);
 
   // Save to Firebase if user is logged in
   const saveToFirebase = useCallback(async () => {
@@ -100,39 +102,63 @@ export function useTemplates() {
       pendingSaveRef.current = false;
     }
   }, [currentUser, resumeTemplates, coverLetterTemplates, customPrompts]);
-
-  // Load data functions
+  // Load data functions with user isolation
   const loadResumeTemplatesFromLocalStorage = useCallback(() => {
-    const savedResumeTemplates = localStorage.getItem("resumeTemplates");
+    if (!currentUser) {
+      setResumeTemplates(DEFAULT_RESUME_TEMPLATES);
+      return;
+    }
+    
+    const userKey = `user_${currentUser.uid}`;
+    const savedResumeTemplates = localStorage.getItem(`${userKey}_resumeTemplates`);
     if (savedResumeTemplates) {
       setResumeTemplates(JSON.parse(savedResumeTemplates));
     } else {
       setResumeTemplates(DEFAULT_RESUME_TEMPLATES);
-      localStorage.setItem("resumeTemplates", JSON.stringify(DEFAULT_RESUME_TEMPLATES));
+      localStorage.setItem(`${userKey}_resumeTemplates`, JSON.stringify(DEFAULT_RESUME_TEMPLATES));
     }
-  }, []);
+  }, [currentUser]);
 
   const loadCoverLetterTemplatesFromLocalStorage = useCallback(() => {
-    const savedCoverLetterTemplates = localStorage.getItem("coverLetterTemplates");
+    if (!currentUser) {
+      setCoverLetterTemplates(DEFAULT_COVER_LETTER_TEMPLATES);
+      return;
+    }
+    
+    const userKey = `user_${currentUser.uid}`;
+    const savedCoverLetterTemplates = localStorage.getItem(`${userKey}_coverLetterTemplates`);
     if (savedCoverLetterTemplates) {
       setCoverLetterTemplates(JSON.parse(savedCoverLetterTemplates));
     } else {
       setCoverLetterTemplates(DEFAULT_COVER_LETTER_TEMPLATES);
-      localStorage.setItem("coverLetterTemplates", JSON.stringify(DEFAULT_COVER_LETTER_TEMPLATES));
+      localStorage.setItem(`${userKey}_coverLetterTemplates`, JSON.stringify(DEFAULT_COVER_LETTER_TEMPLATES));
     }
-  }, []);
+  }, [currentUser]);
 
   const loadCustomPromptsFromLocalStorage = useCallback(() => {
-    const savedCustomPrompts = localStorage.getItem("customPrompts");
+    if (!currentUser) {
+      setCustomPrompts(DEFAULT_CUSTOM_PROMPTS);
+      return;
+    }
+    
+    const userKey = `user_${currentUser.uid}`;
+    const savedCustomPrompts = localStorage.getItem(`${userKey}_customPrompts`);
     if (savedCustomPrompts) {
       setCustomPrompts(JSON.parse(savedCustomPrompts));
     } else {
       setCustomPrompts(DEFAULT_CUSTOM_PROMPTS);
-      localStorage.setItem("customPrompts", JSON.stringify(DEFAULT_CUSTOM_PROMPTS));
+      localStorage.setItem(`${userKey}_customPrompts`, JSON.stringify(DEFAULT_CUSTOM_PROMPTS));
     }
-  }, []);
-  
-  const loadFromLocalStorage = useCallback(() => {
+  }, [currentUser]);
+    const loadFromLocalStorage = useCallback(() => {
+    if (!currentUser) {
+      // For non-logged-in users, always use defaults and don't persist
+      setResumeTemplates(DEFAULT_RESUME_TEMPLATES);
+      setCoverLetterTemplates(DEFAULT_COVER_LETTER_TEMPLATES);
+      setCustomPrompts(DEFAULT_CUSTOM_PROMPTS);
+      return;
+    }
+    
     try {
       loadResumeTemplatesFromLocalStorage();
       loadCoverLetterTemplatesFromLocalStorage();
@@ -144,7 +170,7 @@ export function useTemplates() {
       setCoverLetterTemplates(DEFAULT_COVER_LETTER_TEMPLATES);
       setCustomPrompts(DEFAULT_CUSTOM_PROMPTS);
     }
-  }, [loadResumeTemplatesFromLocalStorage, loadCoverLetterTemplatesFromLocalStorage, loadCustomPromptsFromLocalStorage]);
+  }, [currentUser, loadResumeTemplatesFromLocalStorage, loadCoverLetterTemplatesFromLocalStorage, loadCustomPromptsFromLocalStorage]);
 
   // Load data on initial mount and when user changes
   useEffect(() => {
@@ -201,10 +227,11 @@ export function useTemplates() {
             
             // Save to Firebase after state updates
             setTimeout(() => saveToFirebase(), 100);
-          }
-        } else {
-          // No user logged in, load from local storage
-          loadFromLocalStorage();
+          }        } else {
+          // No user logged in, load defaults only (no localStorage for anonymous users)
+          setResumeTemplates(DEFAULT_RESUME_TEMPLATES);
+          setCoverLetterTemplates(DEFAULT_COVER_LETTER_TEMPLATES);
+          setCustomPrompts(DEFAULT_CUSTOM_PROMPTS);
         }
       } catch (error) {
         console.error("Error loading templates:", error);
@@ -216,22 +243,19 @@ export function useTemplates() {
     loadTemplates();
   }, [currentUser, loadFromLocalStorage, loadResumeTemplatesFromLocalStorage, 
       loadCoverLetterTemplatesFromLocalStorage, loadCustomPromptsFromLocalStorage, saveToFirebase]);
-
   // Combined effect for saving changes
   useEffect(() => {
     // Skip the first render and only run this effect when initialLoadRef is true
-    if (!initialLoadRef.current) return;
+    if (!initialLoadRef.current || !currentUser) return;
     
-    // Save to localStorage first (always)
+    // Save to localStorage first (with user isolation)
     saveToLocalStorage();
     
-    // If user is logged in, save to Firebase with debounce
-    if (currentUser) {
-      const timer = setTimeout(() => {
-        saveToFirebase();
-      }, 500);
-      return () => clearTimeout(timer);
-    }
+    // Save to Firebase with debounce
+    const timer = setTimeout(() => {
+      saveToFirebase();
+    }, 500);
+    return () => clearTimeout(timer);
   }, [resumeTemplates, coverLetterTemplates, customPrompts, currentUser, saveToLocalStorage, saveToFirebase]);
   // Add a new template
   const addTemplate = useCallback((type: PromptType, template: Template) => {
@@ -267,10 +291,15 @@ export function useTemplates() {
   const deleteCustomPrompt = useCallback((promptId: string) => {
     setCustomPrompts(prev => prev.filter(p => p.id !== promptId));
   }, []);
-
   // Get the active prompt for a specific type
   const getActivePrompt = useCallback((type: PromptType): CustomPrompt => {
-    const savedActivePromptId = localStorage.getItem(`activePrompt_${type}`);
+    if (!currentUser) {
+      // For non-logged-in users, return default prompts
+      return type === 'resume' ? DEFAULT_CUSTOM_PROMPTS[0] : DEFAULT_CUSTOM_PROMPTS[1];
+    }
+    
+    const userKey = `user_${currentUser.uid}`;
+    const savedActivePromptId = localStorage.getItem(`${userKey}_activePrompt_${type}`);
     if (savedActivePromptId) {
       const foundPrompt = customPrompts.find(p => p.id === savedActivePromptId && p.type === type);
       if (foundPrompt) return foundPrompt;
@@ -278,20 +307,39 @@ export function useTemplates() {
     // Return default if no active prompt is set
     return customPrompts.find(p => p.type === type) || 
            (type === 'resume' ? DEFAULT_CUSTOM_PROMPTS[0] : DEFAULT_CUSTOM_PROMPTS[1]);
-  }, [customPrompts]);
+  }, [currentUser, customPrompts]);
 
   // Set the active prompt for a specific type
   const setActivePrompt = useCallback((type: PromptType, promptId: string) => {
-    localStorage.setItem(`activePrompt_${type}`, promptId);
-  }, []);
-
+    if (!currentUser) return; // Don't persist for non-logged-in users
+    
+    const userKey = `user_${currentUser.uid}`;
+    localStorage.setItem(`${userKey}_activePrompt_${type}`, promptId);
+  }, [currentUser]);
   // Reset to default templates and clear storage
   const resetTemplates = useCallback(() => {
     setResumeTemplates(DEFAULT_RESUME_TEMPLATES);
     setCoverLetterTemplates(DEFAULT_COVER_LETTER_TEMPLATES);
     setCustomPrompts(DEFAULT_CUSTOM_PROMPTS);
     
-    // Clear user's saved data
+    if (currentUser) {
+      const userKey = `user_${currentUser.uid}`;
+      // Clear user's saved data with user-isolated keys
+      localStorage.removeItem(`${userKey}_resumeTemplates`);
+      localStorage.removeItem(`${userKey}_coverLetterTemplates`);
+      localStorage.removeItem(`${userKey}_customPrompts`);
+      localStorage.removeItem(`${userKey}_activePrompt_resume`);
+      localStorage.removeItem(`${userKey}_activePrompt_coverLetter`);
+      localStorage.removeItem(`${userKey}_selectedTemplateId`);
+      localStorage.removeItem(`${userKey}_selectedCoverLetterTemplateId`);
+      
+      // Add back defaults to localStorage with user isolation
+      localStorage.setItem(`${userKey}_resumeTemplates`, JSON.stringify(DEFAULT_RESUME_TEMPLATES));
+      localStorage.setItem(`${userKey}_coverLetterTemplates`, JSON.stringify(DEFAULT_COVER_LETTER_TEMPLATES));
+      localStorage.setItem(`${userKey}_customPrompts`, JSON.stringify(DEFAULT_CUSTOM_PROMPTS));
+    }
+    
+    // Also clear any legacy non-user-isolated keys to clean up old data
     localStorage.removeItem("resumeTemplates");
     localStorage.removeItem("coverLetterTemplates");
     localStorage.removeItem("customPrompts");
@@ -299,12 +347,7 @@ export function useTemplates() {
     localStorage.removeItem("activePrompt_coverLetter");
     localStorage.removeItem("selectedTemplateId");
     localStorage.removeItem("selectedCoverLetterTemplateId");
-    
-    // Add back defaults to localStorage
-    localStorage.setItem("resumeTemplates", JSON.stringify(DEFAULT_RESUME_TEMPLATES));
-    localStorage.setItem("coverLetterTemplates", JSON.stringify(DEFAULT_COVER_LETTER_TEMPLATES));
-    localStorage.setItem("customPrompts", JSON.stringify(DEFAULT_CUSTOM_PROMPTS));
-  }, []);
+  }, [currentUser]);
 
   return {
     resumeTemplates,

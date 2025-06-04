@@ -14,6 +14,7 @@ import { PromptTemplateSelector } from "./components/PromptTemplateSelector";
 import { useTemplates } from "./hooks/useTemplates";
 import { usePromptGenerator } from "./hooks/usePromptGenerator";
 import { useAIProvider } from "./lib/aiProviderContext";
+import { useAuth } from "./lib/authContext";
 import { Card, CardContent, CardHeader, CardAction } from "./components/ui/card";
 import { Button } from "./components/ui/button";
 import { Label } from "./components/ui/label";
@@ -36,6 +37,7 @@ interface ATSScore {
 }
 
 function App() {
+  const { currentUser } = useAuth();
   const { resumeTemplates,
     coverLetterTemplates,
     customPrompts,
@@ -68,36 +70,69 @@ function App() {
     recommendations: string[];
   } | null>(null);
   const [missingKeywords, setMissingKeywords] = useState<string[]>([]);
-  const [generatedResumeLatex, setGeneratedResumeLatex] = useState<string>("");
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(() => {
-    const saved = localStorage.getItem("selectedTemplateId");
+  const [generatedResumeLatex, setGeneratedResumeLatex] = useState<string>("");  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(() => {
+    if (!currentUser) return "no-selection";
+    const userKey = `user_${currentUser.uid}`;
+    const saved = localStorage.getItem(`${userKey}_selectedTemplateId`);
     return saved && saved !== "" ? saved : "no-selection";
   });
   const [selectedCoverLetterTemplateId, setSelectedCoverLetterTemplateId] = useState<string>(() => {
-    const saved = localStorage.getItem("selectedCoverLetterTemplateId");
+    if (!currentUser) return "no-selection";
+    const userKey = `user_${currentUser.uid}`;
+    const saved = localStorage.getItem(`${userKey}_selectedCoverLetterTemplateId`);
     return saved && saved !== "" ? saved : "no-selection";
   });
   const [generatedPrompt, setGeneratedPrompt] = useState("");
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [activePrompts, setActivePrompts] = useState<Record<PromptType, string>>({
-    resume: localStorage.getItem('activePrompt_resume') || '',
-    coverLetter: localStorage.getItem('activePrompt_coverLetter') || ''
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);  const [activePrompts, setActivePrompts] = useState<Record<PromptType, string>>(() => {
+    if (!currentUser) return { resume: '', coverLetter: '' };
+    const userKey = `user_${currentUser.uid}`;
+    return {
+      resume: localStorage.getItem(`${userKey}_activePrompt_resume`) || '',
+      coverLetter: localStorage.getItem(`${userKey}_activePrompt_coverLetter`) || ''
+    };
   });
-
   // Persist user preferences
   useEffect(() => {
+    if (!currentUser) return;
+    const userKey = `user_${currentUser.uid}`;
     // Only save valid template IDs
     if (selectedTemplateId && selectedTemplateId !== "no-selection") {
-      localStorage.setItem("selectedTemplateId", selectedTemplateId);
+      localStorage.setItem(`${userKey}_selectedTemplateId`, selectedTemplateId);
     }
-  }, [selectedTemplateId]);
+  }, [currentUser, selectedTemplateId]);
 
   useEffect(() => {
+    if (!currentUser) return;
+    const userKey = `user_${currentUser.uid}`;
     // Only save valid template IDs
     if (selectedCoverLetterTemplateId && selectedCoverLetterTemplateId !== "no-selection") {
-      localStorage.setItem("selectedCoverLetterTemplateId", selectedCoverLetterTemplateId);
+      localStorage.setItem(`${userKey}_selectedCoverLetterTemplateId`, selectedCoverLetterTemplateId);
+    }  }, [currentUser, selectedCoverLetterTemplateId]);
+
+  // Handle user changes - reset state when user changes
+  useEffect(() => {
+    if (currentUser) {
+      // User logged in - load their saved preferences
+      const userKey = `user_${currentUser.uid}`;
+      const savedTemplateId = localStorage.getItem(`${userKey}_selectedTemplateId`);
+      const savedCoverLetterTemplateId = localStorage.getItem(`${userKey}_selectedCoverLetterTemplateId`);
+      const savedResumePrompt = localStorage.getItem(`${userKey}_activePrompt_resume`);
+      const savedCoverLetterPrompt = localStorage.getItem(`${userKey}_activePrompt_coverLetter`);
+      
+      setSelectedTemplateId(savedTemplateId && savedTemplateId !== "" ? savedTemplateId : "no-selection");
+      setSelectedCoverLetterTemplateId(savedCoverLetterTemplateId && savedCoverLetterTemplateId !== "" ? savedCoverLetterTemplateId : "no-selection");
+      setActivePrompts({
+        resume: savedResumePrompt || '',
+        coverLetter: savedCoverLetterPrompt || ''
+      });
+    } else {
+      // User logged out - reset to defaults
+      setSelectedTemplateId("no-selection");
+      setSelectedCoverLetterTemplateId("no-selection");
+      setActivePrompts({ resume: '', coverLetter: '' });
     }
-  }, [selectedCoverLetterTemplateId]);
+  }, [currentUser?.uid]); // Only trigger when user ID changes
+
   // Reset ATS tracking when job description changes
   useEffect(() => {
     if (jobDescription && !originalResumeContent && resumeContent) {
@@ -360,9 +395,16 @@ function App() {
     setActivePrompts({
       resume: '',
       coverLetter: ''
-    });
-
-    // Clear localStorage selections (but preserve saved templates)
+    });    // Clear localStorage selections (but preserve saved templates)
+    if (currentUser) {
+      const userKey = `user_${currentUser.uid}`;
+      localStorage.removeItem(`${userKey}_selectedTemplateId`);
+      localStorage.removeItem(`${userKey}_selectedCoverLetterTemplateId`);
+      localStorage.removeItem(`${userKey}_activePrompt_resume`);
+      localStorage.removeItem(`${userKey}_activePrompt_coverLetter`);
+    }
+    
+    // Also clear legacy non-user-isolated keys for cleanup
     localStorage.removeItem("selectedTemplateId");
     localStorage.removeItem("selectedCoverLetterTemplateId");
     localStorage.removeItem("activePrompt_resume");

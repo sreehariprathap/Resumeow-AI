@@ -47,14 +47,16 @@ interface AIProviderProviderProps {
 
 export function AIProviderProvider({ children }: AIProviderProviderProps) {
   const { currentUser } = useAuth();
-  
-  // Initialize with localStorage fallback or default model
+    // Initialize with localStorage fallback or default model
   const getInitialModel = (): AIModel => {
     try {
-      const savedModelId = localStorage.getItem('userPreferredModel');
-      if (savedModelId) {
-        const model = AVAILABLE_MODELS.find(m => m.id === savedModelId);
-        if (model) return model;
+      if (currentUser) {
+        const userKey = `user_${currentUser.uid}`;
+        const savedModelId = localStorage.getItem(`${userKey}_userPreferredModel`);
+        if (savedModelId) {
+          const model = AVAILABLE_MODELS.find(m => m.id === savedModelId);
+          if (model) return model;
+        }
       }
     } catch (error) {
       console.error("Error reading from localStorage:", error);
@@ -66,6 +68,29 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
   const [openRouterApiKey, setOpenRouterApiKeyState] = useState<string>('');
   const [geminiApiKey, setGeminiApiKeyState] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  // Handle user changes - reset to default model when user changes or logs out
+  useEffect(() => {
+    if (!currentUser) {
+      // User logged out - reset to default model
+      setSelectedModelState(AVAILABLE_MODELS[0]);
+      setOpenRouterApiKeyState('');
+      setGeminiApiKeyState('');
+    } else {
+      // User logged in - load their preferred model from localStorage if available
+      const userKey = `user_${currentUser.uid}`;
+      try {
+        const savedModelId = localStorage.getItem(`${userKey}_userPreferredModel`);
+        if (savedModelId) {
+          const model = AVAILABLE_MODELS.find(m => m.id === savedModelId);
+          if (model) {
+            setSelectedModelState(model);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading user's preferred model:", error);
+      }
+    }
+  }, [currentUser]); // Trigger when user changes
   // Load settings from Firebase or environment variables
   useEffect(() => {
     const loadSettings = async () => {
@@ -84,10 +109,12 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
               const model = AVAILABLE_MODELS.find(m => m.id === preferredModelId);
               if (model) {
                 console.log("Setting model from Firebase:", model);
-                setSelectedModelState(model);
-                // Also update localStorage to keep it in sync
+                setSelectedModelState(model);                // Also update localStorage to keep it in sync
                 try {
-                  localStorage.setItem('userPreferredModel', model.id);
+                  if (currentUser) {
+                    const userKey = `user_${currentUser.uid}`;
+                    localStorage.setItem(`${userKey}_userPreferredModel`, model.id);
+                  }
                 } catch (error) {
                   console.error("Error updating localStorage:", error);
                 }
@@ -152,10 +179,12 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
   };  const setSelectedModel = async (model: AIModel) => {
     console.log("Setting selected model:", model);
     setSelectedModelState(model);
-    
-    // Save to localStorage for persistence
+      // Save to localStorage for persistence
     try {
-      localStorage.setItem('userPreferredModel', model.id);
+      if (currentUser) {
+        const userKey = `user_${currentUser.uid}`;
+        localStorage.setItem(`${userKey}_userPreferredModel`, model.id);
+      }
     } catch (error) {
       console.error("Error saving to localStorage:", error);
     }

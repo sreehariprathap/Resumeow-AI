@@ -6,6 +6,10 @@ import { Button } from "./ui/button";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "./ui/dialog";
 import { Label } from "./ui/label";
+import { Switch } from "./ui/switch";
+import { Cloud, CloudOff, Info } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/lib/authContext";
 import type { CustomPrompt, PromptType } from "@/types";
 
 interface CustomPromptDialogProps {
@@ -25,16 +29,22 @@ export const CustomPromptDialog = ({
   isEditing = false,
   initialType = 'resume'
 }: CustomPromptDialogProps) => {
+  const { currentUser } = useAuth();
   const [promptType, setPromptType] = useState<PromptType>(initialType);
-  const [promptName, setPromptName] = useState("");  const [promptContent, setPromptContent] = useState("");
+  const [promptName, setPromptName] = useState("");
+  const [promptContent, setPromptContent] = useState("");
   const [resumePosition, setResumePosition] = useState("{RESUME}");
   const [jobDescriptionPosition, setJobDescriptionPosition] = useState("{JOB_DESCRIPTION}");
   const [optionalInstructionsPosition, setOptionalInstructionsPosition] = useState("{OPTIONAL_INSTRUCTIONS}");
-  const [coverLetterTemplatePosition, setCoverLetterTemplatePosition] = useState("{COVER_LETTER_TEMPLATE}");  const [showPreview, setShowPreview] = useState(false);
-
+  const [coverLetterTemplatePosition, setCoverLetterTemplatePosition] = useState("{COVER_LETTER_TEMPLATE}");
+  const [showPreview, setShowPreview] = useState(false);
+  const [saveToCloud, setSaveToCloud] = useState(!!currentUser);
   // Reset form when dialog opens or load initial data if editing
   useEffect(() => {
     if (isOpen) {
+      // Reset cloud toggle to user's login status
+      setSaveToCloud(!!currentUser);
+      
       if (initialPrompt && isEditing) {
         setPromptType(initialPrompt.type);
         setPromptName(initialPrompt.name);
@@ -53,7 +63,7 @@ export const CustomPromptDialog = ({
         setOptionalInstructionsPosition("{OPTIONAL_INSTRUCTIONS}");
         setCoverLetterTemplatePosition("{COVER_LETTER_TEMPLATE}");      }
     }
-  }, [isOpen, initialPrompt, isEditing, initialType]);
+  }, [isOpen, initialPrompt, isEditing, initialType, currentUser]);
 
   const handlePromptTypeChange = (value: string) => {
     const newType = value as PromptType;
@@ -66,9 +76,14 @@ export const CustomPromptDialog = ({
       setPromptContent("Based on this job description:\n\n{JOB_DESCRIPTION}\n\nAnd my resume:\n\n{RESUME}\n\nWrite a cover letter using this template:\n\n{COVER_LETTER_TEMPLATE}\n\n{OPTIONAL_INSTRUCTIONS}");
     }
   };
-
   const handleSave = () => {
     if (!promptName.trim() || !promptContent.trim()) return;
+    
+    // Check if user wants to save to cloud but isn't logged in
+    if (saveToCloud && !currentUser) {
+      toast.error("Please sign in to save prompts to the cloud");
+      return;
+    }
     
     const newPrompt: CustomPrompt = {
       id: initialPrompt?.id || crypto.randomUUID(),
@@ -84,15 +99,62 @@ export const CustomPromptDialog = ({
     };
     
     onSave(newPrompt);
+    
+    // Show appropriate success message
+    if (saveToCloud && currentUser) {
+      toast.success(isEditing ? "Custom prompt updated and synced to cloud!" : "Custom prompt saved and synced to cloud!");
+    } else {
+      toast.success(isEditing ? "Custom prompt updated locally!" : "Custom prompt saved locally!");
+    }
+    
     onClose();
   };
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+  return (    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit Custom Prompt" : "Create Custom Prompt"}</DialogTitle>
-          <DialogDescription>
-            Define a prompt template for generating AI prompts
+        <DialogHeader>          <DialogTitle className="flex items-center gap-2">
+            {isEditing ? "Edit Custom Prompt" : "Create Custom Prompt"}
+            {saveToCloud ? (
+              <div title="Will sync to cloud">
+                <Cloud className="h-4 w-4 text-blue-500" />
+              </div>
+            ) : (
+              <div title="Local only">
+                <CloudOff className="h-4 w-4 text-gray-400" />
+              </div>
+            )}
+          </DialogTitle>
+          <DialogDescription className="space-y-2">
+            <div>Define a prompt template for generating AI prompts</div>
+            
+            {/* Cloud Toggle Section */}
+            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Info className="h-4 w-4 text-muted-foreground" />
+                <div className="text-sm">
+                  <span className="font-medium">Cloud Sync:</span>
+                  <span className="ml-1 text-muted-foreground">
+                    {saveToCloud 
+                      ? currentUser 
+                        ? "Will sync to your account" 
+                        : "Sign in required"
+                      : "Local storage only"
+                    }
+                  </span>
+                </div>
+              </div>
+              <Switch
+                checked={saveToCloud}
+                onCheckedChange={setSaveToCloud}
+                disabled={!currentUser}
+              />
+            </div>
+            
+            {saveToCloud && !currentUser && (
+              <div className="text-xs text-amber-600 flex items-center gap-1">
+                <Info className="h-3 w-3" />
+                Sign in to enable cloud sync
+              </div>
+            )}
           </DialogDescription>
         </DialogHeader>
         

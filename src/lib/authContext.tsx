@@ -34,11 +34,35 @@ const AuthContext = createContext<AuthContextType>({
   logout: async () => { throw new Error("Not implemented"); },
 });
 
+// Helper function to clean up old localStorage data
+const cleanupOldLocalStorageData = () => {
+  // Remove old non-user-isolated keys that might contain cross-user data
+  const oldKeys = [
+    'resumeTemplates',
+    'coverLetterTemplates', 
+    'customPrompts',
+    'activePrompt_resume',
+    'activePrompt_coverLetter',
+    'selectedTemplateId',
+    'selectedCoverLetterTemplateId',
+    'userPreferredModel'
+  ];
+  
+  oldKeys.forEach(key => {
+    if (localStorage.getItem(key)) {
+      console.log(`Cleaning up old localStorage key: ${key}`);
+      localStorage.removeItem(key);
+    }
+  });
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // Handle authentication for browser extension
+    // Handle authentication for browser extension
   useEffect(() => {
+    // Clean up old localStorage data on app start
+    cleanupOldLocalStorageData();
+    
     // For browser extensions, we need to check for redirect results immediately
     // and also handle authentication state properly
     const checkRedirectResult = async () => {
@@ -80,9 +104,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {  const 
 
   const resetPassword = async (email: string) => {
     await sendPasswordReset(email);
-  };
-
-  const logout = async () => {
+  };  const logout = async () => {
+    // Clear ALL localStorage data on logout for complete privacy
+    console.log("Clearing all localStorage data on logout");
+    localStorage.clear();
+    
     await logOut();
   };
 

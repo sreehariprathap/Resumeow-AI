@@ -5,7 +5,9 @@ import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "./ui/dialog";
 import { Label } from "./ui/label";
 import { useAuth } from "@/lib/authContext";
-import { Cloud } from "lucide-react";
+import { Cloud, CloudOff, Info } from "lucide-react";
+import { Switch } from "./ui/switch";
+import { toast } from "sonner";
 import type { PromptType } from "@/types";
 
 interface TemplateDialogProps {
@@ -25,47 +27,89 @@ export const TemplateDialog = ({
   const [templateName, setTemplateName] = useState("");
   const [resumeLatex, setResumeLatex] = useState("");
   const [coverLetterTemplate, setCoverLetterTemplate] = useState("");
-
+  const [saveToCloud, setSaveToCloud] = useState(true);
   // Reset form when dialog opens
   useEffect(() => {
     if (isOpen) {
       setTemplateName("");
       setResumeLatex("");
       setCoverLetterTemplate("");
+      setSaveToCloud(!!currentUser); // Default to true if user is logged in
     }
-  }, [isOpen]);
-
+  }, [isOpen, currentUser]);
   const handleSave = () => {
-    if (!templateName.trim()) return;
+    if (!templateName.trim()) {
+      toast.error("Please enter a template name");
+      return;
+    }
+    
+    if (!currentUser && saveToCloud) {
+      toast.error("Please log in to save templates to the cloud");
+      return;
+    }
     
     if (promptType === 'resume') {
-      if (!resumeLatex.trim()) return;
+      if (!resumeLatex.trim()) {
+        toast.error("Please enter resume content");
+        return;
+      }
       onSave({
         name: templateName,
         resumeLatex: resumeLatex
       });
     } else if (promptType === 'coverLetter') {
-      if (!coverLetterTemplate.trim()) return;
+      if (!coverLetterTemplate.trim()) {
+        toast.error("Please enter cover letter template content");
+        return;
+      }
       onSave({
         name: templateName,
         coverLetterTemplate: coverLetterTemplate
       });
     }
+    
+    if (saveToCloud && currentUser) {
+      toast.success(`${promptType === 'resume' ? 'Resume' : 'Cover letter'} template saved to cloud!`);
+    } else {
+      toast.success(`${promptType === 'resume' ? 'Resume' : 'Cover letter'} template saved locally!`);
+    }
   };
   
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">        <DialogHeader>
           <DialogTitle>
             {promptType === 'resume' 
               ? "Add Resume in LaTeX Format" 
               : "Add Cover Letter Template in LaTeX Format"}
           </DialogTitle>
-          {currentUser && (
+          {currentUser ? (
+            <div className="space-y-2">
+              <DialogDescription className="flex items-center gap-1 text-xs">
+                <Cloud className="h-3.5 w-3.5 text-emerald-500" />
+                <span>Save to cloud for access across all devices</span>
+              </DialogDescription>
+              <div className="flex items-center justify-between p-2 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-md">
+                <div className="flex items-center gap-2">
+                  <Cloud className="h-4 w-4 text-emerald-600" />
+                  <span className="text-sm font-medium">Cloud Sync</span>
+                </div>
+                <Switch 
+                  checked={saveToCloud}
+                  onCheckedChange={setSaveToCloud}
+                />
+              </div>
+              {!saveToCloud && (
+                <DialogDescription className="flex items-center gap-1 text-xs text-amber-600">
+                  <Info className="h-3.5 w-3.5" />
+                  <span>Template will only be saved locally</span>
+                </DialogDescription>
+              )}
+            </div>
+          ) : (
             <DialogDescription className="flex items-center gap-1 text-xs">
-              <Cloud className="h-3.5 w-3.5 text-rose-500" />
-              <span>Your templates will be saved to the cloud</span>
+              <CloudOff className="h-3.5 w-3.5 text-gray-500" />
+              <span>Sign in to save templates to the cloud</span>
             </DialogDescription>
           )}
         </DialogHeader>
@@ -97,9 +141,8 @@ export const TemplateDialog = ({
                   placeholder="Paste your resume in LaTeX format here"
                   className="h-full resize-none font-mono text-xs leading-relaxed"
                 />
-              </div>
-              <p className="text-xs text-gray-500">
-                Save your LaTeX resume for quick access later{currentUser ? " (synced across devices)" : ""}.
+              </div>              <p className="text-xs text-gray-500">
+                Save your LaTeX resume for quick access later{currentUser && saveToCloud ? " (synced across devices)" : currentUser ? " (local storage only)" : ""}.
               </p>
             </div>
           ) : (
@@ -113,9 +156,8 @@ export const TemplateDialog = ({
                   placeholder="Paste your cover letter template in LaTeX format here"
                   className="h-full resize-none font-mono text-xs leading-relaxed"
                 />
-              </div>
-              <p className="text-xs text-gray-500">
-                Save your LaTeX cover letter template for quick access later{currentUser ? " (synced across devices)" : ""}.
+              </div>              <p className="text-xs text-gray-500">
+                Save your LaTeX cover letter template for quick access later{currentUser && saveToCloud ? " (synced across devices)" : currentUser ? " (local storage only)" : ""}.
               </p>
             </div>
           )}
