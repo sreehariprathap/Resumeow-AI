@@ -11,10 +11,12 @@ import { CoverLetterGenerator } from "./components/CoverLetterGenerator";
 import { ATSInsightsTracker } from "./components/ATSInsightsTracker";
 import { GoogleAuthButton } from "./components/GoogleAuthButton";
 import { PromptTemplateSelector } from "./components/PromptTemplateSelector";
+import { OnboardingWizard } from "./components/OnboardingWizard";
 import { useTemplates } from "./hooks/useTemplates";
 import { usePromptGenerator } from "./hooks/usePromptGenerator";
 import { useAIProvider } from "./lib/aiProviderContext";
 import { useAuth } from "./lib/authContext";
+import { useOnboarding } from "./lib/onboardingContext";
 import { Card, CardContent, CardHeader, CardAction } from "./components/ui/card";
 import { Button } from "./components/ui/button";
 import { Label } from "./components/ui/label";
@@ -48,9 +50,9 @@ function App() {
     setActivePrompt,
     getActivePrompt,
     resetTemplates  } = useTemplates();
-
   const { generateResumePrompt, generateCoverLetterPrompt } = usePromptGenerator();
   const { selectedModel } = useAIProvider();
+  const { showOnboarding, completeOnboarding } = useOnboarding();
   const [promptType, setPromptType] = useState<PromptType>('resume');
   const [jobDescription, setJobDescription] = useState("");
   const [resumeContent, setResumeContent] = useState("");
@@ -108,7 +110,6 @@ function App() {
     if (selectedCoverLetterTemplateId && selectedCoverLetterTemplateId !== "no-selection") {
       localStorage.setItem(`${userKey}_selectedCoverLetterTemplateId`, selectedCoverLetterTemplateId);
     }  }, [currentUser, selectedCoverLetterTemplateId]);
-
   // Handle user changes - reset state when user changes
   useEffect(() => {
     if (currentUser) {
@@ -131,7 +132,7 @@ function App() {
       setSelectedCoverLetterTemplateId("no-selection");
       setActivePrompts({ resume: '', coverLetter: '' });
     }
-  }, [currentUser?.uid]); // Only trigger when user ID changes
+  }, [currentUser]); // Include full currentUser object
 
   // Reset ATS tracking when job description changes
   useEffect(() => {
@@ -412,9 +413,13 @@ function App() {
 
     toast.success("All working data has been cleared!");
   };
-
   return (
     <div className="overflow-auto">
+      {/* Onboarding Wizard */}
+      {showOnboarding && (
+        <OnboardingWizard onComplete={completeOnboarding} />
+      )}
+      
       <div className="p-2">
         {/* AI Provider Status Display */}        <div className="mb-2">
           <Badge variant="outline" className="flex items-center gap-1 w-fit">

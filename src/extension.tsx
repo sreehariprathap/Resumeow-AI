@@ -7,6 +7,7 @@ import ExtensionAuthWrapper from './ExtensionAuthWrapper.tsx'
 import { Toaster } from './components/ui/sonner'
 import { AuthProvider } from './lib/authContext.tsx'
 import { AIProviderProvider } from './lib/aiProviderContext.tsx'
+import { OnboardingProvider } from './lib/onboardingContext.tsx'
 import { ThemeProvider } from './components/theme-provider.tsx'
 
 // Chrome extension entry point - no router needed
@@ -15,10 +16,12 @@ createRoot(document.getElementById('root')!).render(
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <AuthProvider>
         <AIProviderProvider>
-          <ExtensionAuthWrapper>
-            <App />
-          </ExtensionAuthWrapper>
-          <Toaster />
+          <OnboardingProvider>
+            <ExtensionAuthWrapper>
+              <App />
+            </ExtensionAuthWrapper>
+            <Toaster />
+          </OnboardingProvider>
         </AIProviderProvider>
       </AuthProvider>
     </ThemeProvider>

@@ -113,8 +113,20 @@ export const TemplateDialog = ({
             </DialogDescription>
           )}
         </DialogHeader>
-        
-        <div className="grid gap-4 py-4">
+        <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+          <Info className="h-3.5 w-3.5" />
+          <span>
+            Need LaTeX templates? Visit <a 
+              href="https://www.overleaf.com/gallery/tagged/cv" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              Overleaf Gallery
+            </a>
+          </span>
+        </p>
+        <div className="grid gap-4 py-2">
           <div className="grid gap-2">
             <Label htmlFor="name">
               {promptType === 'resume' ? "Resume Name" : "Cover Letter Template Name"}
