@@ -9,7 +9,6 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { ResumeLaTeXGenerator } from "./components/ResumeLaTeXGenerator";
 import { CoverLetterGenerator } from "./components/CoverLetterGenerator";
 import { ATSInsightsTracker } from "./components/ATSInsightsTracker";
-import { CombinedATSAnalysis } from "./components/CombinedATSAnalysis";
 import { GoogleAuthButton } from "./components/GoogleAuthButton";
 import { PromptTemplateSelector } from "./components/PromptTemplateSelector";
 import { useTemplates } from "./hooks/useTemplates";
@@ -23,6 +22,7 @@ import { Badge } from "./components/ui/badge";
 import { Settings, Trash2, Bot, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import type { CustomPrompt, Template, PromptType } from "./types";
+import { CombinedATSAnalysis } from "./components/CombinedATSAnalysis";
 
 interface ATSScore {
   overall: number;

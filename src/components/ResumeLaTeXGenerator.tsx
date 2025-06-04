@@ -4,11 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
-import { GoogleGenAI } from '@google/genai';
 import { Clipboard, Download, FileEdit, Save, FileCode, RefreshCw, AlertCircle } from 'lucide-react';
-import { useAuth } from '@/lib/authContext';
-import { getUserData } from '@/lib/firebase';
-import { useGeminiModel } from '@/hooks/useGeminiModel';
+import { useAIService } from '@/hooks/useAIService';
 
 interface ResumeLaTeXGeneratorProps {
   generatedPrompt: string;
@@ -20,45 +17,16 @@ export function ResumeLaTeXGenerator({
   generatedPrompt,
   autoGenerate = false,
   onLatexGenerated
-}: ResumeLaTeXGeneratorProps) {  const [isGenerating, setIsGenerating] = useState(false);
+}: ResumeLaTeXGeneratorProps) {  
+  const [isGenerating, setIsGenerating] = useState(false);
   const [generatedLatex, setGeneratedLatex] = useState<string | null>(null);
   const [generationFailed, setGenerationFailed] = useState(false);
-  const [apiKey, setApiKey] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editedLatex, setEditedLatex] = useState<string>('');
-  const { currentUser } = useAuth();
-  const { selectedModel } = useGeminiModel();
-
-  // Try to get API key from environment or Firebase
-  useEffect(() => {
-    const fetchApiKey = async () => {
-      // First check environment variable
-      const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      
-      if (envApiKey) {
-        setApiKey(envApiKey);
-        return;
-      }
-      
-      // If no env API key and user is logged in, check Firebase
-      if (currentUser) {
-        try {
-          const userData = await getUserData(currentUser.uid, "settings");
-          if (userData && userData.googleApiKey) {
-            setApiKey(userData.googleApiKey as string);
-          }
-        } catch (error) {
-          console.error("Error loading API key from user settings:", error);
-        }
-      }
-    };
-    
-    fetchApiKey();  }, [currentUser]);
-
+  const { generateResumeLatex, hasAvailableProviders } = useAIService();
   const generateLatex = useCallback(async () => {
-    if (!apiKey) {
-      toast.error('Google API key is required. Please add it in the Settings.');
-      return;
+    if (!hasAvailableProviders()) {
+      return; // Error toast is handled by the AI service
     }
 
     if (!generatedPrompt) {
@@ -69,43 +37,23 @@ export function ResumeLaTeXGenerator({
     setIsGenerating(true);
     
     try {
-      // Initialize the Gemini API client
-      const ai = new GoogleGenAI({ apiKey });
-      
-      // Prepare the prompt text
-      const promptText = `
-    ${generatedPrompt}
-
-        Return only the complete LaTeX code that can be compiled. Include all necessary LaTeX packages and document structure.
-        Do not include explanations, just return the LaTeX code.
-      `;      // Generate content using the model
-      const response = await ai.models.generateContent({
-        model: selectedModel,
-        contents: promptText
-      });
-      
-      const text = response.text;        if (text) {
-        setGeneratedLatex(text);
-        setGenerationFailed(false);
-        onLatexGenerated?.(text);
-        toast.success('LaTeX resume generated successfully!');
-      } else {
-        setGenerationFailed(true);
-        toast.error('Failed to generate LaTeX content');
-      }} catch (error) {
+      const latex = await generateResumeLatex(generatedPrompt);
+      setGeneratedLatex(latex);
+      setGenerationFailed(false);
+      onLatexGenerated?.(latex);
+    } catch (error) {
       console.error('Error generating LaTeX:', error);
       setGenerationFailed(true);
-      toast.error('Failed to generate LaTeX resume. Please check your API key in Settings and try again.');    } finally {
+    } finally {
       setIsGenerating(false);
     }
-  }, [apiKey, generatedPrompt, onLatexGenerated, selectedModel]);
-
+  }, [generateResumeLatex, hasAvailableProviders, generatedPrompt, onLatexGenerated]);
   // Auto-generate when autoGenerate is true and we have all requirements
   useEffect(() => {
-    if (autoGenerate && apiKey && generatedPrompt && !isGenerating && !generatedLatex) {
+    if (autoGenerate && hasAvailableProviders() && generatedPrompt && !isGenerating && !generatedLatex) {
       generateLatex();
     }
-  }, [autoGenerate, apiKey, generatedPrompt, isGenerating, generatedLatex, generateLatex]);
+  }, [autoGenerate, hasAvailableProviders, generatedPrompt, isGenerating, generatedLatex, generateLatex]);
 
 const copyToClipboard = () => {
     if (generatedLatex) {
@@ -203,10 +151,9 @@ const openInOverleaf = () => {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium">LaTeX Resume Generator</CardTitle>
         </CardHeader>        <CardContent className="space-y-3">
-          <div className="flex flex-wrap justify-between items-center gap-2">
-            <Button 
+          <div className="flex flex-wrap justify-between items-center gap-2">            <Button 
               onClick={generateLatex} 
-              disabled={isGenerating || !generatedPrompt || !apiKey}
+              disabled={isGenerating || !generatedPrompt || !hasAvailableProviders()}
               className="h-8 text-sm"
               size="sm"
             >
@@ -254,13 +201,12 @@ const openInOverleaf = () => {
                     <span className="hidden md:inline">Open in Overleaf</span>
                     </Button>
                 </>
-              )}
-            </div>
+              )}            </div>
           </div>
-            {!apiKey && (
+            {!hasAvailableProviders() && (
             <div className="mt-2">
               <p className="text-xs text-muted-foreground">
-                Google API key is required. Please add it in the Settings dialog.
+                AI API key is required. Please add it in the Settings dialog.
               </p>
             </div>
           )}

@@ -1,14 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
-import { GoogleGenAI } from '@google/genai';
 import { Clipboard, Download, FileEdit, Save, MessageSquare } from 'lucide-react';
-import { useAuth } from '@/lib/authContext';
-import { getUserData } from '@/lib/firebase';
-import { useGeminiModel } from '@/hooks/useGeminiModel';
+import { useAIService } from '@/hooks/useAIService';
 
 interface CoverLetterGeneratorProps {
   generatedPrompt: string;
@@ -21,43 +18,12 @@ export function CoverLetterGenerator({
 }: CoverLetterGeneratorProps) {  
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedCoverLetter, setGeneratedCoverLetter] = useState<string | null>(null);
-  const [apiKey, setApiKey] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editedCoverLetter, setEditedCoverLetter] = useState<string>('');
-  const { currentUser } = useAuth();
-  const { selectedModel } = useGeminiModel();
-
-  // Try to get API key from environment or Firebase
-  useEffect(() => {
-    const fetchApiKey = async () => {
-      // First check environment variable
-      const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      
-      if (envApiKey) {
-        setApiKey(envApiKey);
-        return;
-      }
-      
-      // If no env API key and user is logged in, check Firebase
-      if (currentUser) {
-        try {
-          const userData = await getUserData(currentUser.uid, "settings");
-          if (userData && userData.googleApiKey) {
-            setApiKey(userData.googleApiKey as string);
-          }
-        } catch (error) {
-          console.error("Error loading API key from user settings:", error);
-        }
-      }
-    };
-    
-    fetchApiKey();
-  }, [currentUser]);
-
-  const generateCoverLetter = async () => {
-    if (!apiKey) {
-      toast.error('Google API key is required. Please add it in the Settings.');
-      return;
+  const { generateCoverLetter, hasAvailableProviders } = useAIService();
+  const generateCoverLetterContent = async () => {
+    if (!hasAvailableProviders()) {
+      return; // Error toast is handled by the AI service
     }
 
     if (!generatedPrompt) {
@@ -68,29 +34,10 @@ export function CoverLetterGenerator({
     setIsGenerating(true);
     
     try {
-      // Initialize the Gemini API client
-      const ai = new GoogleGenAI({ apiKey });
-      
-      // Prepare the prompt text based on whether LaTeX is selected or not
-      const promptText = generateLatex
-        ? `${generatedPrompt}\n\nReturn only the complete LaTeX code that can be compiled. Include all necessary LaTeX packages and document structure. Do not include explanations, just return the LaTeX code.`
-        : `${generatedPrompt}\n\nReturn a well-formatted professional cover letter. Do not include explanations, just return the cover letter content.`;      // Generate content using the model
-      const response = await ai.models.generateContent({
-        model: selectedModel,
-        contents: promptText
-      });
-      
-      const text = response.text;
-      
-      if (text) {
-        setGeneratedCoverLetter(text);
-        toast.success(`Cover letter ${generateLatex ? 'LaTeX' : ''} generated successfully!`);
-      } else {
-        toast.error('Failed to generate cover letter content');
-      }
+      const content = await generateCoverLetter(generatedPrompt, generateLatex);
+      setGeneratedCoverLetter(content);
     } catch (error) {
       console.error('Error generating cover letter:', error);
-      toast.error('Failed to generate cover letter. Please check your API key in Settings and try again.');
     } finally {
       setIsGenerating(false);
     }
@@ -174,10 +121,9 @@ export function CoverLetterGenerator({
           <CardTitle className="text-sm font-medium">Cover Letter Generator</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex flex-wrap justify-between items-center gap-2">
-            <Button 
-              onClick={generateCoverLetter} 
-              disabled={isGenerating || !generatedPrompt || !apiKey}
+          <div className="flex flex-wrap justify-between items-center gap-2">            <Button 
+              onClick={generateCoverLetterContent} 
+              disabled={isGenerating || !generatedPrompt || !hasAvailableProviders()}
               className="h-8 text-sm"
               size="sm"
             >
@@ -217,13 +163,12 @@ export function CoverLetterGenerator({
                   </Button>
                 </>
               )}
-            </div>
-          </div>
+            </div>          </div>
           
-          {!apiKey && (
+          {!hasAvailableProviders() && (
             <div className="mt-2">
               <p className="text-xs text-muted-foreground">
-                Google API key is required. Please add it in the Settings dialog.
+                AI API key is required. Please add it in the Settings dialog.
               </p>
             </div>
           )}

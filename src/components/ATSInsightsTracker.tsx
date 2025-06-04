@@ -4,7 +4,7 @@ import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { toast } from 'sonner';
 import { TrendingUp, TrendingDown, Minus, BarChart3, Target, Award, RefreshCw, CheckCircle } from 'lucide-react';
-import { useAIProvider } from '@/lib/aiProviderContext';
+import { useAIService } from '@/hooks/useAIService';
 
 interface ATSScore {
   overall: number;
@@ -35,7 +35,8 @@ export function ATSInsightsTracker({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [originalScore, setOriginalScore] = useState<ATSScore | null>(null);
   const [tailoredScore, setTailoredScore] = useState<ATSScore | null>(null);
-  const [analysisComplete, setAnalysisComplete] = useState(false);  const { makeAICall, openRouterApiKey, geminiApiKey } = useAIProvider();
+  const [analysisComplete, setAnalysisComplete] = useState(false);
+  const { analyzeATSScore, hasAvailableProviders } = useAIService();
 
   // Auto-analyze when all data is available
   useEffect(() => {
@@ -59,56 +60,13 @@ export function ATSInsightsTracker({
     }
 
     try {
-      const prompt = `
-Analyze this resume against the job description and provide an ATS (Applicant Tracking System) compatibility score.
-
-JOB DESCRIPTION:
-${jobDescription}
-
-RESUME:
-${resumeContent}
-
-Please analyze and return a JSON response with the following structure:
-{
-  "overall": <number 0-100>,
-  "keywordMatch": <number 0-100>,
-  "skillsAlignment": <number 0-100>,
-  "experienceMatch": <number 0-100>,
-  "formatCompliance": <number 0-100>,
-  "feedback": [<array of specific feedback points>],
-  "missingKeywords": [<array of important keywords missing from resume>],
-  "recommendations": [<array of actionable recommendations to improve ATS score>]
-}
-
-Consider:
-- Keyword density and relevance
-- Skills mentioned in job description vs resume
-- Experience level and requirements match
-- ATS-friendly formatting
-- Industry-specific terminology
-- Required qualifications coverage
-
-Provide specific, actionable feedback. Return only valid JSON.
-`;      
-      const response = await makeAICall(prompt);
-      
-      if (!response) {
-        throw new Error('No response text received');
-      }
-      
-      // Try to extract JSON from the response
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('Invalid JSON response');
-      }
+      return await analyzeATSScore(jobDescription, resumeContent);
     } catch (error) {
       console.error('Error analyzing resume:', error);
       toast.error('Failed to analyze resume. Please try again.');
       return null;
     }
-  }, [jobDescription, makeAICall]);const analyzeComparison = useCallback(async () => {
+  }, [jobDescription, analyzeATSScore]);const analyzeComparison = useCallback(async () => {
     setIsAnalyzing(true);
     setAnalysisComplete(false);
     
@@ -236,8 +194,8 @@ Provide specific, actionable feedback. Return only valid JSON.
             </Badge>
           )}
         </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">        {!openRouterApiKey && !geminiApiKey && (
+      </CardHeader>      <CardContent className="space-y-6">
+        {!hasAvailableProviders() && (
           <div className="text-xs text-muted-foreground p-3 bg-muted rounded-lg">
             API key is required for ATS analysis. Please add it in Settings.
           </div>
