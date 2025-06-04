@@ -28,7 +28,9 @@ export const AVAILABLE_MODELS: AIModel[] = [
 
 interface AIProviderContextType {
   selectedModel: AIModel;
+  userPreferredModel: AIModel; // Alias for selectedModel to make it clear this is the user's preference
   setSelectedModel: (model: AIModel) => void;
+  setUserPreferredModel: (model: AIModel) => void; // Alias for setSelectedModel
   openRouterApiKey: string;
   setOpenRouterApiKey: (key: string) => void;
   geminiApiKey: string;
@@ -45,51 +47,88 @@ interface AIProviderProviderProps {
 
 export function AIProviderProvider({ children }: AIProviderProviderProps) {
   const { currentUser } = useAuth();
-  const [selectedModel, setSelectedModelState] = useState<AIModel>(AVAILABLE_MODELS[0]);
+  
+  // Initialize with localStorage fallback or default model
+  const getInitialModel = (): AIModel => {
+    try {
+      const savedModelId = localStorage.getItem('userPreferredModel');
+      if (savedModelId) {
+        const model = AVAILABLE_MODELS.find(m => m.id === savedModelId);
+        if (model) return model;
+      }
+    } catch (error) {
+      console.error("Error reading from localStorage:", error);
+    }
+    return AVAILABLE_MODELS[0];
+  };
+
+  const [selectedModel, setSelectedModelState] = useState<AIModel>(getInitialModel());
   const [openRouterApiKey, setOpenRouterApiKeyState] = useState<string>('');
   const [geminiApiKey, setGeminiApiKeyState] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
-
   // Load settings from Firebase or environment variables
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        // Load from environment variables first
-        const envOpenRouterKey = import.meta.env.VITE_OPENROUTER_API_KEY || '';
-        const envGeminiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
-        
-        setOpenRouterApiKeyState(envOpenRouterKey);
-        setGeminiApiKeyState(envGeminiKey);
-
         // Load user preferences from Firebase if logged in
         if (currentUser) {
+          console.log("Loading settings for user:", currentUser.uid);
           const userData = await getUserData(currentUser.uid, "settings");
+          console.log("User data from Firebase:", userData);
+          
           if (userData) {
-            if (userData.selectedAIModel) {
-              const model = AVAILABLE_MODELS.find(m => m.id === userData.selectedAIModel);
-              if (model) setSelectedModelState(model);
+            // Check for both userPreferredModel and selectedAIModel for backward compatibility
+            const preferredModelId = userData.userPreferredModel || userData.selectedAIModel;
+            console.log("Preferred model ID from Firebase:", preferredModelId);
+              if (preferredModelId) {
+              const model = AVAILABLE_MODELS.find(m => m.id === preferredModelId);
+              if (model) {
+                console.log("Setting model from Firebase:", model);
+                setSelectedModelState(model);
+                // Also update localStorage to keep it in sync
+                try {
+                  localStorage.setItem('userPreferredModel', model.id);
+                } catch (error) {
+                  console.error("Error updating localStorage:", error);
+                }
+              } else {
+                console.warn("Model not found in AVAILABLE_MODELS:", preferredModelId);
+              }
             }
+            
             if (userData.openRouterApiKey) {
               setOpenRouterApiKeyState(userData.openRouterApiKey as string);
             }
             if (userData.googleApiKey) {
               setGeminiApiKeyState(userData.googleApiKey as string);
             }
+          } else {
+            console.log("No user data found in Firebase");
           }
+        } else {
+          console.log("No current user, using default model");
+          // Only reset to default if we haven't loaded any user preferences yet
+          // This preserves the model selection during authentication state changes
         }
       } catch (error) {
         console.error("Error loading AI provider settings:", error);
       } finally {
-        setIsLoading(false);
+        // Only set loading to false when we have a stable auth state
+        if (currentUser !== undefined) {
+          setIsLoading(false);
+        }
       }
     };
 
-    loadSettings();
+    // Only load settings when we have a stable authentication state
+    if (currentUser !== undefined) {
+      loadSettings();
+    }
   }, [currentUser]);
-
   // Save settings to Firebase
   const saveSettings = async (updates: Partial<{
     selectedAIModel: string;
+    userPreferredModel: string; // Add explicit userPreferredModel field
     openRouterApiKey: string;
     googleApiKey: string;
   }>) => {
@@ -100,6 +139,9 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
       const updatedSettings = {
         ...userData,
         ...updates,
+        // Ensure both fields are set for backward compatibility
+        selectedAIModel: updates.selectedAIModel || updates.userPreferredModel,
+        userPreferredModel: updates.userPreferredModel || updates.selectedAIModel,
         updatedAt: new Date().toISOString()
       };
       
@@ -107,12 +149,26 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
     } catch (error) {
       console.error("Error saving AI provider settings:", error);
     }
-  };
-
-  const setSelectedModel = async (model: AIModel) => {
+  };  const setSelectedModel = async (model: AIModel) => {
+    console.log("Setting selected model:", model);
     setSelectedModelState(model);
-    await saveSettings({ selectedAIModel: model.id });
-    toast.success(`Switched to ${model.name}`);
+    
+    // Save to localStorage for persistence
+    try {
+      localStorage.setItem('userPreferredModel', model.id);
+    } catch (error) {
+      console.error("Error saving to localStorage:", error);
+    }
+    
+    // Save to Firebase if user is logged in
+    if (currentUser) {
+      await saveSettings({ 
+        selectedAIModel: model.id,
+        userPreferredModel: model.id // Save with both field names for clarity
+      });
+    }
+    
+    toast.success(`Preferred model set to ${model.name}`);
   };
 
   const setOpenRouterApiKey = async (key: string) => {
@@ -196,10 +252,11 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
       throw new Error(`Unsupported AI provider: ${model.provider}`);
     }
   };
-
   const value: AIProviderContextType = {
     selectedModel,
+    userPreferredModel: selectedModel, // Alias to make it clear this is the user's preferred model
     setSelectedModel,
+    setUserPreferredModel: setSelectedModel, // Alias for better semantic naming
     openRouterApiKey,
     setOpenRouterApiKey,
     geminiApiKey,

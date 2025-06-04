@@ -37,7 +37,7 @@ export function AIProviderSelector({ className }: AIProviderSelectorProps) {
   if (isLoading) {
     return (
       <div className={className}>
-        <Label className="text-xs">AI Provider</Label>
+        <Label className="text-xs">Preferred AI Model</Label>
         <div className="h-8 bg-muted rounded animate-pulse" />
       </div>
     );
@@ -45,7 +45,7 @@ export function AIProviderSelector({ className }: AIProviderSelectorProps) {
 
   return (
     <div className={className}>
-      <Label className="text-xs">AI Provider</Label>
+      <Label className="text-xs">Preferred AI Model</Label>
       <Select value={selectedModel.id} onValueChange={handleModelChange}>
         <SelectTrigger className="h-8 text-sm">
           <SelectValue>

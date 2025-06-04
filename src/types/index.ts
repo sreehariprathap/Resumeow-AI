@@ -29,3 +29,11 @@ export interface CustomPrompt {
     coverLetterTemplatePosition?: string;
   };
 }
+
+export interface UserPreferences {
+  userPreferredModel?: string;
+  selectedAIModel?: string; // For backward compatibility
+  openRouterApiKey?: string;
+  googleApiKey?: string;
+  updatedAt?: string;
+}

@@ -15,7 +15,6 @@ import { saveUserData, getUserData } from "@/lib/firebaseWeb";
 import { toast } from "sonner";
 import type { CustomPrompt, PromptType } from "@/types";
 import { ModeToggle } from "./mode-toggle";
-import { useGeminiModel } from "@/hooks/useGeminiModel";
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -40,7 +39,6 @@ export const SettingsDialog = ({
   onSetActivePrompt,
   resetTemplates
 }: SettingsDialogProps) => {  const { currentUser } = useAuth();
-  const { selectedModel, setSelectedModel } = useGeminiModel();
   const { openRouterApiKey, setOpenRouterApiKey } = useAIProvider();
   const [activeTab, setActiveTab] = useState<string>("resume");
   const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
@@ -62,11 +60,6 @@ export const SettingsDialog = ({
         const userData = await getUserData(currentUser.uid, "settings");        if (userData) {
           if (userData.googleApiKey) setGoogleApiKey(userData.googleApiKey as string);
           if (userData.openRouterApiKey) setLocalOpenRouterApiKey(userData.openRouterApiKey as string);
-          // Note: Model preference is loaded automatically by useGeminiModel hook
-          // Optionally, set active prompts from storage if needed
-          // Example:
-          // if (userData.activeResumePrompt) setActivePromptContent('resume', userData.activeResumePrompt.content);
-          // if (userData.activeCoverPrompt) setActivePromptContent('coverLetter', userData.activeCoverPrompt.content);
         }
       } catch (error) {
         console.error("Error loading user settings:", error);
@@ -455,49 +448,24 @@ export const SettingsDialog = ({
                     </p>
                   </div>
                 </div>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-medium mb-3">AI Provider Settings</h3>
+              </div>              <div>
+                <h3 className="text-sm font-medium mb-3">Preferred AI Model</h3>
                 <div className="space-y-3">
-                  <AIProviderSelector className="space-y-2" />
-                  <p className="text-xs text-muted-foreground">
-                    Choose your preferred AI provider and model. The system will automatically failover to the alternative provider if the primary one fails.
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-medium mb-3">Legacy Model Settings</h3>
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label className="text-xs">
-                      Gemini Model Selection (Legacy)
-                    </Label>
-                    <RadioGroup
-                      value={selectedModel}
-                      onValueChange={(value) => setSelectedModel(value as 'gemini-2.0-flash' | 'gemini-2.5-pro-preview-tts')}
-                      className="space-y-2"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="gemini-2.0-flash" id="gemini-2.0-flash" />
-                        <Label htmlFor="gemini-2.0-flash" className="text-sm cursor-pointer">
-                          Gemini 2.0 Flash (Default)
-                        </Label>
+                  <div className="p-3 border rounded-md bg-muted/5">
+                    <div className="space-y-3">
+                      <AIProviderSelector className="space-y-2" />
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">
+                          <strong>Your Preferred Model:</strong> This setting will be saved to your account and automatically applied when you use the app. The system will use this as your primary model for all AI operations.
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          If your preferred model fails, the system will automatically use the alternative provider as a fallback.
+                        </p>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="gemini-2.5-pro-preview-tts" id="gemini-2.5-pro-preview-tts" />
-                        <Label htmlFor="gemini-2.5-pro-preview-tts" className="text-sm cursor-pointer">
-                          Gemini 2.5 Pro Preview TTS
-                        </Label>
-                      </div>
-                    </RadioGroup>
-                    <p className="text-xs text-muted-foreground">
-                      Legacy Gemini model selection (use AI Provider Settings above for new functionality).
-                    </p>
+                    </div>
                   </div>
                 </div>
-              </div>              <div>
+              </div><div>
                 <h3 className="text-sm font-medium mb-3">Other</h3>
                 <div className="space-y-3">
                   <ModeToggle />

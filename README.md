@@ -242,9 +242,9 @@ prompter-web/
 │   │   ├── 🎨 TemplateSelector.tsx       # Template management
 │   │   └── 🔐 GoogleAuthButton.tsx       # Authentication
 │   ├── 📂 hooks/              # Custom React hooks
+│   │   ├── useAIService.ts    # Unified AI service integration
 │   │   ├── useTemplates.ts    # Template management logic
-│   │   ├── usePromptGenerator.ts  # Prompt generation logic
-│   │   └── useGeminiModel.ts  # AI model integration
+│   │   └── usePromptGenerator.ts  # Prompt generation logic
 │   ├── 📂 lib/                # Utility libraries
 │   │   ├── 🔥 firebase.ts     # Firebase configuration
 │   │   ├── 🤖 aiProviderContext.tsx  # AI service management
