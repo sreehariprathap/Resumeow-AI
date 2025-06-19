@@ -52,17 +52,48 @@ export const SettingsDialog = ({
     promptIdToDelete: "",
     isImportReplace: false,
     isResetTemplates: false,
-    importData: null as unknown  });
-  // Load user settings including API key from Firebase
-  const loadUserSettings = useCallback(async () => {
+    importData: null as unknown  });  // Load user settings including API key from Firebase with retry logic
+  const loadUserSettings = useCallback(async (retryCount = 0) => {
     if (currentUser) {
       try {
-        const userData = await getUserData(currentUser.uid, "settings");        if (userData) {
-          if (userData.googleApiKey) setGoogleApiKey(userData.googleApiKey as string);
-          if (userData.openRouterApiKey) setLocalOpenRouterApiKey(userData.openRouterApiKey as string);
+        console.log("Loading user settings from Firebase");
+        const userData = await getUserData(currentUser.uid, "settings");        
+        if (userData) {
+          console.log("User settings loaded:", userData);
+          if (userData.googleApiKey && typeof userData.googleApiKey === 'string') {
+            setGoogleApiKey(userData.googleApiKey);
+          }
+          if (userData.openRouterApiKey && typeof userData.openRouterApiKey === 'string') {
+            setLocalOpenRouterApiKey(userData.openRouterApiKey);
+          }
+        } else {
+          console.log("No user settings found in Firebase");
         }
       } catch (error) {
         console.error("Error loading user settings:", error);
+        
+        // Retry up to 2 times
+        if (retryCount < 2) {
+          const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s
+          setTimeout(() => {
+            loadUserSettings(retryCount + 1);
+          }, delay);
+        } else {
+          console.error("Failed to load user settings after retries");
+          // Try to load from localStorage as fallback
+          if (currentUser) {
+            const userKey = `user_${currentUser.uid}`;
+            try {
+              const localOpenRouterKey = localStorage.getItem(`${userKey}_openRouterApiKey`);
+              const localGeminiKey = localStorage.getItem(`${userKey}_geminiApiKey`);
+              
+              if (localOpenRouterKey) setLocalOpenRouterApiKey(localOpenRouterKey);
+              if (localGeminiKey) setGoogleApiKey(localGeminiKey);
+            } catch (localError) {
+              console.error("Error loading from localStorage fallback:", localError);
+            }
+          }
+        }
       }
     }
   }, [currentUser]);
@@ -116,17 +147,24 @@ export const SettingsDialog = ({
     // Save the active prompts selection locally
     Object.entries(localActivePrompts).forEach(([type, promptId]) => {
       onSetActivePrompt(type as PromptType, promptId);
-    });    // Update OpenRouter API key in context
+    });    
+    // Update OpenRouter API key in context
     if (localOpenRouterApiKey !== openRouterApiKey) {
-      setOpenRouterApiKey(localOpenRouterApiKey);
+      try {
+        await setOpenRouterApiKey(localOpenRouterApiKey);
+      } catch (error) {
+        console.error("Error updating OpenRouter API key:", error);
+        toast.error("Failed to save OpenRouter API key");
+      }
     }
 
     // Get currently active prompt objects
     const activeResumePrompt = customPrompts.find(p => p.id === localActivePrompts.resume);
-    const activeCoverPrompt = customPrompts.find(p => p.id === localActivePrompts.coverLetter);    // Prepare user settings
+    const activeCoverPrompt = customPrompts.find(p => p.id === localActivePrompts.coverLetter);    
+    // Prepare user settings with validation
     const userSettings = {
-      googleApiKey,
-      openRouterApiKey: localOpenRouterApiKey,
+      googleApiKey: googleApiKey?.trim() || '',
+      openRouterApiKey: localOpenRouterApiKey?.trim() || '',
       activeResumePrompt: activeResumePrompt ? {
         id: activeResumePrompt.id,
         name: activeResumePrompt.name,
@@ -140,14 +178,39 @@ export const SettingsDialog = ({
       updatedAt: new Date().toISOString()
     };
 
-    // Save user settings including API key and prompts
+    // Save user settings including API key and prompts with retry logic
     if (currentUser) {
       try {
         await saveUserData(currentUser.uid, "settings", userSettings);
+        
+        // Also save to localStorage for immediate persistence
+        const userKey = `user_${currentUser.uid}`;
+        if (googleApiKey?.trim()) {
+          localStorage.setItem(`${userKey}_geminiApiKey`, googleApiKey.trim());
+        }
+        if (localOpenRouterApiKey?.trim()) {
+          localStorage.setItem(`${userKey}_openRouterApiKey`, localOpenRouterApiKey.trim());
+        }
+        
+        console.log("Settings saved successfully to Firebase and localStorage");
         toast.success("Settings saved successfully");
       } catch (error) {
         console.error("Error saving user settings:", error);
-        toast.error("Failed to save settings");
+        toast.error("Failed to save settings to cloud. Settings saved locally.");
+        
+        // Save to localStorage as fallback
+        const userKey = `user_${currentUser.uid}`;
+        try {
+          if (googleApiKey?.trim()) {
+            localStorage.setItem(`${userKey}_geminiApiKey`, googleApiKey.trim());
+          }
+          if (localOpenRouterApiKey?.trim()) {
+            localStorage.setItem(`${userKey}_openRouterApiKey`, localOpenRouterApiKey.trim());
+          }
+        } catch (localError) {
+          console.error("Error saving to localStorage:", localError);
+          toast.error("Failed to save settings");
+        }
       }
     } else {
       toast.success("Prompt settings saved successfully");

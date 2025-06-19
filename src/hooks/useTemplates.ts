@@ -2,6 +2,24 @@ import type { PromptType, Template, CustomPrompt } from "@/types";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/lib/authContext";
 import { saveUserData, getUserData } from "@/lib/firebaseWeb";
+import { 
+  checkDataIntegrity, 
+  repairData, 
+  validateTemplateData, 
+  validateCustomPrompts,
+  showDataIntegrityToast 
+} from "@/lib/dataIntegrity";
+import { useSyncStatus } from "./useSyncStatus";
+import { createEmergencyBackup, autoRecoverLostData, checkDataConsistency, getAvailableBackups, restoreFromBackup } from "@/lib/dataRecovery";
+import { 
+  logFirebaseOperation, 
+  logLocalStorageOperation, 
+  logDataIntegrityIssue, 
+  logBackupOperation,
+  showUserFriendlyError,
+  showUserFriendlyWarning,
+  showUserFriendlyInfo
+} from "@/lib/dataPersistenceLogger";
 
 // Default templates to show for first-time users
 const DEFAULT_RESUME_TEMPLATES: Template[] = [
@@ -57,6 +75,7 @@ const DEFAULT_CUSTOM_PROMPTS: CustomPrompt[] = [
 
 export function useTemplates() {
   const { currentUser } = useAuth();
+  const { markSyncSuccess, markSyncError, incrementPendingChanges } = useSyncStatus();
   const [resumeTemplates, setResumeTemplates] = useState<Template[]>([]);
   const [coverLetterTemplates, setCoverLetterTemplates] = useState<Template[]>([]);
   const [customPrompts, setCustomPrompts] = useState<CustomPrompt[]>([]);
@@ -64,44 +83,73 @@ export function useTemplates() {
   // Use refs to track if initial data has been loaded
   const initialLoadRef = useRef(false);
   const prevUserRef = useRef<string | null>(null);
-  const pendingSaveRef = useRef(false);
-    // Function to save to localStorage with user isolation
+  const pendingSaveRef = useRef(false);    // Function to save to localStorage with user isolation
   const saveToLocalStorage = useCallback(() => {
     if (!currentUser) return; // Only save to localStorage if user is logged in
     
-    const userKey = `user_${currentUser.uid}`;
-    if (resumeTemplates.length > 0) {
-      localStorage.setItem(`${userKey}_resumeTemplates`, JSON.stringify(resumeTemplates));
+    try {
+      const userKey = `user_${currentUser.uid}`;
+      if (resumeTemplates.length > 0) {
+        localStorage.setItem(`${userKey}_resumeTemplates`, JSON.stringify(resumeTemplates));
+        logLocalStorageOperation('save', true, currentUser.uid, 'resumeTemplates');
+      }
+      if (coverLetterTemplates.length > 0) {
+        localStorage.setItem(`${userKey}_coverLetterTemplates`, JSON.stringify(coverLetterTemplates));
+        logLocalStorageOperation('save', true, currentUser.uid, 'coverLetterTemplates');
+      }
+      if (customPrompts.length > 0) {
+        localStorage.setItem(`${userKey}_customPrompts`, JSON.stringify(customPrompts));
+        logLocalStorageOperation('save', true, currentUser.uid, 'customPrompts');
+      }
+    } catch (error) {
+      console.error("Error saving to localStorage:", error);
+      logLocalStorageOperation('save', false, currentUser.uid, 'templates', error as Error);
     }
-    if (coverLetterTemplates.length > 0) {
-      localStorage.setItem(`${userKey}_coverLetterTemplates`, JSON.stringify(coverLetterTemplates));
-    }
-    if (customPrompts.length > 0) {
-      localStorage.setItem(`${userKey}_customPrompts`, JSON.stringify(customPrompts));
-    }
-  }, [currentUser, resumeTemplates, coverLetterTemplates, customPrompts]);
-
-  // Save to Firebase if user is logged in
-  const saveToFirebase = useCallback(async () => {
+  }, [currentUser, resumeTemplates, coverLetterTemplates, customPrompts]);// Save to Firebase if user is logged in with retry logic
+  const saveToFirebase = useCallback(async (retryCount = 0) => {
     if (!currentUser || pendingSaveRef.current) return;
     
     pendingSaveRef.current = true;
+    incrementPendingChanges();
     
     try {
       const templatesData = {
         resumeTemplates,
         coverLetterTemplates,
         customPrompts,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        version: 1 // Add version for future compatibility
       };
       
       await saveUserData(currentUser.uid, "templates", templatesData);
+      console.log("Templates successfully saved to Firebase");
+      
+      logFirebaseOperation('save', true, currentUser.uid, 'templates');
+      markSyncSuccess();
     } catch (error) {
       console.error("Error saving templates to Firebase:", error);
+      
+      logFirebaseOperation('save', false, currentUser.uid, 'templates', error as Error, retryCount);
+      markSyncError(error instanceof Error ? error.message : "Unknown sync error");
+      
+      // Retry up to 3 times with exponential backoff
+      if (retryCount < 3) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+        setTimeout(() => {
+          saveToFirebase(retryCount + 1);
+        }, delay);
+      } else {
+        console.error("Failed to save templates after 3 retries");
+        showUserFriendlyWarning(
+          "Sync Failed",
+          "Your templates are saved locally but couldn't sync to the cloud. They'll sync when connection is restored.",
+          "sync"
+        );
+      }
     } finally {
       pendingSaveRef.current = false;
     }
-  }, [currentUser, resumeTemplates, coverLetterTemplates, customPrompts]);
+  }, [currentUser, resumeTemplates, coverLetterTemplates, customPrompts, incrementPendingChanges, markSyncSuccess, markSyncError]);
   // Load data functions with user isolation
   const loadResumeTemplatesFromLocalStorage = useCallback(() => {
     if (!currentUser) {
@@ -182,71 +230,162 @@ export function useTemplates() {
     // Update refs
     initialLoadRef.current = true;
     prevUserRef.current = currentUser?.uid || null;
-    
-    const loadTemplates = async () => {
+      const loadTemplates = async () => {
       try {
         if (currentUser) {
-          // Try to load from Firebase if user is logged in
-          const userData = await getUserData(currentUser.uid, "templates");
+          console.log("Loading templates for user:", currentUser.uid);
           
-          if (userData) {
-            let shouldSaveToFirebase = false;
-            
-            // Load resume templates from Firebase
-            if (userData.resumeTemplates) {
-              setResumeTemplates(userData.resumeTemplates as Template[]);
-            } else {
-              loadResumeTemplatesFromLocalStorage();
-              shouldSaveToFirebase = true;
+          try {
+            // Try to load from Firebase first
+            const userData = await getUserData(currentUser.uid, "templates");
+              if (userData && userData.resumeTemplates && userData.coverLetterTemplates && userData.customPrompts) {
+              console.log("Loading templates from Firebase");
+              
+              // Validate data integrity
+              const integrityReport = checkDataIntegrity(userData);
+                if (!integrityReport.isValid) {
+                console.warn("Data integrity issues found, attempting repair");
+                logDataIntegrityIssue(currentUser.uid, 'invalid_data', 'Data integrity validation failed', integrityReport as unknown as Record<string, unknown>);
+                
+                const repairedData = repairData(userData, {
+                  resumeTemplates: DEFAULT_RESUME_TEMPLATES,
+                  coverLetterTemplates: DEFAULT_COVER_LETTER_TEMPLATES,
+                  customPrompts: DEFAULT_CUSTOM_PROMPTS
+                });
+                
+                // Use repaired data
+                if (validateTemplateData(repairedData.resumeTemplates)) {
+                  setResumeTemplates(repairedData.resumeTemplates);
+                } else {
+                  console.warn("Resume templates still invalid after repair, using defaults");
+                  logDataIntegrityIssue(currentUser.uid, 'repair_failed', 'Resume templates invalid after repair');
+                  setResumeTemplates(DEFAULT_RESUME_TEMPLATES);
+                }
+                
+                if (validateTemplateData(repairedData.coverLetterTemplates)) {
+                  setCoverLetterTemplates(repairedData.coverLetterTemplates);
+                } else {
+                  console.warn("Cover letter templates still invalid after repair, using defaults");
+                  logDataIntegrityIssue(currentUser.uid, 'repair_failed', 'Cover letter templates invalid after repair');
+                  setCoverLetterTemplates(DEFAULT_COVER_LETTER_TEMPLATES);
+                }
+                
+                if (validateCustomPrompts(repairedData.customPrompts)) {
+                  setCustomPrompts(repairedData.customPrompts);
+                } else {
+                  console.warn("Custom prompts still invalid after repair, using defaults");
+                  logDataIntegrityIssue(currentUser.uid, 'repair_failed', 'Custom prompts invalid after repair');
+                  setCustomPrompts(DEFAULT_CUSTOM_PROMPTS);
+                }
+                
+                showDataIntegrityToast(integrityReport);
+                
+                // Save repaired data back to Firebase
+                setTimeout(() => saveToFirebase(), 2000);
+              }else {
+                // Data is valid, load normally
+                if (validateTemplateData(userData.resumeTemplates)) {
+                  setResumeTemplates(userData.resumeTemplates as Template[]);
+                } else {
+                  console.warn("Invalid resume templates data from Firebase");
+                  loadResumeTemplatesFromLocalStorage();
+                }
+                
+                if (validateTemplateData(userData.coverLetterTemplates)) {
+                  setCoverLetterTemplates(userData.coverLetterTemplates as Template[]);
+                } else {
+                  console.warn("Invalid cover letter templates data from Firebase");
+                  loadCoverLetterTemplatesFromLocalStorage();
+                }
+                
+                if (validateCustomPrompts(userData.customPrompts)) {
+                  setCustomPrompts(userData.customPrompts as CustomPrompt[]);
+                } else {
+                  console.warn("Invalid custom prompts data from Firebase");
+                  loadCustomPromptsFromLocalStorage();
+                }
+                
+                // Show warnings if any
+                if (integrityReport.warnings.length > 0) {
+                  showDataIntegrityToast(integrityReport);
+                }
+              }
+              
+              // Sync any missing data to Firebase
+              if (!userData.resumeTemplates || !userData.coverLetterTemplates || !userData.customPrompts) {
+                setTimeout(() => saveToFirebase(), 1000);
+              }            } else {
+              console.log("No complete template data in Firebase, loading from localStorage");
+              
+              // Check data consistency before loading
+              const consistency = checkDataConsistency(currentUser.uid);
+                if (!consistency.hasData && consistency.hasBackups) {
+                console.log("No current data found but backups available, attempting auto-recovery");
+                logBackupOperation('restore', false, currentUser.uid, { reason: 'auto_recovery_attempt', consistency });
+                
+                const recovered = autoRecoverLostData(currentUser.uid);
+                if (recovered) {
+                  logBackupOperation('restore', true, currentUser.uid, { reason: 'auto_recovery_success' });
+                  showUserFriendlyInfo(
+                    "Data Recovered",
+                    "Your templates were automatically restored from a recent backup.",
+                    "recovery"
+                  );
+                  // Reload after recovery
+                  loadFromLocalStorage();
+                  setTimeout(() => saveToFirebase(), 1000);
+                  return;
+                } else {
+                  logBackupOperation('restore', false, currentUser.uid, { reason: 'auto_recovery_failed' });
+                }
+              }
+              
+              // Load from localStorage and sync to Firebase
+              loadFromLocalStorage();
+              setTimeout(() => saveToFirebase(), 1000);
             }
-            
-            // Load cover letter templates from Firebase
-            if (userData.coverLetterTemplates) {
-              setCoverLetterTemplates(userData.coverLetterTemplates as Template[]);
-            } else {
-              loadCoverLetterTemplatesFromLocalStorage();
-              shouldSaveToFirebase = true;
-            }
-            
-            // Load custom prompts from Firebase
-            if (userData.customPrompts) {
-              setCustomPrompts(userData.customPrompts as CustomPrompt[]);
-            } else {
-              loadCustomPromptsFromLocalStorage();
-              shouldSaveToFirebase = true;
-            }
-            
-            // If we loaded any data from localStorage, save it to Firebase
-            if (shouldSaveToFirebase) {
-              // Wait for state updates to be applied
-              setTimeout(() => saveToFirebase(), 100);
-            }
-          } else {
-            // First time Firebase user, load from local storage
+          } catch (firebaseError) {
+            console.error("Error loading from Firebase, falling back to localStorage:", firebaseError);
+            // Firebase failed, load from localStorage
             loadFromLocalStorage();
-            
-            // Save to Firebase after state updates
-            setTimeout(() => saveToFirebase(), 100);
-          }        } else {
-          // No user logged in, load defaults only (no localStorage for anonymous users)
+          }
+        } else {
+          // No user logged in, use defaults only
+          console.log("No user logged in, using default templates");
           setResumeTemplates(DEFAULT_RESUME_TEMPLATES);
           setCoverLetterTemplates(DEFAULT_COVER_LETTER_TEMPLATES);
           setCustomPrompts(DEFAULT_CUSTOM_PROMPTS);
         }
       } catch (error) {
-        console.error("Error loading templates:", error);
-        // Fallback to local storage
-        loadFromLocalStorage();
+        console.error("Error in template loading:", error);
+        // Ultimate fallback to defaults
+        setResumeTemplates(DEFAULT_RESUME_TEMPLATES);
+        setCoverLetterTemplates(DEFAULT_COVER_LETTER_TEMPLATES);
+        setCustomPrompts(DEFAULT_CUSTOM_PROMPTS);
       }
     };
 
     loadTemplates();
   }, [currentUser, loadFromLocalStorage, loadResumeTemplatesFromLocalStorage, 
-      loadCoverLetterTemplatesFromLocalStorage, loadCustomPromptsFromLocalStorage, saveToFirebase]);
-  // Combined effect for saving changes
+      loadCoverLetterTemplatesFromLocalStorage, loadCustomPromptsFromLocalStorage, saveToFirebase]);  // Combined effect for saving changes
   useEffect(() => {
     // Skip the first render and only run this effect when initialLoadRef is true
     if (!initialLoadRef.current || !currentUser) return;
+    
+    // Create emergency backup before saving changes
+    try {
+      createEmergencyBackup(currentUser.uid, {
+        resumeTemplates,
+        coverLetterTemplates,
+        customPrompts
+      });
+      logBackupOperation('create', true, currentUser.uid, { 
+        templateCount: resumeTemplates.length + coverLetterTemplates.length + customPrompts.length 
+      });
+    } catch (error) {
+      console.error("Failed to create emergency backup:", error);
+      logBackupOperation('create', false, currentUser.uid, { error: (error as Error).message });
+    }
     
     // Save to localStorage first (with user isolation)
     saveToLocalStorage();
@@ -315,8 +454,7 @@ export function useTemplates() {
     
     const userKey = `user_${currentUser.uid}`;
     localStorage.setItem(`${userKey}_activePrompt_${type}`, promptId);
-  }, [currentUser]);
-  // Reset to default templates and clear storage
+  }, [currentUser]);  // Reset to default templates and clear storage
   const resetTemplates = useCallback(() => {
     setResumeTemplates(DEFAULT_RESUME_TEMPLATES);
     setCoverLetterTemplates(DEFAULT_COVER_LETTER_TEMPLATES);
@@ -348,7 +486,80 @@ export function useTemplates() {
     localStorage.removeItem("selectedTemplateId");
     localStorage.removeItem("selectedCoverLetterTemplateId");
   }, [currentUser]);
-
+  // Get recovery options for the user
+  const getRecoveryOptions = useCallback(() => {
+    if (!currentUser) return { hasBackups: false, backups: [], consistency: null };
+    
+    const consistency = checkDataConsistency(currentUser.uid);
+    const backups = getAvailableBackups(currentUser.uid);
+    
+    return {
+      hasBackups: backups.length > 0,
+      backups,
+      consistency
+    };
+  }, [currentUser]);
+  // Manual data recovery
+  const recoverFromBackup = useCallback((backupTimestamp: string) => {
+    if (!currentUser) return false;
+    
+    try {
+      const backups = getAvailableBackups(currentUser.uid);
+      const backup = backups.find(b => b.timestamp === backupTimestamp);
+      
+      if (backup) {
+        const success = restoreFromBackup(backup);
+        if (success) {
+          logBackupOperation('restore', true, currentUser.uid, { 
+            backupTimestamp, 
+            reason: 'manual_recovery' 
+          });
+          showUserFriendlyInfo(
+            "Backup Restored",
+            `Data successfully restored from backup created on ${new Date(backupTimestamp).toLocaleString()}`,
+            "recovery"
+          );
+          // Reload the templates after recovery
+          setTimeout(() => {
+            loadFromLocalStorage();
+            saveToFirebase();
+          }, 500);
+        } else {
+          logBackupOperation('restore', false, currentUser.uid, { 
+            backupTimestamp, 
+            reason: 'manual_recovery_failed' 
+          });
+          showUserFriendlyError(
+            "Recovery Failed",
+            "Failed to restore data from the selected backup. Please try a different backup.",
+            "recovery"
+          );
+        }
+        return success;
+      } else {
+        logBackupOperation('restore', false, currentUser.uid, { 
+          backupTimestamp, 
+          reason: 'backup_not_found' 
+        });
+        showUserFriendlyError(
+          "Backup Not Found",
+          "The selected backup could not be found.",
+          "recovery"
+        );
+      }
+    } catch (error) {
+      logBackupOperation('restore', false, currentUser.uid, { 
+        backupTimestamp, 
+        error: (error as Error).message 
+      });
+      showUserFriendlyError(
+        "Recovery Error",
+        "An error occurred while restoring the backup.",
+        "recovery"
+      );
+    }
+    return false;
+  }, [currentUser, loadFromLocalStorage, saveToFirebase]);
   return {
     resumeTemplates,
     coverLetterTemplates,
@@ -360,6 +571,8 @@ export function useTemplates() {
     deleteCustomPrompt,
     getActivePrompt,
     setActivePrompt,
-    resetTemplates
+    resetTemplates,
+    getRecoveryOptions,
+    recoverFromBackup
   };
 }

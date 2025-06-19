@@ -12,6 +12,7 @@ import { ATSInsightsTracker } from "./components/ATSInsightsTracker";
 import { GoogleAuthButton } from "./components/GoogleAuthButton";
 import { PromptTemplateSelector } from "./components/PromptTemplateSelector";
 import { OnboardingWizard } from "./components/OnboardingWizard";
+import { SyncStatusIndicator } from "./components/SyncStatus";
 import { useTemplates } from "./hooks/useTemplates";
 import { usePromptGenerator } from "./hooks/usePromptGenerator";
 import { useAIProvider } from "./lib/aiProviderContext";
@@ -419,15 +420,16 @@ function App() {
       {showOnboarding && (
         <OnboardingWizard onComplete={completeOnboarding} />
       )}
-      
-      <div className="p-2">
-        {/* AI Provider Status Display */}        <div className="mb-2">
+        <div className="p-2">
+        {/* AI Provider Status Display */}        
+        <div className="mb-2 flex items-center justify-between">
           <Badge variant="outline" className="flex items-center gap-1 w-fit">
             <Bot className="h-3 w-3" />
             <span className="text-xs">AI Model:</span>
             <span className="text-xs font-medium">{selectedModel.name}</span>
             <Sparkles className="h-3 w-3" />
           </Badge>
+          <SyncStatusIndicator />
         </div>
         
         <Card className="w-full shadow-none border-0">
