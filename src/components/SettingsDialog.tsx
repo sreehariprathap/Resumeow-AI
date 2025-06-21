@@ -13,32 +13,35 @@ import { useAuth } from "@/lib/authContext";
 import { useAIProvider } from "@/lib/aiProviderContext";
 import { saveUserData, getUserData } from "@/lib/firebaseWeb";
 import { toast } from "sonner";
-import type { CustomPrompt, PromptType } from "@/types";
+import type { CustomPrompt, PromptType, Template } from "@/types";
 import { ModeToggle } from "./mode-toggle";
 
 interface SettingsDialogProps {
   isOpen: boolean;
   onClose: () => void;
   customPrompts: CustomPrompt[];
+  resumeTemplates: Template[];
+  coverLetterTemplates: Template[];
   activePrompts: Record<PromptType, string>;
   onAddCustomPrompt: (prompt: CustomPrompt) => void;
   onUpdateCustomPrompt: (promptId: string, prompt: CustomPrompt) => void;
   onDeleteCustomPrompt: (promptId: string) => void;
   onSetActivePrompt: (type: PromptType, promptId: string) => void;
-  resetTemplates: () => void;
+  clearAllData: () => Promise<void>;
 }
 
 export const SettingsDialog = ({
   isOpen,
   onClose,
   customPrompts,
+  resumeTemplates,
+  coverLetterTemplates,
   activePrompts,
-  onAddCustomPrompt,
-  onUpdateCustomPrompt,
+  onAddCustomPrompt,  onUpdateCustomPrompt,
   onDeleteCustomPrompt,
   onSetActivePrompt,
-  resetTemplates
-}: SettingsDialogProps) => {  const { currentUser } = useAuth();
+  clearAllData
+}: SettingsDialogProps) => {const { currentUser } = useAuth();
   const { openRouterApiKey, setOpenRouterApiKey } = useAIProvider();
   const [activeTab, setActiveTab] = useState<string>("resume");
   const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
@@ -220,6 +223,33 @@ export const SettingsDialog = ({
   };
 
 
+  // Export all data (comprehensive export)
+  const exportAllData = () => {
+    const exportData = {
+      version: "1.0",
+      exportType: "PrompterExport",
+      resumeTemplates,
+      coverLetterTemplates,
+      customPrompts,
+      activePrompts: localActivePrompts,
+      exported: new Date().toISOString(),
+      description: "Complete Prompter data export including all templates and prompts"
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
+
+    const exportFileDefaultName = `prompter-complete-export-${new Date().toISOString().slice(0, 10)}.json`;
+
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+
+    toast.success("Complete data exported successfully");
+  };
+
+  // Export prompts only (legacy function)
   const exportPrompts = () => {
     const exportData = {
       customPrompts,
@@ -247,7 +277,6 @@ export const SettingsDialog = ({
       fileInputRef.current.click();
     }
   };
-
   const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -255,22 +284,37 @@ export const SettingsDialog = ({
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const importedData = JSON.parse(e.target?.result as string);        if (importedData.customPrompts && Array.isArray(importedData.customPrompts)) {
+        const importedData = JSON.parse(e.target?.result as string);
+        
+        // Check if it's a comprehensive Prompter export
+        if (importedData.exportType === "PrompterExport" && importedData.version) {
+          setConfirmDialogState({
+            isOpen: true,
+            title: "Import Complete Data",
+            message: "This appears to be a complete Prompter export containing resume templates, cover letter templates, and custom prompts. Do you want to replace all existing data with the imported data? Click Cancel to merge instead.",
+            promptIdToDelete: "",
+            isImportReplace: true,
+            isResetTemplates: false,
+            importData: importedData
+          });
+        }
+        // Legacy prompt-only export
+        else if (importedData.customPrompts && Array.isArray(importedData.customPrompts)) {
           setConfirmDialogState({
             isOpen: true,
             title: "Import Prompts",
-            message: "Do you want to replace all existing prompts with the imported ones? Click Cancel to merge instead.",
+            message: "This appears to be a prompts-only export. Do you want to replace all existing prompts with the imported ones? Click Cancel to merge instead.",
             promptIdToDelete: "",
             isImportReplace: true,
             isResetTemplates: false,
             importData: importedData
           });
         } else {
-          toast.error("Invalid import file format.");
+          toast.error("Invalid import file format. Please ensure you're importing a valid Prompter export file.");
         }
       } catch (error) {
         console.error("Import error:", error);
-        toast.error("Failed to import prompts. Please check the file format.");
+        toast.error("Failed to import data. Please check the file format.");
       }
 
       // Reset the file input
@@ -280,38 +324,79 @@ export const SettingsDialog = ({
     };
     reader.readAsText(file);
   };
-
   const confirmImport = () => {
     const importedData = confirmDialogState.importData as Record<string, unknown>;
     if (!importedData) return;
 
-    if (confirmDialogState.isImportReplace) {
-      // Replace all prompts
-      (importedData.customPrompts as CustomPrompt[]).forEach((prompt: CustomPrompt) => {
-        onAddCustomPrompt(prompt);
-      });
-    } else {
-      // Merge prompts
-      (importedData.customPrompts as CustomPrompt[]).forEach((prompt: CustomPrompt) => {
-        // Check if prompt with same id exists
-        const exists = customPrompts.some(p => p.id === prompt.id);
-        if (!exists) {
-          onAddCustomPrompt(prompt);
+    // Check if it's a comprehensive Prompter export
+    if (importedData.exportType === "PrompterExport") {
+      // Handle comprehensive import
+      if (confirmDialogState.isImportReplace) {
+        // Note: For comprehensive import, we can only import the prompts through the dialog
+        // Resume and cover letter templates would need to be handled by the parent component
+        // For now, we'll import what we can and notify the user
+        
+        // Import custom prompts
+        if (importedData.customPrompts && Array.isArray(importedData.customPrompts)) {
+          (importedData.customPrompts as CustomPrompt[]).forEach((prompt: CustomPrompt) => {
+            onAddCustomPrompt(prompt);
+          });
         }
-      });
-    }
 
-    // Import active prompts
-    if (importedData.activePrompts) {
-      Object.entries(importedData.activePrompts).forEach(([type, promptId]) => {
-        setLocalActivePrompts(prev => ({
-          ...prev,
-          [type]: promptId as string
-        }));
-      });
-    }
+        // Import active prompts
+        if (importedData.activePrompts) {
+          Object.entries(importedData.activePrompts).forEach(([type, promptId]) => {
+            setLocalActivePrompts(prev => ({
+              ...prev,
+              [type]: promptId as string
+            }));
+          });
+        }
 
-    toast.success("Prompts imported successfully!");
+        toast.success("Data imported successfully! Note: Resume and cover letter templates import will be available in a future update.");
+      } else {
+        // Merge mode for comprehensive import
+        if (importedData.customPrompts && Array.isArray(importedData.customPrompts)) {
+          (importedData.customPrompts as CustomPrompt[]).forEach((prompt: CustomPrompt) => {
+            const exists = customPrompts.some(p => p.id === prompt.id);
+            if (!exists) {
+              onAddCustomPrompt(prompt);
+            }
+          });
+        }
+
+        toast.success("Data merged successfully!");
+      }
+    } else {
+      // Handle legacy prompts-only import
+      if (confirmDialogState.isImportReplace) {
+        // Replace all prompts
+        (importedData.customPrompts as CustomPrompt[]).forEach((prompt: CustomPrompt) => {
+          onAddCustomPrompt(prompt);
+        });
+      } else {
+        // Merge prompts
+        (importedData.customPrompts as CustomPrompt[]).forEach((prompt: CustomPrompt) => {
+          // Check if prompt with same id exists
+          const exists = customPrompts.some(p => p.id === prompt.id);
+          if (!exists) {
+            onAddCustomPrompt(prompt);
+          }
+        });
+      }
+
+      // Import active prompts
+      if (importedData.activePrompts) {
+        Object.entries(importedData.activePrompts).forEach(([type, promptId]) => {
+          setLocalActivePrompts(prev => ({
+            ...prev,
+            [type]: promptId as string
+          }));
+        });
+      }
+
+      toast.success("Prompts imported successfully!");
+    }
   };
 
   const filteredPrompts = (type: PromptType) => {
@@ -323,23 +408,26 @@ export const SettingsDialog = ({
       ...prev,
       [type]: promptId
     }));
-  };
-  const handleResetTemplates = () => {
+  };  const handleResetTemplates = () => {
     setConfirmDialogState({
       isOpen: true,
-      title: "Reset All Templates",
-      message: "Are you sure you want to reset all templates? This will permanently delete all your saved resume templates, cover letter templates, and custom prompts. This action cannot be undone.",
+      title: "Clear All Data",
+      message: "Are you sure you want to clear all your data? This will permanently delete:\n\n• All saved resume templates\n• All cover letter templates\n• All custom prompts\n• Your saved settings\n\nThis will reset everything to default settings and CANNOT be undone. Your data will also be removed from the cloud.",
       promptIdToDelete: "",
       isImportReplace: false,
       isResetTemplates: true,
       importData: null
     });
   };
-
-  const confirmResetTemplates = () => {
-    resetTemplates();
-    toast.success("All templates have been reset to defaults");
-    onClose(); // Close the settings dialog
+  const confirmResetTemplates = async () => {
+    try {
+      await clearAllData();
+      toast.success("All templates have been reset to defaults");
+      onClose(); // Close the settings dialog
+    } catch (error) {
+      console.error("Error clearing data:", error);
+      toast.error("Failed to clear all data. Please try again.");
+    }
   };
 
   return (
@@ -536,12 +624,11 @@ export const SettingsDialog = ({
                   {/* Reset Templates Section */}
                   <div className="border-t pt-4 mt-4">
                     <h4 className="text-sm font-medium mb-2">Data Management</h4>
-                    <div className="space-y-3">
-                      <div className="p-3 border rounded-md bg-muted/10">
-                        <h5 className="text-xs font-medium mb-1">Reset All Templates</h5>
+                    <div className="space-y-3">                      <div className="p-3 border rounded-md bg-muted/10">
+                        <h5 className="text-xs font-medium mb-1">Clear All Data</h5>
                         <p className="text-xs text-muted-foreground mb-3">
-                          This will permanently delete all your saved resume templates, cover letter templates, and custom prompts. 
-                          You will lose all your saved data and it cannot be recovered.
+                          This will permanently delete all your saved resume templates, cover letter templates, custom prompts, and settings. 
+                          Your data will be removed from both local storage and cloud storage. This action cannot be undone.
                         </p>
                         <Button
                           variant="destructive"
@@ -549,7 +636,7 @@ export const SettingsDialog = ({
                           onClick={handleResetTemplates}
                           className="h-7 text-xs"
                         >
-                          Reset All Templates
+                          Clear All Data
                         </Button>
                       </div>
                     </div>
@@ -588,28 +675,42 @@ export const SettingsDialog = ({
             onChange={handleImportFile}
             accept=".json"
             className="hidden"
-          />
-
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <Button variant="outline"
+          />          <div className="mt-4 space-y-2">
+            {/* Comprehensive export button */}
+            <Button 
+              variant="outline"
               size="sm"
-              onClick={exportPrompts}
-              className="flex items-center gap-1 text-xs"
+              onClick={exportAllData}
+              className="w-full flex items-center gap-1 text-xs"
               disabled={activeTab === "general"}
             >
               <Download className="h-3.5 w-3.5" />
-              <span>Export Prompts</span>
+              <span>Export All Data (Prompter Export)</span>
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={triggerImportFile}
-              className="flex items-center gap-1 text-xs"
-              disabled={activeTab === "general"}
-            >
-              <Upload className="h-3.5 w-3.5" />
-              <span>Import Prompts</span>
-            </Button>          </div>
+            
+            {/* Legacy export/import buttons */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline"
+                size="sm"
+                onClick={exportPrompts}
+                className="flex items-center gap-1 text-xs"
+                disabled={activeTab === "general"}
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>Export Prompts Only</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={triggerImportFile}
+                className="flex items-center gap-1 text-xs"
+                disabled={activeTab === "general"}
+              >
+                <Upload className="h-3.5 w-3.5" />
+                <span>Import Data</span>
+              </Button>
+            </div>
+          </div>
 
           <DialogFooter className="sticky bottom-0 pt-4 bg-background">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
@@ -637,12 +738,11 @@ export const SettingsDialog = ({
               : confirmImport
         }
         title={confirmDialogState.title}
-        message={confirmDialogState.message}
-        confirmText={
+        message={confirmDialogState.message}        confirmText={
           confirmDialogState.promptIdToDelete 
             ? "Delete" 
             : confirmDialogState.isResetTemplates 
-              ? "Reset All Templates" 
+              ? "Clear All Data" 
               : "Replace"
         }
         cancelText={

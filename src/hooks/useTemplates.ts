@@ -467,15 +467,24 @@ export function useTemplates() {
     
     const userKey = `user_${currentUser.uid}`;
     localStorage.setItem(`${userKey}_activePrompt_${type}`, promptId);
-  }, [currentUser]);  // Reset to default templates and clear storage
+  }, [currentUser]);  // Reset to default templates (local state only - does not clear cloud data)
   const resetTemplates = useCallback(() => {
+    setResumeTemplates(DEFAULT_RESUME_TEMPLATES);
+    setCoverLetterTemplates(DEFAULT_COVER_LETTER_TEMPLATES);
+    setCustomPrompts(DEFAULT_CUSTOM_PROMPTS);
+  }, []);
+
+  // Clear all data (both local and cloud) - only for explicit user action
+  const clearAllData = useCallback(async () => {
+    // Reset local state to defaults
     setResumeTemplates(DEFAULT_RESUME_TEMPLATES);
     setCoverLetterTemplates(DEFAULT_COVER_LETTER_TEMPLATES);
     setCustomPrompts(DEFAULT_CUSTOM_PROMPTS);
     
     if (currentUser) {
       const userKey = `user_${currentUser.uid}`;
-      // Clear user's saved data with user-isolated keys
+      
+      // Clear localStorage with user isolation
       localStorage.removeItem(`${userKey}_resumeTemplates`);
       localStorage.removeItem(`${userKey}_coverLetterTemplates`);
       localStorage.removeItem(`${userKey}_customPrompts`);
@@ -484,10 +493,29 @@ export function useTemplates() {
       localStorage.removeItem(`${userKey}_selectedTemplateId`);
       localStorage.removeItem(`${userKey}_selectedCoverLetterTemplateId`);
       
-      // Add back defaults to localStorage with user isolation
-      localStorage.setItem(`${userKey}_resumeTemplates`, JSON.stringify(DEFAULT_RESUME_TEMPLATES));
-      localStorage.setItem(`${userKey}_coverLetterTemplates`, JSON.stringify(DEFAULT_COVER_LETTER_TEMPLATES));
-      localStorage.setItem(`${userKey}_customPrompts`, JSON.stringify(DEFAULT_CUSTOM_PROMPTS));
+      // Clear cloud data by saving defaults to Firebase
+      try {
+        const templatesData = {
+          resumeTemplates: DEFAULT_RESUME_TEMPLATES,
+          coverLetterTemplates: DEFAULT_COVER_LETTER_TEMPLATES,
+          customPrompts: DEFAULT_CUSTOM_PROMPTS,
+          updatedAt: new Date().toISOString(),
+          version: 1
+        };
+          await saveUserData(currentUser.uid, "templates", templatesData);
+        logFirebaseOperation('save', true, currentUser.uid, 'templates');
+        
+        // Add back defaults to localStorage with user isolation
+        localStorage.setItem(`${userKey}_resumeTemplates`, JSON.stringify(DEFAULT_RESUME_TEMPLATES));
+        localStorage.setItem(`${userKey}_coverLetterTemplates`, JSON.stringify(DEFAULT_COVER_LETTER_TEMPLATES));
+        localStorage.setItem(`${userKey}_customPrompts`, JSON.stringify(DEFAULT_CUSTOM_PROMPTS));
+        
+        console.log("All user data cleared and reset to defaults");
+      } catch (error) {
+        console.error("Error clearing cloud data:", error);
+        logFirebaseOperation('save', false, currentUser.uid, 'templates', error as Error);
+        throw error; // Re-throw so the UI can handle the error
+      }
     }
     
     // Also clear any legacy non-user-isolated keys to clean up old data
@@ -572,8 +600,7 @@ export function useTemplates() {
       );
     }
     return false;
-  }, [currentUser, loadFromLocalStorage, saveToFirebase]);
-  return {
+  }, [currentUser, loadFromLocalStorage, saveToFirebase]);  return {
     resumeTemplates,
     coverLetterTemplates,
     customPrompts,
@@ -586,6 +613,7 @@ export function useTemplates() {
     getActivePrompt,
     setActivePrompt,
     resetTemplates,
+    clearAllData,
     getRecoveryOptions,
     recoverFromBackup
   };

@@ -47,13 +47,13 @@ function App() {
     customPrompts,
     addTemplate,
     deleteTemplate,
-    updateTemplate,
-    addCustomPrompt,
+    updateTemplate,    addCustomPrompt,
     updateCustomPrompt,
     deleteCustomPrompt,
     getActivePrompt,
     setActivePrompt,
-    resetTemplates  } = useTemplates();
+    clearAllData
+  } = useTemplates();
   const { generateResumePrompt, generateCoverLetterPrompt } = usePromptGenerator();
   const { selectedModel } = useAIProvider();
   const { showOnboarding, completeOnboarding } = useOnboarding();
@@ -667,12 +667,14 @@ function App() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         customPrompts={customPrompts}
+        resumeTemplates={resumeTemplates}
+        coverLetterTemplates={coverLetterTemplates}
         activePrompts={activePrompts}
         onAddCustomPrompt={handleAddCustomPrompt}
         onUpdateCustomPrompt={handleUpdateCustomPrompt}
         onDeleteCustomPrompt={handleDeleteCustomPrompt}
         onSetActivePrompt={handleSetActivePrompt}
-        resetTemplates={resetTemplates}
+        clearAllData={clearAllData}
       />
       
       <TemplateManagementDialog
