@@ -6,6 +6,7 @@ import { OptionalInstructions } from "./components/OptionalInstructions";
 import { TemplateSelector } from "./components/TemplateSelector";
 import { PromptTypeSelector } from "./components/PromptTypeSelector";
 import { SettingsDialog } from "./components/SettingsDialog";
+import { TemplateManagementDialog } from "./components/TemplateManagementDialog";
 import { ResumeLaTeXGenerator } from "./components/ResumeLaTeXGenerator";
 import { CoverLetterGenerator } from "./components/CoverLetterGenerator";
 import { ATSInsightsTracker } from "./components/ATSInsightsTracker";
@@ -23,9 +24,9 @@ import { Button } from "./components/ui/button";
 import { Label } from "./components/ui/label";
 import { Checkbox } from "./components/ui/checkbox";
 import { Badge } from "./components/ui/badge";
-import { Settings, Trash2, Bot, Sparkles } from "lucide-react";
+import { Settings, Trash2, Bot, Sparkles, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
-import type { CustomPrompt, Template, PromptType } from "./types";
+import type { PromptType, Template, CustomPrompt } from "./types";
 import { CombinedATSAnalysis } from "./components/CombinedATSAnalysis";
 
 interface ATSScore {
@@ -45,19 +46,21 @@ function App() {
     coverLetterTemplates,
     customPrompts,
     addTemplate,
+    deleteTemplate,
+    updateTemplate,
     addCustomPrompt,
     updateCustomPrompt,
     deleteCustomPrompt,
-    setActivePrompt,
     getActivePrompt,
+    setActivePrompt,
     resetTemplates  } = useTemplates();
   const { generateResumePrompt, generateCoverLetterPrompt } = usePromptGenerator();
   const { selectedModel } = useAIProvider();
   const { showOnboarding, completeOnboarding } = useOnboarding();
-  const [promptType, setPromptType] = useState<PromptType>('resume');
-  const [jobDescription, setJobDescription] = useState("");
+  const [promptType, setPromptType] = useState<PromptType>("resume");
   const [resumeContent, setResumeContent] = useState("");
   const [coverLetterTemplate, setCoverLetterTemplate] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
   const [hasOptionalInstructions, setHasOptionalInstructions] = useState(false);
   const [optionalInstructions, setOptionalInstructions] = useState("");
   const [useTemporaryResume, setUseTemporaryResume] = useState(false); const [generateLatex, setGenerateLatex] = useState<boolean>(true); const [fastCompile, setFastCompile] = useState(false); const [originalResumeContent, setOriginalResumeContent] = useState("");
@@ -94,6 +97,7 @@ function App() {
       coverLetter: localStorage.getItem(`${userKey}_activePrompt_coverLetter`) || ''
     };
   });
+  const [isTemplateManagementOpen, setIsTemplateManagementOpen] = useState(false);
   // Persist user preferences
   useEffect(() => {
     if (!currentUser) return;
@@ -436,7 +440,18 @@ function App() {
           <CardHeader className="px-4 py-3">
           <div className="flex flex-col gap-2">
             <div className="flex justify-between items-center">
-              <div className="flex gap-2">
+              <div className="flex gap-2">                <CardAction>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsTemplateManagementOpen(true)}
+                    className="h-8 w-8 p-0"
+                    title="Manage templates"
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                    <span className="sr-only">Manage Templates</span>
+                  </Button>
+                </CardAction>
                 <CardAction>
                   <Button
                     variant="ghost"
@@ -648,8 +663,7 @@ function App() {
             </div>
           </CardContent>
         </Card>
-      </div>
-      <SettingsDialog
+      </div>      <SettingsDialog
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         customPrompts={customPrompts}
@@ -659,6 +673,15 @@ function App() {
         onDeleteCustomPrompt={handleDeleteCustomPrompt}
         onSetActivePrompt={handleSetActivePrompt}
         resetTemplates={resetTemplates}
+      />
+      
+      <TemplateManagementDialog
+        isOpen={isTemplateManagementOpen}
+        onClose={() => setIsTemplateManagementOpen(false)}
+        resumeTemplates={resumeTemplates}
+        coverLetterTemplates={coverLetterTemplates}
+        onUpdateTemplate={updateTemplate}
+        onDeleteTemplate={deleteTemplate}
       />
     </div>
   );

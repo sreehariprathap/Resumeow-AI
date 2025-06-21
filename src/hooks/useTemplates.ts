@@ -414,6 +414,19 @@ export function useTemplates() {
     }
   }, []);
 
+  // Update a template
+  const updateTemplate = useCallback((type: PromptType, templateId: string, updatedTemplate: Partial<Template>) => {
+    if (type === "resume") {
+      setResumeTemplates(prev => 
+        prev.map(t => t.id === templateId ? { ...t, ...updatedTemplate } : t)
+      );
+    } else if (type === "coverLetter") {
+      setCoverLetterTemplates(prev => 
+        prev.map(t => t.id === templateId ? { ...t, ...updatedTemplate } : t)
+      );
+    }
+  }, []);
+
   // Add a custom prompt
   const addCustomPrompt = useCallback((prompt: CustomPrompt) => {
     setCustomPrompts(prev => [...prev, prompt]);
@@ -566,6 +579,7 @@ export function useTemplates() {
     customPrompts,
     addTemplate,
     deleteTemplate,
+    updateTemplate,
     addCustomPrompt,
     updateCustomPrompt,
     deleteCustomPrompt,
