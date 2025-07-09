@@ -83,31 +83,4 @@ Object.defineProperty(navigator, 'clipboard', {
   },
 });
 
-// Global test utilities
-interface GlobalWithTestUtils extends NodeJS.Global {
-  createMockTemplate: (overrides?: Record<string, unknown>) => Record<string, unknown>;
-  createMockCustomPrompt: (overrides?: Record<string, unknown>) => Record<string, unknown>;
-  createMockUser: (overrides?: Record<string, unknown>) => Record<string, unknown>;
-}
-
-(global as GlobalWithTestUtils).createMockTemplate = (overrides = {}) => ({
-  id: 'test-template-1',
-  name: 'Test Template',
-  resumeLatex: '\\documentclass{article}\\begin{document}Test\\end{document}',
-  ...overrides,
-});
-
-(global as GlobalWithTestUtils).createMockCustomPrompt = (overrides = {}) => ({
-  id: 'test-prompt-1',
-  type: 'resume',
-  name: 'Test Prompt',
-  content: 'Test prompt content with {JOB_DESCRIPTION} and {RESUME}',
-  placeholders: {
-    jobDescriptionPosition: '{JOB_DESCRIPTION}',
-    resumePosition: '{RESUME}',
-    optionalInstructionsPosition: '{OPTIONAL_INSTRUCTIONS}',
-  },
-  ...overrides,
-});
-
 // End of setup file
