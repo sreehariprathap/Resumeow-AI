@@ -418,6 +418,7 @@ function App() {
 
     toast.success("All working data has been cleared!");
   };
+
   return (
     <div className="overflow-auto">
       {/* Onboarding Wizard */}
@@ -684,6 +685,7 @@ function App() {
         coverLetterTemplates={coverLetterTemplates}
         onUpdateTemplate={updateTemplate}
         onDeleteTemplate={deleteTemplate}
+        onAddTemplate={addTemplate}
       />
     </div>
   );

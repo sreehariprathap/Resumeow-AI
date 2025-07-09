@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { Input } from "./ui/input";
@@ -8,9 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { toast } from "sonner";
-import { Edit, Trash2, FileText, Save, X, Cloud, CloudOff } from "lucide-react";
+import { Edit, Trash2, FileText, Save, X, Cloud, CloudOff, Download, Upload } from "lucide-react";
 import type { Template, PromptType } from "@/types";
 import { useAuth } from "@/lib/authContext";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 interface TemplateManagementDialogProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ interface TemplateManagementDialogProps {
   coverLetterTemplates: Template[];
   onUpdateTemplate: (type: PromptType, templateId: string, updatedTemplate: Partial<Template>) => void;
   onDeleteTemplate: (type: PromptType, templateId: string) => void;
+  onAddTemplate: (type: PromptType, template: Template) => void;
 }
 
 interface EditingTemplate {
@@ -34,11 +36,144 @@ export const TemplateManagementDialog = ({
   resumeTemplates,
   coverLetterTemplates,
   onUpdateTemplate,
-  onDeleteTemplate
+  onDeleteTemplate,
+  onAddTemplate
 }: TemplateManagementDialogProps) => {
   const { currentUser } = useAuth();
   const [editingTemplate, setEditingTemplate] = useState<EditingTemplate | null>(null);
   const [activeTab, setActiveTab] = useState<PromptType>("resume");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [confirmDialogState, setConfirmDialogState] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    isImportReplace: false,
+    importData: null as unknown
+  });
+
+  // Export templates function
+  const exportTemplates = () => {
+    const exportData = {
+      version: "1.0",
+      exportType: "PrompterTemplatesExport",
+      resumeTemplates,
+      coverLetterTemplates,
+      exported: new Date().toISOString(),
+      description: "Resume and cover letter templates backup export"
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
+
+    const exportFileDefaultName = `prompter-templates-backup-${new Date().toISOString().slice(0, 10)}.json`;
+
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+
+    toast.success("Templates exported successfully!");
+  };
+
+  // Import templates function
+  const triggerImportFile = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedData = JSON.parse(e.target?.result as string);
+        
+        // Check if it's a templates export
+        if (importedData.exportType === "PrompterTemplatesExport" && importedData.version) {
+          setConfirmDialogState({
+            isOpen: true,
+            title: "Import Templates",
+            message: "This will import resume and cover letter templates. Do you want to replace all existing templates with the imported ones? Click Cancel to merge instead.",
+            isImportReplace: true,
+            importData: importedData
+          });
+        }
+        // Check if it's a comprehensive export containing templates
+        else if (importedData.exportType === "PrompterExport" && importedData.version) {
+          setConfirmDialogState({
+            isOpen: true,
+            title: "Import Templates from Complete Export",
+            message: "This appears to be a complete export file. Do you want to import just the templates from it? Click Cancel to merge instead.",
+            isImportReplace: true,
+            importData: importedData
+          });
+        } else {
+          toast.error("Invalid import file format. Please ensure you're importing a valid templates export file.");
+        }
+      } catch (error) {
+        console.error("Import error:", error);
+        toast.error("Failed to import templates. Please check the file format.");
+      }
+
+      // Reset the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const confirmImport = () => {
+    const importedData = confirmDialogState.importData as Record<string, unknown>;
+    if (!importedData) return;
+
+    let importedCount = 0;
+
+    // Import resume templates
+    if (importedData.resumeTemplates && Array.isArray(importedData.resumeTemplates)) {
+      (importedData.resumeTemplates as Template[]).forEach((template: Template) => {
+        if (confirmDialogState.isImportReplace) {
+          // Replace mode - always add
+          onAddTemplate('resume', template);
+          importedCount++;
+        } else {
+          // Merge mode - only add if doesn't exist
+          const exists = resumeTemplates.some(t => t.id === template.id);
+          if (!exists) {
+            onAddTemplate('resume', template);
+            importedCount++;
+          }
+        }
+      });
+    }
+
+    // Import cover letter templates
+    if (importedData.coverLetterTemplates && Array.isArray(importedData.coverLetterTemplates)) {
+      (importedData.coverLetterTemplates as Template[]).forEach((template: Template) => {
+        if (confirmDialogState.isImportReplace) {
+          // Replace mode - always add
+          onAddTemplate('coverLetter', template);
+          importedCount++;
+        } else {
+          // Merge mode - only add if doesn't exist
+          const exists = coverLetterTemplates.some(t => t.id === template.id);
+          if (!exists) {
+            onAddTemplate('coverLetter', template);
+            importedCount++;
+          }
+        }
+      });
+    }
+
+    if (importedCount > 0) {
+      toast.success(`Successfully imported ${importedCount} template(s)!`);
+    } else {
+      toast.info("No new templates to import (all templates already exist).");
+    }
+  };
 
   const handleEditTemplate = (template: Template, type: PromptType) => {
     const content = type === "resume" ? (template.resumeLatex || "") : (template.coverLetterTemplate || "");
@@ -255,10 +390,51 @@ export const TemplateManagementDialog = ({
                 Sign in to sync templates to the cloud
               </div>
             )}
-            <Button variant="outline" onClick={onClose}>Close</Button>
+            <div className="flex gap-2 ml-auto items-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportTemplates}
+                className="flex items-center gap-1 text-xs"
+                disabled={resumeTemplates.length === 0 && coverLetterTemplates.length === 0}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Export Templates
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={triggerImportFile}
+                className="flex items-center gap-1 text-xs"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Import Templates
+              </Button>
+              <Button variant="outline" onClick={onClose}>Close</Button>
+            </div>
           </div>
         </DialogFooter>
+
+        {/* Hidden file input for importing */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleImportFile}
+          accept=".json"
+          className="hidden"
+        />
       </DialogContent>
+      
+      {/* Confirm Dialog for Import */}
+      <ConfirmDialog
+        isOpen={confirmDialogState.isOpen}
+        onClose={() => setConfirmDialogState(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmImport}
+        title={confirmDialogState.title}
+        message={confirmDialogState.message}
+        confirmText="Replace"
+        cancelText="Merge"
+      />
     </Dialog>
   );
 };

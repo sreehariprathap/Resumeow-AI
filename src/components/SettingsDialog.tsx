@@ -298,6 +298,18 @@ export const SettingsDialog = ({
             importData: importedData
           });
         }
+        // Templates-only export
+        else if (importedData.exportType === "PrompterTemplatesExport" && importedData.version) {
+          setConfirmDialogState({
+            isOpen: true,
+            title: "Import Templates",
+            message: "This appears to be a templates-only export containing resume and cover letter templates. Do you want to replace all existing templates with the imported ones? Click Cancel to merge instead.",
+            promptIdToDelete: "",
+            isImportReplace: true,
+            isResetTemplates: false,
+            importData: importedData
+          });
+        }
         // Legacy prompt-only export
         else if (importedData.customPrompts && Array.isArray(importedData.customPrompts)) {
           setConfirmDialogState({
@@ -327,6 +339,12 @@ export const SettingsDialog = ({
   const confirmImport = () => {
     const importedData = confirmDialogState.importData as Record<string, unknown>;
     if (!importedData) return;
+
+    // Check if it's a templates-only export
+    if (importedData.exportType === "PrompterTemplatesExport") {
+      toast.info("Templates-only import detected. Please use the Template Management dialog to import resume and cover letter templates, or export/import using the 'Export Everything' option for full compatibility.");
+      return;
+    }
 
     // Check if it's a comprehensive Prompter export
     if (importedData.exportType === "PrompterExport") {
@@ -676,6 +694,17 @@ export const SettingsDialog = ({
             accept=".json"
             className="hidden"
           />          <div className="mt-4 space-y-2">
+            <div className="text-xs font-medium text-muted-foreground mb-2">
+              📥 Export & Backup Options
+            </div>
+            
+            <div className="text-xs text-muted-foreground mb-2 p-2 bg-muted/50 rounded">
+              <strong>Export Options:</strong>
+              <br />• <strong>Everything:</strong> Complete backup including all templates and prompts
+              <br />• <strong>Prompts Only:</strong> Just your custom prompt templates
+              <br />• <strong>Templates:</strong> Use "Manage Templates" button to export/import resume and cover letter templates
+            </div>
+            
             {/* Comprehensive export button */}
             <Button 
               variant="outline"
@@ -685,10 +714,10 @@ export const SettingsDialog = ({
               disabled={activeTab === "general"}
             >
               <Download className="h-3.5 w-3.5" />
-              <span>Export All Data (Prompter Export)</span>
+              <span>Export Everything (Complete Backup)</span>
             </Button>
             
-            {/* Legacy export/import buttons */}
+            {/* Prompts and Import buttons */}
             <div className="grid grid-cols-2 gap-2">
               <Button variant="outline"
                 size="sm"
