@@ -387,3 +387,60 @@ interface AIProvider {
 - OpenRouter API (Alternative)
 - Extensible for future providers
 ```
+
+## 📱 Progressive Web App (PWA) Deployment
+
+Prompter can be deployed as a Progressive Web Application with offline support and installable capabilities.
+
+### PWA Features
+- ✅ **Installable**: Add to home screen on mobile/desktop
+- ✅ **Offline Support**: Core functionality works without internet
+- ✅ **Auto-Updates**: Automatically updates when new versions deploy
+- ✅ **Responsive**: Optimized for all screen sizes
+- ✅ **Fast Loading**: Service worker caching for instant startup
+- ✅ **App Shortcuts**: Quick access to resume/cover letter generation
+
+### PWA Development
+```bash
+# Start PWA development server
+npm run dev:pwa
+
+# Build PWA for production
+npm run build:pwa
+
+# Preview PWA build locally
+npm run preview:pwa
+
+# Switch to PWA development mode
+npm run switch:pwa
+```
+
+### PWA Deployment Options
+
+The PWA can be deployed to any static hosting service:
+
+**Popular Options:**
+- **Netlify**: Drag and drop the build folder
+- **Vercel**: Connect GitHub repo, set build command to `npm run build:pwa`
+- **GitHub Pages**: Deploy from build folder
+- **Firebase Hosting**: Use `firebase deploy` after build
+- **Cloudflare Pages**: Connect repo with build command `npm run build:pwa`
+
+**Manual Deployment:**
+1. Build the PWA: `npm run build:pwa`
+2. Upload the entire `build/` folder to your web server
+3. Ensure HTTPS is enabled (required for PWA features)
+4. Configure your server to serve the app with proper headers
+
+### PWA vs Extension
+
+| Feature | PWA | Extension |
+|---------|-----|-----------|
+| Installation | Via browser | Via Chrome Web Store |
+| Platform | All modern browsers | Chrome-based browsers |
+| Offline Support | ✅ Full | ✅ Limited |
+| Auto Updates | ✅ Automatic | ✅ Store-managed |
+| Native Integration | Limited | Full browser integration |
+| Distribution | Direct URL | Store approval required |
+
+For detailed PWA setup and configuration, see [PWA-README.md](./PWA-README.md).

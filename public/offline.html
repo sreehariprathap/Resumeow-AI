@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Prompter - Offline" />
+    <title>Prompter - Offline</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+          'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+          sans-serif;
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        text-align: center;
+      }
+      
+      .offline-container {
+        max-width: 400px;
+        padding: 2rem;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+      }
+      
+      .offline-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+      }
+      
+      h1 {
+        margin: 0 0 1rem 0;
+        font-size: 2rem;
+        font-weight: 600;
+      }
+      
+      p {
+        margin: 0 0 2rem 0;
+        opacity: 0.9;
+        line-height: 1.6;
+      }
+      
+      .retry-button {
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-block;
+      }
+      
+      .retry-button:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: translateY(-2px);
+      }
+      
+      .features {
+        margin-top: 2rem;
+        text-align: left;
+      }
+      
+      .features h3 {
+        margin: 0 0 1rem 0;
+        font-size: 1.2rem;
+      }
+      
+      .features ul {
+        margin: 0;
+        padding-left: 1.5rem;
+        opacity: 0.9;
+      }
+      
+      .features li {
+        margin-bottom: 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="offline-container">
+      <div class="offline-icon">📡</div>
+      <h1>You're Offline</h1>
+      <p>
+        It looks like you're not connected to the internet. Don't worry, you can still use some features of Prompter!
+      </p>
+      
+      <button class="retry-button" onclick="window.location.reload()">
+        Try Again
+      </button>
+      
+      <div class="features">
+        <h3>Available Offline:</h3>
+        <ul>
+          <li>View cached resume templates</li>
+          <li>Access saved prompts</li>
+          <li>Use basic prompt generation</li>
+          <li>Browse your prompt history</li>
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      // Check for network connectivity
+      function checkOnline() {
+        if (navigator.onLine) {
+          window.location.href = '/';
+        }
+      }
+      
+      // Listen for online event
+      window.addEventListener('online', checkOnline);
+      
+      // Check periodically
+      setInterval(checkOnline, 5000);
+    </script>
+  </body>
+</html>
