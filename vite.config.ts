@@ -47,15 +47,26 @@ export default defineConfig({
         entryFileNames: 'assets/[name].js',
         chunkFileNames: 'assets/[name].js',
         assetFileNames: 'assets/[name].[ext]',
-        manualChunks: undefined
+        manualChunks: {
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+          ai: ['openai', '@google/genai'],
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+        },
       }
-    }
+    },
   },
   define: {
     global: 'globalThis',
   },
+  esbuild: {
+    drop: ['console', 'debugger'],
+  },
   server: {
     port: 3000,
-    open: true
-  }
+    open: true,
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      'Cross-Origin-Embedder-Policy': 'unsafe-none',
+    },
+  },
 })

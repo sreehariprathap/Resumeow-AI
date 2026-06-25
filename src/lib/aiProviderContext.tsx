@@ -1,9 +1,13 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { useAuth } from './authContext';
-import { getUserData, saveUserData } from './firebase';
+import { getUserData, saveUserData } from './firebaseWeb';
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
 import { toast } from 'sonner';
+
+// When false, app uses the server-side DeepSeek key and hides API settings from users
+const USE_USER_API_KEY = import.meta.env.VITE_USE_USER_API_KEY !== 'false';
+const ENV_DEEPSEEK_KEY: string = import.meta.env.VITE_DEEPSEEK_API_KEY ?? '';
 
 export type AIProvider = 'deepseek' | 'openrouter' | 'gemini';
 
@@ -48,6 +52,7 @@ interface AIProviderContextType {
   geminiApiKey: string;
   setGeminiApiKey: (key: string) => void;
   isLoading: boolean;
+  isUserApiKeyEnabled: boolean;
   makeAICall: (prompt: string) => Promise<string>;
   makeAICallWithModel: (prompt: string, modelId: string) => Promise<string>;
 }
@@ -105,11 +110,16 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
         console.error("Error loading user's preferred model:", error);
       }
     }
-  }, [currentUser]); // Trigger when user changes  // Load settings from Firebase or environment variables with improved error handling
+  }, [currentUser]);
+
+  // Load settings from Firebase with improved error handling
   useEffect(() => {
+    if (currentUser !== undefined) {
+      setIsLoading(true);
+    }
+
     const loadSettings = async () => {
       try {
-        // Load user preferences from Firebase if logged in
         if (currentUser) {
           console.log("Loading settings for user:", currentUser.uid);
           
@@ -139,15 +149,17 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
                 }
               }
               
-              // Load API keys with validation
-              if (userData.deepseekApiKey && typeof userData.deepseekApiKey === 'string') {
-                setDeepseekApiKeyState(userData.deepseekApiKey);
-              }
-              if (userData.openRouterApiKey && typeof userData.openRouterApiKey === 'string') {
-                setOpenRouterApiKeyState(userData.openRouterApiKey);
-              }
-              if (userData.googleApiKey && typeof userData.googleApiKey === 'string') {
-                setGeminiApiKeyState(userData.googleApiKey);
+              // Load API keys with validation — skipped in managed mode
+              if (USE_USER_API_KEY) {
+                if (userData.deepseekApiKey && typeof userData.deepseekApiKey === 'string') {
+                  setDeepseekApiKeyState(userData.deepseekApiKey);
+                }
+                if (userData.openRouterApiKey && typeof userData.openRouterApiKey === 'string') {
+                  setOpenRouterApiKeyState(userData.openRouterApiKey);
+                }
+                if (userData.googleApiKey && typeof userData.googleApiKey === 'string') {
+                  setGeminiApiKeyState(userData.googleApiKey);
+                }
               }
             } else {
               console.log("No user data found in Firebase");
@@ -317,10 +329,16 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
     await saveSettings({ googleApiKey: key });
   };
 
-  // Make AI call with failsafe
+  // Make AI call with failsafe — fallback only picks providers that have keys configured
   const makeAICall = async (prompt: string): Promise<string> => {
     const primaryModel = selectedModel;
-    const fallbackModel = AVAILABLE_MODELS.find(m => m.provider !== primaryModel.provider);
+    const fallbackModel = AVAILABLE_MODELS.find(
+      m => m.provider !== primaryModel.provider && (
+        (m.provider === 'deepseek' && deepseekApiKey) ||
+        (m.provider === 'openrouter' && openRouterApiKey) ||
+        (m.provider === 'gemini' && geminiApiKey)
+      )
+    );
 
     try {
       // Try primary model first
@@ -348,13 +366,14 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
   // Individual AI call function
   const callAI = async (prompt: string, model: AIModel): Promise<string> => {
     if (model.provider === 'deepseek') {
-      if (!deepseekApiKey) {
+      const effectiveKey = USE_USER_API_KEY ? deepseekApiKey : ENV_DEEPSEEK_KEY;
+      if (!effectiveKey) {
         throw new Error('DeepSeek API key not configured. Add it in Settings.');
       }
 
       const client = new OpenAI({
         baseURL: 'https://api.deepseek.com/v1',
-        apiKey: deepseekApiKey,
+        apiKey: effectiveKey,
         dangerouslyAllowBrowser: true,
       });
 
@@ -424,6 +443,7 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
     geminiApiKey,
     setGeminiApiKey,
     isLoading,
+    isUserApiKeyEnabled: USE_USER_API_KEY,
     makeAICall,
     makeAICallWithModel
   };

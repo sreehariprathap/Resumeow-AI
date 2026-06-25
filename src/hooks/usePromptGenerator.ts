@@ -1,9 +1,13 @@
-import type { PromptGeneratorOptions, Template } from "@/types";
-import { useTemplates } from "./useTemplates";
+import type { PromptGeneratorOptions, Template, CustomPrompt, PromptType } from "@/types";
 import { toast } from "sonner";
 
-export function usePromptGenerator() {
-  const { resumeTemplates, coverLetterTemplates, getActivePrompt } = useTemplates();
+interface PromptGeneratorDeps {
+  resumeTemplates: Template[];
+  coverLetterTemplates: Template[];
+  getActivePrompt: (type: PromptType) => CustomPrompt;
+}
+
+export function usePromptGenerator({ resumeTemplates, coverLetterTemplates, getActivePrompt }: PromptGeneratorDeps) {
   
   // Helper to find a template by ID and type
   const findTemplateById = (id: string, type: 'resume' | 'coverLetter'): Template | undefined => {

@@ -28,17 +28,7 @@ import { Settings, Trash2, Bot, Sparkles, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import type { PromptType, Template, CustomPrompt } from "./types";
 import { CombinedATSAnalysis } from "./components/CombinedATSAnalysis";
-
-interface ATSScore {
-  overall: number;
-  keywordMatch: number;
-  skillsAlignment: number;
-  experienceMatch: number;
-  formatCompliance: number;
-  feedback: string[];
-  missingKeywords: string[];
-  recommendations: string[];
-}
+import type { ATSScore } from "./hooks/useAIService";
 
 function App() {
   const { currentUser } = useAuth();
@@ -54,7 +44,11 @@ function App() {
     setActivePrompt,
     clearAllData
   } = useTemplates();
-  const { generateResumePrompt, generateCoverLetterPrompt } = usePromptGenerator();
+  const { generateResumePrompt, generateCoverLetterPrompt } = usePromptGenerator({
+    resumeTemplates,
+    coverLetterTemplates,
+    getActivePrompt,
+  });
   const { selectedModel } = useAIProvider();
   const { showOnboarding, completeOnboarding } = useOnboarding();
   const [promptType, setPromptType] = useState<PromptType>("resume");

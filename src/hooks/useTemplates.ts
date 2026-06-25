@@ -83,7 +83,9 @@ export function useTemplates() {
   // Use refs to track if initial data has been loaded
   const initialLoadRef = useRef(false);
   const prevUserRef = useRef<string | null>(null);
-  const pendingSaveRef = useRef(false);    // Function to save to localStorage with user isolation
+  const pendingSaveRef = useRef(false);
+  const lastBackupHashRef = useRef<string>('');
+  const hasDirtyDataRef = useRef(false);    // Function to save to localStorage with user isolation
   const saveToLocalStorage = useCallback(() => {
     if (!currentUser) return; // Only save to localStorage if user is logged in
     
@@ -107,9 +109,15 @@ export function useTemplates() {
     }
   }, [currentUser, resumeTemplates, coverLetterTemplates, customPrompts]);// Save to Firebase if user is logged in with retry logic
   const saveToFirebase = useCallback(async (retryCount = 0) => {
-    if (!currentUser || pendingSaveRef.current) return;
-    
+    if (!currentUser) return;
+    if (pendingSaveRef.current) {
+      // A save is already in-flight — mark data as dirty so we retry after it completes
+      hasDirtyDataRef.current = true;
+      return;
+    }
+
     pendingSaveRef.current = true;
+    hasDirtyDataRef.current = false;
     incrementPendingChanges();
     
     try {
@@ -148,6 +156,11 @@ export function useTemplates() {
       }
     } finally {
       pendingSaveRef.current = false;
+      // If data changed while we were saving, trigger another save
+      if (hasDirtyDataRef.current) {
+        hasDirtyDataRef.current = false;
+        setTimeout(() => saveToFirebase(), 100);
+      }
     }
   }, [currentUser, resumeTemplates, coverLetterTemplates, customPrompts, incrementPendingChanges, markSyncSuccess, markSyncError]);
   // Load data functions with user isolation
@@ -160,7 +173,11 @@ export function useTemplates() {
     const userKey = `user_${currentUser.uid}`;
     const savedResumeTemplates = localStorage.getItem(`${userKey}_resumeTemplates`);
     if (savedResumeTemplates) {
-      setResumeTemplates(JSON.parse(savedResumeTemplates));
+      try {
+        setResumeTemplates(JSON.parse(savedResumeTemplates));
+      } catch {
+        setResumeTemplates(DEFAULT_RESUME_TEMPLATES);
+      }
     } else {
       setResumeTemplates(DEFAULT_RESUME_TEMPLATES);
       localStorage.setItem(`${userKey}_resumeTemplates`, JSON.stringify(DEFAULT_RESUME_TEMPLATES));
@@ -176,7 +193,11 @@ export function useTemplates() {
     const userKey = `user_${currentUser.uid}`;
     const savedCoverLetterTemplates = localStorage.getItem(`${userKey}_coverLetterTemplates`);
     if (savedCoverLetterTemplates) {
-      setCoverLetterTemplates(JSON.parse(savedCoverLetterTemplates));
+      try {
+        setCoverLetterTemplates(JSON.parse(savedCoverLetterTemplates));
+      } catch {
+        setCoverLetterTemplates(DEFAULT_COVER_LETTER_TEMPLATES);
+      }
     } else {
       setCoverLetterTemplates(DEFAULT_COVER_LETTER_TEMPLATES);
       localStorage.setItem(`${userKey}_coverLetterTemplates`, JSON.stringify(DEFAULT_COVER_LETTER_TEMPLATES));
@@ -192,7 +213,11 @@ export function useTemplates() {
     const userKey = `user_${currentUser.uid}`;
     const savedCustomPrompts = localStorage.getItem(`${userKey}_customPrompts`);
     if (savedCustomPrompts) {
-      setCustomPrompts(JSON.parse(savedCustomPrompts));
+      try {
+        setCustomPrompts(JSON.parse(savedCustomPrompts));
+      } catch {
+        setCustomPrompts(DEFAULT_CUSTOM_PROMPTS);
+      }
     } else {
       setCustomPrompts(DEFAULT_CUSTOM_PROMPTS);
       localStorage.setItem(`${userKey}_customPrompts`, JSON.stringify(DEFAULT_CUSTOM_PROMPTS));
@@ -220,15 +245,33 @@ export function useTemplates() {
     }
   }, [currentUser, loadResumeTemplatesFromLocalStorage, loadCoverLetterTemplatesFromLocalStorage, loadCustomPromptsFromLocalStorage]);
 
+  // Restore active prompt selections from Firebase settings into localStorage
+  // so App.tsx's useState initialiser picks them up on re-login
+  const restoreActivePromptsFromFirebase = useCallback(async (uid: string) => {
+    try {
+      const settings = await getUserData(uid, "settings");
+      if (!settings) return;
+      const userKey = `user_${uid}`;
+      if (settings.activePrompt_resume) {
+        localStorage.setItem(`${userKey}_activePrompt_resume`, settings.activePrompt_resume as string);
+      }
+      if (settings.activePrompt_coverLetter) {
+        localStorage.setItem(`${userKey}_activePrompt_coverLetter`, settings.activePrompt_coverLetter as string);
+      }
+    } catch {
+      // Non-critical — user will just land on default prompt
+    }
+  }, []);
+
   // Load data on initial mount and when user changes
   useEffect(() => {
     // Skip if the user hasn't changed (except on initial load)
     if (initialLoadRef.current && prevUserRef.current === (currentUser?.uid || null)) {
       return;
     }
-    
-    // Update refs
-    initialLoadRef.current = true;
+
+    // Track which user we're loading for — set BEFORE async so rapid auth changes
+    // are detected correctly (initialLoadRef set after load completes)
     prevUserRef.current = currentUser?.uid || null;
       const loadTemplates = async () => {
       try {
@@ -236,6 +279,10 @@ export function useTemplates() {
           console.log("Loading templates for user:", currentUser.uid);
           
           try {
+            // Restore active prompt selections from Firebase settings into localStorage
+            // before templates load so getActivePrompt() reads the correct IDs
+            await restoreActivePromptsFromFirebase(currentUser.uid);
+
             // Try to load from Firebase first
             const userData = await getUserData(currentUser.uid, "templates");
               if (userData && userData.resumeTemplates && userData.coverLetterTemplates && userData.customPrompts) {
@@ -358,33 +405,36 @@ export function useTemplates() {
         }
       } catch (error) {
         console.error("Error in template loading:", error);
-        // Ultimate fallback to defaults
         setResumeTemplates(DEFAULT_RESUME_TEMPLATES);
         setCoverLetterTemplates(DEFAULT_COVER_LETTER_TEMPLATES);
         setCustomPrompts(DEFAULT_CUSTOM_PROMPTS);
+      } finally {
+        initialLoadRef.current = true;
       }
     };
 
     loadTemplates();
-  }, [currentUser, loadFromLocalStorage, loadResumeTemplatesFromLocalStorage, 
-      loadCoverLetterTemplatesFromLocalStorage, loadCustomPromptsFromLocalStorage, saveToFirebase]);  // Combined effect for saving changes
+  }, [currentUser, loadFromLocalStorage, loadResumeTemplatesFromLocalStorage,
+      loadCoverLetterTemplatesFromLocalStorage, loadCustomPromptsFromLocalStorage, saveToFirebase,
+      restoreActivePromptsFromFirebase]);
+
+  // Combined effect for saving changes
   useEffect(() => {
     // Skip the first render and only run this effect when initialLoadRef is true
     if (!initialLoadRef.current || !currentUser) return;
     
-    // Create emergency backup before saving changes
-    try {
-      createEmergencyBackup(currentUser.uid, {
-        resumeTemplates,
-        coverLetterTemplates,
-        customPrompts
-      });
-      logBackupOperation('create', true, currentUser.uid, { 
-        templateCount: resumeTemplates.length + coverLetterTemplates.length + customPrompts.length 
-      });
-    } catch (error) {
-      console.error("Failed to create emergency backup:", error);
-      logBackupOperation('create', false, currentUser.uid, { error: (error as Error).message });
+    // Create emergency backup only when data actually changes
+    const dataHash = `${resumeTemplates.length}-${coverLetterTemplates.length}-${customPrompts.length}-${resumeTemplates.map(t => t.id).join(',')}`;
+    if (dataHash !== lastBackupHashRef.current) {
+      lastBackupHashRef.current = dataHash;
+      try {
+        createEmergencyBackup(currentUser.uid, { resumeTemplates, coverLetterTemplates, customPrompts });
+        logBackupOperation('create', true, currentUser.uid, {
+          templateCount: resumeTemplates.length + coverLetterTemplates.length + customPrompts.length
+        });
+      } catch (error) {
+        logBackupOperation('create', false, currentUser.uid, { error: (error as Error).message });
+      }
     }
     
     // Save to localStorage first (with user isolation)
@@ -461,12 +511,24 @@ export function useTemplates() {
            (type === 'resume' ? DEFAULT_CUSTOM_PROMPTS[0] : DEFAULT_CUSTOM_PROMPTS[1]);
   }, [currentUser, customPrompts]);
 
-  // Set the active prompt for a specific type
+  // Set the active prompt for a specific type — persists to both localStorage and Firebase
   const setActivePrompt = useCallback((type: PromptType, promptId: string) => {
-    if (!currentUser) return; // Don't persist for non-logged-in users
-    
+    if (!currentUser) return;
+
     const userKey = `user_${currentUser.uid}`;
     localStorage.setItem(`${userKey}_activePrompt_${type}`, promptId);
+
+    // Also persist to Firebase so it survives logout/different sessions
+    getUserData(currentUser.uid, "settings").then(existing => {
+      const updated = {
+        ...(existing || {}),
+        [`activePrompt_${type}`]: promptId,
+        updatedAt: new Date().toISOString(),
+      };
+      saveUserData(currentUser.uid, "settings", updated).catch(() => {
+        // Non-critical — localStorage copy is the fallback
+      });
+    }).catch(() => {});
   }, [currentUser]);  // Reset to default templates (local state only - does not clear cloud data)
   const resetTemplates = useCallback(() => {
     setResumeTemplates(DEFAULT_RESUME_TEMPLATES);

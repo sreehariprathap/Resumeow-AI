@@ -60,13 +60,22 @@ export function CombinedATSAnalysis({
     onSuggestionsChange(selectedSuggestions);
   }, [onSuggestionsChange]);
 
-  // Auto-analyze when all data is available
+  // Reset analysis when inputs change so stale results don't persist
   useEffect(() => {
-    if (jobDescription && resumeContent && !disabled && !analysisComplete) {
+    setAnalysisComplete(false);
+    setAnalysisFailed(false);
+  }, [jobDescription, resumeContent]);
+
+  // Auto-analyze with debounce — only when both inputs are stable and no analysis is running
+  useEffect(() => {
+    if (!jobDescription || !resumeContent || disabled || analysisComplete || isAnalyzing) return;
+
+    const timer = setTimeout(() => {
       performCombinedAnalysis();
-    }
+    }, 800);
+    return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobDescription, resumeContent, disabled, analysisComplete]);
+  }, [jobDescription, resumeContent, disabled, analysisComplete, isAnalyzing]);
 
   const performCombinedAnalysis = async (): Promise<void> => {
     if (!jobDescription || !resumeContent) {

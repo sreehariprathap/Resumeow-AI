@@ -37,26 +37,28 @@ export interface CombinedATSResult {
 }
 
 export function useAIService() {
-  const { makeAICall, makeAICallWithModel, deepseekApiKey, openRouterApiKey, geminiApiKey, selectedModel } = useAIProvider();
+  const { makeAICall, makeAICallWithModel, deepseekApiKey, openRouterApiKey, geminiApiKey, selectedModel, isUserApiKeyEnabled } = useAIProvider();
 
   // Task-specific DeepSeek models — writing uses pro, analysis uses flash
   const DEEPSEEK_WRITING_MODEL = 'deepseek-v4-pro';
   const DEEPSEEK_ANALYSIS_MODEL = 'deepseek-v4-flash';
 
-  // Route to a task-specific model when DeepSeek key is available, else fall back to user's selected model
+  // In managed mode the env key is always present — route to task-specific models directly
   const callForWriting = useCallback((prompt: string) => {
-    if (deepseekApiKey) return makeAICallWithModel(prompt, DEEPSEEK_WRITING_MODEL);
+    if (!isUserApiKeyEnabled || deepseekApiKey) return makeAICallWithModel(prompt, DEEPSEEK_WRITING_MODEL);
     return makeAICall(prompt);
-  }, [deepseekApiKey, makeAICall, makeAICallWithModel]);
+  }, [isUserApiKeyEnabled, deepseekApiKey, makeAICall, makeAICallWithModel]);
 
   const callForAnalysis = useCallback((prompt: string) => {
-    if (deepseekApiKey) return makeAICallWithModel(prompt, DEEPSEEK_ANALYSIS_MODEL);
+    if (!isUserApiKeyEnabled || deepseekApiKey) return makeAICallWithModel(prompt, DEEPSEEK_ANALYSIS_MODEL);
     return makeAICall(prompt);
-  }, [deepseekApiKey, makeAICall, makeAICallWithModel]);
+  }, [isUserApiKeyEnabled, deepseekApiKey, makeAICall, makeAICallWithModel]);
 
   const hasAvailableProviders = useCallback(() => {
+    // Managed mode: env key is always available
+    if (!isUserApiKeyEnabled) return true;
     return !!(deepseekApiKey || openRouterApiKey || geminiApiKey);
-  }, [deepseekApiKey, openRouterApiKey, geminiApiKey]);
+  }, [isUserApiKeyEnabled, deepseekApiKey, openRouterApiKey, geminiApiKey]);
 
   const handleAIError = (error: unknown) => {
     const msg = error instanceof Error ? error.message : 'Unknown AI service error';
@@ -87,7 +89,11 @@ export function useAIService() {
   }, [makeAICall, hasAvailableProviders]);
 
   // Writing tasks → deepseek-v4-pro; Analysis tasks → deepseek-v4-flash
+  const truncatePrompt = (prompt: string, maxChars = 50000): string =>
+    prompt.length > maxChars ? prompt.slice(0, maxChars) + '\n[Content truncated to fit API limits]' : prompt;
+
   const makeWritingCall = useCallback(async (prompt: string): Promise<string> => {
+    prompt = truncatePrompt(prompt);
     if (!hasAvailableProviders()) {
       const errorMessage = 'No AI providers available. Please configure API keys in Settings.';
       toast.error(errorMessage);
@@ -102,6 +108,7 @@ export function useAIService() {
   }, [callForWriting, hasAvailableProviders]);
 
   const makeAnalysisCall = useCallback(async (prompt: string): Promise<string> => {
+    prompt = truncatePrompt(prompt);
     if (!hasAvailableProviders()) {
       const errorMessage = 'No AI providers available. Please configure API keys in Settings.';
       toast.error(errorMessage);

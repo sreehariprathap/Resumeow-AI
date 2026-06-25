@@ -42,7 +42,7 @@ export const SettingsDialog = ({
   onSetActivePrompt,
   clearAllData
 }: SettingsDialogProps) => {const { currentUser } = useAuth();
-  const { deepseekApiKey, setDeepseekApiKey, openRouterApiKey, setOpenRouterApiKey } = useAIProvider();
+  const { deepseekApiKey, setDeepseekApiKey, openRouterApiKey, setOpenRouterApiKey, isUserApiKeyEnabled } = useAIProvider();
   const [activeTab, setActiveTab] = useState<string>("resume");
   const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState<CustomPrompt | undefined>(undefined);
@@ -158,34 +158,37 @@ export const SettingsDialog = ({
     Object.entries(localActivePrompts).forEach(([type, promptId]) => {
       onSetActivePrompt(type as PromptType, promptId);
     });    
-    // Update DeepSeek API key in context
-    if (localDeepseekApiKey !== deepseekApiKey) {
-      try {
-        await setDeepseekApiKey(localDeepseekApiKey);
-      } catch (error) {
-        console.error("Error updating DeepSeek API key:", error);
-        toast.error("Failed to save DeepSeek API key");
+    // Update API keys in context — skipped in managed mode
+    if (isUserApiKeyEnabled) {
+      if (localDeepseekApiKey !== deepseekApiKey) {
+        try {
+          await setDeepseekApiKey(localDeepseekApiKey);
+        } catch (error) {
+          console.error("Error updating DeepSeek API key:", error);
+          toast.error("Failed to save DeepSeek API key");
+        }
       }
-    }
 
-    // Update OpenRouter API key in context
-    if (localOpenRouterApiKey !== openRouterApiKey) {
-      try {
-        await setOpenRouterApiKey(localOpenRouterApiKey);
-      } catch (error) {
-        console.error("Error updating OpenRouter API key:", error);
-        toast.error("Failed to save OpenRouter API key");
+      if (localOpenRouterApiKey !== openRouterApiKey) {
+        try {
+          await setOpenRouterApiKey(localOpenRouterApiKey);
+        } catch (error) {
+          console.error("Error updating OpenRouter API key:", error);
+          toast.error("Failed to save OpenRouter API key");
+        }
       }
     }
 
     // Get currently active prompt objects
     const activeResumePrompt = customPrompts.find(p => p.id === localActivePrompts.resume);
     const activeCoverPrompt = customPrompts.find(p => p.id === localActivePrompts.coverLetter);    
-    // Prepare user settings with validation
+    // Prepare user settings with validation — exclude API keys in managed mode
     const userSettings = {
-      deepseekApiKey: localDeepseekApiKey?.trim() || '',
-      googleApiKey: googleApiKey?.trim() || '',
-      openRouterApiKey: localOpenRouterApiKey?.trim() || '',
+      ...(isUserApiKeyEnabled && {
+        deepseekApiKey: localDeepseekApiKey?.trim() || '',
+        googleApiKey: googleApiKey?.trim() || '',
+        openRouterApiKey: localOpenRouterApiKey?.trim() || '',
+      }),
       activeResumePrompt: activeResumePrompt ? {
         id: activeResumePrompt.id,
         name: activeResumePrompt.name,
@@ -603,79 +606,90 @@ export const SettingsDialog = ({
                   </div>)}
               </div>
             </TabsContent>            <TabsContent value="general" className="mt-4 space-y-4">
-              <div>
-                <h3 className="text-sm font-medium mb-3">API Settings</h3>
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="deepseekApiKey" className="text-xs font-semibold">
-                      DeepSeek API Key (Recommended)
-                    </Label>
-                    <Input
-                      id="deepseekApiKey"
-                      type="password"
-                      value={localDeepseekApiKey}
-                      onChange={(e) => setLocalDeepseekApiKey(e.target.value)}
-                      placeholder="sk-..."
-                      className="h-8 text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Direct DeepSeek API key for DeepSeek V3 and R1 models. Get yours at platform.deepseek.com.
+              {isUserApiKeyEnabled && (
+                <div>
+                  <h3 className="text-sm font-medium mb-3">API Settings</h3>
+                  <div className="p-3 mb-3 border border-yellow-500/30 rounded-md bg-yellow-500/5">
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                      <strong>Security note:</strong> API keys are stored in your browser and synced to your account. Use keys with spend limits set in your provider dashboard.
                     </p>
                   </div>
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="deepseekApiKey" className="text-xs font-semibold">
+                        DeepSeek API Key (Recommended)
+                      </Label>
+                      <Input
+                        id="deepseekApiKey"
+                        type="password"
+                        value={localDeepseekApiKey}
+                        onChange={(e) => setLocalDeepseekApiKey(e.target.value)}
+                        placeholder="sk-..."
+                        className="h-8 text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Direct DeepSeek API key for DeepSeek V3 and R1 models. Get yours at platform.deepseek.com.
+                      </p>
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="openrouterApiKey" className="text-xs">
-                      OpenRouter API Key
-                    </Label>
-                    <Input
-                      id="openrouterApiKey"
-                      type="password"
-                      value={localOpenRouterApiKey}
-                      onChange={(e) => setLocalOpenRouterApiKey(e.target.value)}
-                      placeholder="Enter your OpenRouter API Key"
-                      className="h-8 text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      OpenRouter API key for free DeepSeek R1 and other models.
-                    </p>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="googleApiKey" className="text-xs">
-                      Custom Google API Key
-                    </Label>
-                    <Input
-                      id="googleApiKey"
-                      type="password"
-                      value={googleApiKey}
-                      onChange={(e) => setGoogleApiKey(e.target.value)}
-                      placeholder="Enter your Google API Key"
-                      className="h-8 text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Enter your personal Google API key for enhanced functionality.
-                      Your key will be securely stored against your user account.
-                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="openrouterApiKey" className="text-xs">
+                        OpenRouter API Key
+                      </Label>
+                      <Input
+                        id="openrouterApiKey"
+                        type="password"
+                        value={localOpenRouterApiKey}
+                        onChange={(e) => setLocalOpenRouterApiKey(e.target.value)}
+                        placeholder="Enter your OpenRouter API Key"
+                        className="h-8 text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        OpenRouter API key for free DeepSeek R1 and other models.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="googleApiKey" className="text-xs">
+                        Custom Google API Key
+                      </Label>
+                      <Input
+                        id="googleApiKey"
+                        type="password"
+                        value={googleApiKey}
+                        onChange={(e) => setGoogleApiKey(e.target.value)}
+                        placeholder="Enter your Google API Key"
+                        className="h-8 text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Enter your personal Google API key for enhanced functionality.
+                        Your key will be securely stored against your user account.
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>              <div>
-                <h3 className="text-sm font-medium mb-3">Preferred AI Model</h3>
-                <div className="space-y-3">
-                  <div className="p-3 border rounded-md bg-muted/5">
-                    <div className="space-y-3">
-                      <AIProviderSelector className="space-y-2" />
-                      <div className="space-y-2">
-                        <p className="text-xs text-muted-foreground">
-                          <strong>Your Preferred Model:</strong> This setting will be saved to your account and automatically applied when you use the app. The system will use this as your primary model for all AI operations.
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          If your preferred model fails, the system will automatically use the alternative provider as a fallback.
-                        </p>
+              )}
+
+              {isUserApiKeyEnabled && (
+                <div>
+                  <h3 className="text-sm font-medium mb-3">Preferred AI Model</h3>
+                  <div className="space-y-3">
+                    <div className="p-3 border rounded-md bg-muted/5">
+                      <div className="space-y-3">
+                        <AIProviderSelector className="space-y-2" />
+                        <div className="space-y-2">
+                          <p className="text-xs text-muted-foreground">
+                            <strong>Your Preferred Model:</strong> This setting will be saved to your account and automatically applied when you use the app. The system will use this as your primary model for all AI operations.
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            If your preferred model fails, the system will automatically use the alternative provider as a fallback.
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div><div>
+              )}<div>
                 <h3 className="text-sm font-medium mb-3">Other</h3>
                 <div className="space-y-3">
                   <ModeToggle />

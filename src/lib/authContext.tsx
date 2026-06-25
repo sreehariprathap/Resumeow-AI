@@ -105,10 +105,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {  const 
   const resetPassword = async (email: string) => {
     await sendPasswordReset(email);
   };  const logout = async () => {
-    // Clear ALL localStorage data on logout for complete privacy
-    console.log("Clearing all localStorage data on logout");
-    localStorage.clear();
-    
+    // Only remove non-user-namespaced keys (auth state, theme etc.)
+    // User data stays under user_${uid}_* keys — safe per-user, restored from Firebase on next login
+    // Clearing everything here kills pending Firebase saves and recovery backups
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && !key.startsWith('user_') && !key.startsWith('emergency_backup_')) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+
     await logOut();
   };
 
@@ -131,17 +139,3 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {  const 
 };
 
 export const useAuth = () => useContext(AuthContext);
-
-// Additional hook to ensure user is authenticated or redirect
-export const useRequireAuth = () => {
-  const auth = useAuth();
-  
-  useEffect(() => {
-    if (!auth.isLoading && !auth.isAuthenticated) {
-      // Handle redirect or show login prompt
-      console.log("Authentication required");
-    }
-  }, [auth.isLoading, auth.isAuthenticated]);
-  
-  return auth;
-};
