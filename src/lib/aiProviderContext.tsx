@@ -55,6 +55,7 @@ interface AIProviderContextType {
   isUserApiKeyEnabled: boolean;
   makeAICall: (prompt: string) => Promise<string>;
   makeAICallWithModel: (prompt: string, modelId: string) => Promise<string>;
+  makeAICallWithThinking: (prompt: string) => Promise<string>;
 }
 
 const AIProviderContext = createContext<AIProviderContextType | null>(null);
@@ -431,6 +432,32 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
     return callAI(prompt, model);
   };
 
+  // Thinking mode call — uses deepseek-reasoner with chain-of-thought enabled.
+  // Returns only the final content, not the reasoning trace.
+  // Note: temperature/top_p/penalties must be omitted — they have no effect in thinking mode.
+  const makeAICallWithThinking = async (prompt: string): Promise<string> => {
+    const effectiveKey = USE_USER_API_KEY ? deepseekApiKey : ENV_DEEPSEEK_KEY;
+    if (!effectiveKey) {
+      throw new Error('DeepSeek API key not configured. Add it in Settings.');
+    }
+
+    const client = new OpenAI({
+      baseURL: 'https://api.deepseek.com/v1',
+      apiKey: effectiveKey,
+      dangerouslyAllowBrowser: true,
+    });
+
+    // extra_body is a valid OpenAI SDK param but not in the TS types
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const completion = await (client.chat.completions.create as any)({
+      model: 'deepseek-reasoner',
+      messages: [{ role: 'user', content: prompt }],
+      extra_body: { thinking: { type: 'enabled' } },
+    });
+
+    return completion.choices[0]?.message?.content || 'No response received';
+  };
+
   const value: AIProviderContextType = {
     selectedModel,
     userPreferredModel: selectedModel,
@@ -445,7 +472,8 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
     isLoading,
     isUserApiKeyEnabled: USE_USER_API_KEY,
     makeAICall,
-    makeAICallWithModel
+    makeAICallWithModel,
+    makeAICallWithThinking
   };
 
   return (

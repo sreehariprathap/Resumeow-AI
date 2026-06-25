@@ -37,7 +37,7 @@ export interface CombinedATSResult {
 }
 
 export function useAIService() {
-  const { makeAICall, makeAICallWithModel, deepseekApiKey, openRouterApiKey, geminiApiKey, selectedModel, isUserApiKeyEnabled } = useAIProvider();
+  const { makeAICall, makeAICallWithModel, makeAICallWithThinking, deepseekApiKey, openRouterApiKey, geminiApiKey, selectedModel, isUserApiKeyEnabled } = useAIProvider();
 
   // Task-specific DeepSeek models — writing uses pro, analysis uses flash
   const DEEPSEEK_WRITING_MODEL = 'deepseek-v4-pro';
@@ -122,7 +122,7 @@ export function useAIService() {
     }
   }, [callForAnalysis, hasAvailableProviders]);
 
-  // Generate LaTeX Resume
+  // Generate LaTeX Resume — uses thinking mode (deepseek-reasoner) for highest quality output
   const generateResumeLatex = useCallback(async (prompt: string): Promise<string> => {
     const enhancedPrompt = `
 ${prompt}
@@ -132,7 +132,7 @@ Do not include explanations, just return the LaTeX code.
 `;
 
     try {
-      const response = await makeWritingCall(enhancedPrompt);
+      const response = await makeAICallWithThinking(truncatePrompt(enhancedPrompt));
       
       if (!response) {
         throw new Error('No response received from AI service');
