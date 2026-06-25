@@ -42,11 +42,12 @@ export const SettingsDialog = ({
   onSetActivePrompt,
   clearAllData
 }: SettingsDialogProps) => {const { currentUser } = useAuth();
-  const { openRouterApiKey, setOpenRouterApiKey } = useAIProvider();
+  const { deepseekApiKey, setDeepseekApiKey, openRouterApiKey, setOpenRouterApiKey } = useAIProvider();
   const [activeTab, setActiveTab] = useState<string>("resume");
   const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState<CustomPrompt | undefined>(undefined);
   const [localActivePrompts, setLocalActivePrompts] = useState<Record<PromptType, string>>(activePrompts);
+  const [localDeepseekApiKey, setLocalDeepseekApiKey] = useState<string>("");
   const [googleApiKey, setGoogleApiKey] = useState<string>("");
   const [localOpenRouterApiKey, setLocalOpenRouterApiKey] = useState<string>("");const [confirmDialogState, setConfirmDialogState] = useState({
     isOpen: false,
@@ -63,6 +64,9 @@ export const SettingsDialog = ({
         const userData = await getUserData(currentUser.uid, "settings");        
         if (userData) {
           console.log("User settings loaded:", userData);
+          if (userData.deepseekApiKey && typeof userData.deepseekApiKey === 'string') {
+            setLocalDeepseekApiKey(userData.deepseekApiKey);
+          }
           if (userData.googleApiKey && typeof userData.googleApiKey === 'string') {
             setGoogleApiKey(userData.googleApiKey);
           }
@@ -87,9 +91,11 @@ export const SettingsDialog = ({
           if (currentUser) {
             const userKey = `user_${currentUser.uid}`;
             try {
+              const localDeepseekKey = localStorage.getItem(`${userKey}_deepseekApiKey`);
               const localOpenRouterKey = localStorage.getItem(`${userKey}_openRouterApiKey`);
               const localGeminiKey = localStorage.getItem(`${userKey}_geminiApiKey`);
-              
+
+              if (localDeepseekKey) setLocalDeepseekApiKey(localDeepseekKey);
               if (localOpenRouterKey) setLocalOpenRouterApiKey(localOpenRouterKey);
               if (localGeminiKey) setGoogleApiKey(localGeminiKey);
             } catch (localError) {
@@ -104,10 +110,11 @@ export const SettingsDialog = ({
   useEffect(() => {
     if (isOpen) {
       setLocalActivePrompts(activePrompts);
+      setLocalDeepseekApiKey(deepseekApiKey);
       setLocalOpenRouterApiKey(openRouterApiKey);
       loadUserSettings();
     }
-  }, [isOpen, activePrompts, openRouterApiKey, loadUserSettings]);
+  }, [isOpen, activePrompts, deepseekApiKey, openRouterApiKey, loadUserSettings]);
 
 
   const handlePromptSave = (prompt: CustomPrompt) => {
@@ -151,6 +158,16 @@ export const SettingsDialog = ({
     Object.entries(localActivePrompts).forEach(([type, promptId]) => {
       onSetActivePrompt(type as PromptType, promptId);
     });    
+    // Update DeepSeek API key in context
+    if (localDeepseekApiKey !== deepseekApiKey) {
+      try {
+        await setDeepseekApiKey(localDeepseekApiKey);
+      } catch (error) {
+        console.error("Error updating DeepSeek API key:", error);
+        toast.error("Failed to save DeepSeek API key");
+      }
+    }
+
     // Update OpenRouter API key in context
     if (localOpenRouterApiKey !== openRouterApiKey) {
       try {
@@ -166,6 +183,7 @@ export const SettingsDialog = ({
     const activeCoverPrompt = customPrompts.find(p => p.id === localActivePrompts.coverLetter);    
     // Prepare user settings with validation
     const userSettings = {
+      deepseekApiKey: localDeepseekApiKey?.trim() || '',
       googleApiKey: googleApiKey?.trim() || '',
       openRouterApiKey: localOpenRouterApiKey?.trim() || '',
       activeResumePrompt: activeResumePrompt ? {
@@ -188,13 +206,16 @@ export const SettingsDialog = ({
         
         // Also save to localStorage for immediate persistence
         const userKey = `user_${currentUser.uid}`;
+        if (localDeepseekApiKey?.trim()) {
+          localStorage.setItem(`${userKey}_deepseekApiKey`, localDeepseekApiKey.trim());
+        }
         if (googleApiKey?.trim()) {
           localStorage.setItem(`${userKey}_geminiApiKey`, googleApiKey.trim());
         }
         if (localOpenRouterApiKey?.trim()) {
           localStorage.setItem(`${userKey}_openRouterApiKey`, localOpenRouterApiKey.trim());
         }
-        
+
         console.log("Settings saved successfully to Firebase and localStorage");
         toast.success("Settings saved successfully");
       } catch (error) {
@@ -204,6 +225,9 @@ export const SettingsDialog = ({
         // Save to localStorage as fallback
         const userKey = `user_${currentUser.uid}`;
         try {
+          if (localDeepseekApiKey?.trim()) {
+            localStorage.setItem(`${userKey}_deepseekApiKey`, localDeepseekApiKey.trim());
+          }
           if (googleApiKey?.trim()) {
             localStorage.setItem(`${userKey}_geminiApiKey`, googleApiKey.trim());
           }
@@ -583,9 +607,27 @@ export const SettingsDialog = ({
                 <h3 className="text-sm font-medium mb-3">API Settings</h3>
                 <div className="space-y-3">
                   <div className="space-y-2">
+                    <Label htmlFor="deepseekApiKey" className="text-xs font-semibold">
+                      DeepSeek API Key (Recommended)
+                    </Label>
+                    <Input
+                      id="deepseekApiKey"
+                      type="password"
+                      value={localDeepseekApiKey}
+                      onChange={(e) => setLocalDeepseekApiKey(e.target.value)}
+                      placeholder="sk-..."
+                      className="h-8 text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Direct DeepSeek API key for DeepSeek V3 and R1 models. Get yours at platform.deepseek.com.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="openrouterApiKey" className="text-xs">
                       OpenRouter API Key
-                    </Label>                    <Input
+                    </Label>
+                    <Input
                       id="openrouterApiKey"
                       type="password"
                       value={localOpenRouterApiKey}
@@ -594,8 +636,7 @@ export const SettingsDialog = ({
                       className="h-8 text-sm"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Enter your OpenRouter API key for DeepSeek and other models.
-                      Your key will be securely stored against your user account.
+                      OpenRouter API key for free DeepSeek R1 and other models.
                     </p>
                   </div>
                   

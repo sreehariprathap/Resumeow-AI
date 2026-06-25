@@ -5,7 +5,7 @@ import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
 import { toast } from 'sonner';
 
-export type AIProvider = 'openrouter' | 'gemini';
+export type AIProvider = 'deepseek' | 'openrouter' | 'gemini';
 
 export interface AIModel {
   id: string;
@@ -15,8 +15,18 @@ export interface AIModel {
 
 export const AVAILABLE_MODELS: AIModel[] = [
   {
+    id: 'deepseek-chat',
+    name: 'DeepSeek V3 (Chat)',
+    provider: 'deepseek'
+  },
+  {
+    id: 'deepseek-reasoner',
+    name: 'DeepSeek R1 (Reasoner)',
+    provider: 'deepseek'
+  },
+  {
     id: 'deepseek/deepseek-r1:free',
-    name: 'DeepSeek R1 (Free)',
+    name: 'DeepSeek R1 via OpenRouter (Free)',
     provider: 'openrouter'
   },
   {
@@ -28,15 +38,18 @@ export const AVAILABLE_MODELS: AIModel[] = [
 
 interface AIProviderContextType {
   selectedModel: AIModel;
-  userPreferredModel: AIModel; // Alias for selectedModel to make it clear this is the user's preference
+  userPreferredModel: AIModel;
   setSelectedModel: (model: AIModel) => void;
-  setUserPreferredModel: (model: AIModel) => void; // Alias for setSelectedModel
+  setUserPreferredModel: (model: AIModel) => void;
+  deepseekApiKey: string;
+  setDeepseekApiKey: (key: string) => void;
   openRouterApiKey: string;
   setOpenRouterApiKey: (key: string) => void;
   geminiApiKey: string;
   setGeminiApiKey: (key: string) => void;
   isLoading: boolean;
   makeAICall: (prompt: string) => Promise<string>;
+  makeAICallWithModel: (prompt: string, modelId: string) => Promise<string>;
 }
 
 const AIProviderContext = createContext<AIProviderContextType | null>(null);
@@ -65,6 +78,7 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
   };
 
   const [selectedModel, setSelectedModelState] = useState<AIModel>(getInitialModel());
+  const [deepseekApiKey, setDeepseekApiKeyState] = useState<string>('');
   const [openRouterApiKey, setOpenRouterApiKeyState] = useState<string>('');
   const [geminiApiKey, setGeminiApiKeyState] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -73,6 +87,7 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
     if (!currentUser) {
       // User logged out - reset to default model
       setSelectedModelState(AVAILABLE_MODELS[0]);
+      setDeepseekApiKeyState('');
       setOpenRouterApiKeyState('');
       setGeminiApiKeyState('');
     } else {
@@ -125,6 +140,9 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
               }
               
               // Load API keys with validation
+              if (userData.deepseekApiKey && typeof userData.deepseekApiKey === 'string') {
+                setDeepseekApiKeyState(userData.deepseekApiKey);
+              }
               if (userData.openRouterApiKey && typeof userData.openRouterApiKey === 'string') {
                 setOpenRouterApiKeyState(userData.openRouterApiKey);
               }
@@ -174,7 +192,8 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
   }, [currentUser]);  // Save settings to Firebase with retry logic
   const saveSettings = async (updates: Partial<{
     selectedAIModel: string;
-    userPreferredModel: string; // Add explicit userPreferredModel field
+    userPreferredModel: string;
+    deepseekApiKey: string;
     openRouterApiKey: string;
     googleApiKey: string;
   }>, retryCount = 0) => {
@@ -251,10 +270,24 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
     
     toast.success(`Preferred model set to ${model.name}`);
   };
+  const setDeepseekApiKey = async (key: string) => {
+    setDeepseekApiKeyState(key);
+
+    if (currentUser) {
+      try {
+        const userKey = `user_${currentUser.uid}`;
+        localStorage.setItem(`${userKey}_deepseekApiKey`, key);
+      } catch (error) {
+        console.error("Error saving to localStorage:", error);
+      }
+    }
+
+    await saveSettings({ deepseekApiKey: key });
+  };
+
   const setOpenRouterApiKey = async (key: string) => {
     setOpenRouterApiKeyState(key);
-    
-    // Save to localStorage immediately for persistence
+
     if (currentUser) {
       try {
         const userKey = `user_${currentUser.uid}`;
@@ -263,8 +296,7 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
         console.error("Error saving to localStorage:", error);
       }
     }
-    
-    // Save to Firebase with retry logic
+
     await saveSettings({ openRouterApiKey: key });
   };
 
@@ -315,7 +347,24 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
 
   // Individual AI call function
   const callAI = async (prompt: string, model: AIModel): Promise<string> => {
-    if (model.provider === 'openrouter') {
+    if (model.provider === 'deepseek') {
+      if (!deepseekApiKey) {
+        throw new Error('DeepSeek API key not configured. Add it in Settings.');
+      }
+
+      const client = new OpenAI({
+        baseURL: 'https://api.deepseek.com/v1',
+        apiKey: deepseekApiKey,
+        dangerouslyAllowBrowser: true,
+      });
+
+      const completion = await client.chat.completions.create({
+        model: model.id,
+        messages: [{ role: 'user', content: prompt }],
+      });
+
+      return completion.choices[0]?.message?.content || 'No response received';
+    } else if (model.provider === 'openrouter') {
       if (!openRouterApiKey) {
         throw new Error('OpenRouter API key not found');
       }
@@ -356,17 +405,27 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
       throw new Error(`Unsupported AI provider: ${model.provider}`);
     }
   };
+  // Call any model by ID — resolves provider from AVAILABLE_MODELS or defaults to deepseek
+  const makeAICallWithModel = async (prompt: string, modelId: string): Promise<string> => {
+    const knownModel = AVAILABLE_MODELS.find(m => m.id === modelId);
+    const model: AIModel = knownModel ?? { id: modelId, name: modelId, provider: 'deepseek' };
+    return callAI(prompt, model);
+  };
+
   const value: AIProviderContextType = {
     selectedModel,
-    userPreferredModel: selectedModel, // Alias to make it clear this is the user's preferred model
+    userPreferredModel: selectedModel,
     setSelectedModel,
-    setUserPreferredModel: setSelectedModel, // Alias for better semantic naming
+    setUserPreferredModel: setSelectedModel,
+    deepseekApiKey,
+    setDeepseekApiKey,
     openRouterApiKey,
     setOpenRouterApiKey,
     geminiApiKey,
     setGeminiApiKey,
     isLoading,
-    makeAICall
+    makeAICall,
+    makeAICallWithModel
   };
 
   return (

@@ -37,12 +37,39 @@ export interface CombinedATSResult {
 }
 
 export function useAIService() {
-  const { makeAICall, openRouterApiKey, geminiApiKey, selectedModel } = useAIProvider();
+  const { makeAICall, makeAICallWithModel, deepseekApiKey, openRouterApiKey, geminiApiKey, selectedModel } = useAIProvider();
 
-  // Check if we have any available providers
+  // Task-specific DeepSeek models — writing uses pro, analysis uses flash
+  const DEEPSEEK_WRITING_MODEL = 'deepseek-v4-pro';
+  const DEEPSEEK_ANALYSIS_MODEL = 'deepseek-v4-flash';
+
+  // Route to a task-specific model when DeepSeek key is available, else fall back to user's selected model
+  const callForWriting = useCallback((prompt: string) => {
+    if (deepseekApiKey) return makeAICallWithModel(prompt, DEEPSEEK_WRITING_MODEL);
+    return makeAICall(prompt);
+  }, [deepseekApiKey, makeAICall, makeAICallWithModel]);
+
+  const callForAnalysis = useCallback((prompt: string) => {
+    if (deepseekApiKey) return makeAICallWithModel(prompt, DEEPSEEK_ANALYSIS_MODEL);
+    return makeAICall(prompt);
+  }, [deepseekApiKey, makeAICall, makeAICallWithModel]);
+
   const hasAvailableProviders = useCallback(() => {
-    return !!(openRouterApiKey || geminiApiKey);
-  }, [openRouterApiKey, geminiApiKey]);
+    return !!(deepseekApiKey || openRouterApiKey || geminiApiKey);
+  }, [deepseekApiKey, openRouterApiKey, geminiApiKey]);
+
+  const handleAIError = (error: unknown) => {
+    const msg = error instanceof Error ? error.message : 'Unknown AI service error';
+    console.error('AI Service Error:', msg);
+    if (msg.includes('API key')) {
+      toast.error('API key issue. Please check your settings and try again.');
+    } else if (msg.includes('Both AI providers failed')) {
+      toast.error('All AI providers failed. Please try again later.');
+    } else {
+      toast.error('AI service temporarily unavailable. Please try again.');
+    }
+    throw error;
+  };
 
   // Enhanced makeAICall with better error handling
   const makeAICallWithRetry = useCallback(async (prompt: string): Promise<string> => {
@@ -51,25 +78,42 @@ export function useAIService() {
       toast.error(errorMessage);
       throw new Error(errorMessage);
     }
-
     try {
       return await makeAICall(prompt);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown AI service error';
-      console.error('AI Service Error:', errorMessage);
-      
-      // Show appropriate error toast
-      if (errorMessage.includes('API key')) {
-        toast.error('API key issue. Please check your settings and try again.');
-      } else if (errorMessage.includes('Both AI providers failed')) {
-        toast.error('All AI providers failed. Please try again later.');
-      } else {
-        toast.error('AI service temporarily unavailable. Please try again.');
-      }
-      
+      handleAIError(error);
       throw error;
     }
   }, [makeAICall, hasAvailableProviders]);
+
+  // Writing tasks → deepseek-v4-pro; Analysis tasks → deepseek-v4-flash
+  const makeWritingCall = useCallback(async (prompt: string): Promise<string> => {
+    if (!hasAvailableProviders()) {
+      const errorMessage = 'No AI providers available. Please configure API keys in Settings.';
+      toast.error(errorMessage);
+      throw new Error(errorMessage);
+    }
+    try {
+      return await callForWriting(prompt);
+    } catch (error) {
+      handleAIError(error);
+      throw error;
+    }
+  }, [callForWriting, hasAvailableProviders]);
+
+  const makeAnalysisCall = useCallback(async (prompt: string): Promise<string> => {
+    if (!hasAvailableProviders()) {
+      const errorMessage = 'No AI providers available. Please configure API keys in Settings.';
+      toast.error(errorMessage);
+      throw new Error(errorMessage);
+    }
+    try {
+      return await callForAnalysis(prompt);
+    } catch (error) {
+      handleAIError(error);
+      throw error;
+    }
+  }, [callForAnalysis, hasAvailableProviders]);
 
   // Generate LaTeX Resume
   const generateResumeLatex = useCallback(async (prompt: string): Promise<string> => {
@@ -81,7 +125,7 @@ Do not include explanations, just return the LaTeX code.
 `;
 
     try {
-      const response = await makeAICallWithRetry(enhancedPrompt);
+      const response = await makeWritingCall(enhancedPrompt);
       
       if (!response) {
         throw new Error('No response received from AI service');
@@ -99,7 +143,7 @@ Do not include explanations, just return the LaTeX code.
       console.error('Error generating LaTeX resume:', error);
       throw error;
     }
-  }, [makeAICallWithRetry]);
+  }, [makeWritingCall]);
 
   // Generate Cover Letter
   const generateCoverLetter = useCallback(async (prompt: string, isLatex: boolean = false): Promise<string> => {
@@ -108,7 +152,7 @@ Do not include explanations, just return the LaTeX code.
       : `${prompt}\n\nReturn a well-formatted professional cover letter. Do not include explanations, just return the cover letter content.`;
 
     try {
-      const response = await makeAICallWithRetry(enhancedPrompt);
+      const response = await makeWritingCall(enhancedPrompt);
       
       if (!response) {
         throw new Error('No response received from AI service');
@@ -128,7 +172,7 @@ Do not include explanations, just return the LaTeX code.
       console.error('Error generating cover letter:', error);
       throw error;
     }
-  }, [makeAICallWithRetry]);
+  }, [makeWritingCall]);
 
   // Analyze ATS Score
   const analyzeATSScore = useCallback(async (jobDescription: string, resumeContent: string): Promise<ATSScore> => {
@@ -165,7 +209,7 @@ Provide specific, actionable feedback. Return only valid JSON.
 `;
 
     try {
-      const response = await makeAICallWithRetry(prompt);
+      const response = await makeAnalysisCall(prompt);
       
       if (!response) {
         throw new Error('No response received from AI service');
@@ -183,7 +227,7 @@ Provide specific, actionable feedback. Return only valid JSON.
       console.error('Error analyzing ATS score:', error);
       throw error;
     }
-  }, [makeAICallWithRetry]);
+  }, [makeAnalysisCall]);
 
   // Combined ATS Analysis (Score + Suggestions)
   const performCombinedATSAnalysis = useCallback(async (jobDescription: string, resumeContent: string): Promise<CombinedATSResult> => {
@@ -252,7 +296,7 @@ Provide 5-10 actionable suggestions. Each suggestion should be specific and impl
 `;
 
     try {
-      const response = await makeAICallWithRetry(prompt);
+      const response = await makeAnalysisCall(prompt);
       
       if (!response) {
         throw new Error('No response received from AI service');
@@ -307,7 +351,7 @@ Provide 5-10 actionable suggestions. Each suggestion should be specific and impl
       console.error('Error performing combined ATS analysis:', error);
       throw error;
     }
-  }, [makeAICallWithRetry]);
+  }, [makeAnalysisCall]);
 
   return {
     // Provider info

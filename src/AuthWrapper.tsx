@@ -9,18 +9,6 @@ interface AuthWrapperProps {
 
 export default function AuthWrapper({ children }: AuthWrapperProps) {
   const { isAuthenticated, isLoading } = useAuth();
-    // Check if the current path is the privacy policy page or test page
-  const isPrivacyPage = "https://github.com/sreehariprathap/Resumeow-AI/blob/awesome-resumeow/privacy-policy.md"
-  // If it's the privacy policy page or test page, render it without authentication check
-  if (isPrivacyPage) {
-    return (
-      <>
-        <WebHeader />
-        <div className="container py-8">{children}</div>
-        <WebFooter />
-      </>
-    );
-  }
 
   // Show loading state
   if (isLoading) {
