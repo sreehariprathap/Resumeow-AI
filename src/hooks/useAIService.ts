@@ -36,12 +36,26 @@ export interface CombinedATSResult {
   suggestions: ATSSuggestion[];
 }
 
+export interface JobFitRequirement {
+  requirement: string;
+  met: boolean;
+  reason: string;
+}
+
+export interface JobFitResult {
+  fitScore: number;
+  label: 'Great Match' | 'Decent Match' | 'Tough Match' | 'Not a Fit';
+  mandatoryRequirements: JobFitRequirement[];
+  summary: string;
+}
+
 export function useAIService() {
   const { makeAICall, makeAICallWithModel, makeAICallWithThinking, deepseekApiKey, openRouterApiKey, geminiApiKey, selectedModel, isUserApiKeyEnabled } = useAIProvider();
 
-  // Task-specific DeepSeek models — writing uses pro, analysis uses flash
-  const DEEPSEEK_WRITING_MODEL = 'deepseek-v4-pro';
-  const DEEPSEEK_ANALYSIS_MODEL = 'deepseek-v4-flash';
+  // deepseek-chat = DeepSeek V3 (fast, used for writing fallback & analysis)
+  // deepseek-reasoner = DeepSeek R1 with thinking (used for resume generation via makeAICallWithThinking)
+  const DEEPSEEK_WRITING_MODEL = 'deepseek-chat';
+  const DEEPSEEK_ANALYSIS_MODEL = 'deepseek-chat';
 
   // In managed mode the env key is always present — route to task-specific models directly
   const callForWriting = useCallback((prompt: string) => {
@@ -360,6 +374,54 @@ Provide 5-10 actionable suggestions. Each suggestion should be specific and impl
     }
   }, [makeAnalysisCall]);
 
+  // Analyze mandatory job requirements — certifications, languages, licenses, etc.
+  const analyzeJobFit = useCallback(async (jobDescription: string, resumeContent: string): Promise<JobFitResult> => {
+    const prompt = truncatePrompt(`You are a strict hiring gatekeeper. Analyze this job description for MANDATORY, non-negotiable requirements that would cause immediate rejection if missing. Then check the resume against each one.
+
+Mandatory requirements include:
+- Language requirements (bilingual, French/English, etc.)
+- Specific certifications (CPA, CFA, PMP, Series 7, mutual fund license, etc.)
+- Specific licenses or registrations
+- Security clearances
+- Minimum years of experience when explicitly stated as required
+- Specific degrees when explicitly required (not preferred)
+- Specific legal or regulatory requirements
+
+JOB DESCRIPTION:
+${jobDescription}
+
+RESUME:
+${resumeContent}
+
+Return ONLY valid JSON in this exact shape:
+{
+  "fitScore": <integer 0-100>,
+  "label": "<one of: Great Match|Decent Match|Tough Match|Not a Fit>",
+  "mandatoryRequirements": [
+    {
+      "requirement": "<exact requirement from job description>",
+      "met": <true|false>,
+      "reason": "<one sentence explanation>"
+    }
+  ],
+  "summary": "<2 sentence plain-English verdict on whether the candidate should apply>"
+}
+
+Score guidelines (base on mandatory requirements only):
+- 90-100: All mandatory requirements clearly met
+- 60-89: Most met, one minor gap that could be addressed
+- 30-59: Multiple unmet mandatory requirements
+- 0-29: Critical deal-breaker requirement(s) missing — near-certain rejection
+
+If the job description has NO explicit mandatory requirements beyond general experience, set fitScore to 75 and label to "Decent Match".
+`);
+
+    const response = await makeAnalysisCall(prompt);
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Invalid response from AI');
+    return JSON.parse(jsonMatch[0]) as JobFitResult;
+  }, [makeAnalysisCall]);
+
   return {
     // Provider info
     selectedModel,
@@ -372,6 +434,7 @@ Provide 5-10 actionable suggestions. Each suggestion should be specific and impl
     performCombinedATSAnalysis,
     
     // Raw AI call if needed
-    makeAICall: makeAICallWithRetry
+    makeAICall: makeAICallWithRetry,
+    analyzeJobFit,
   };
 }

@@ -20,7 +20,8 @@ import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
 import { toast } from 'sonner';
 import { AlertCircle, BarChart3, RefreshCw, CheckCircle, TrendingUp, CheckSquare } from 'lucide-react';
-import { useAIService, type ATSScore, type ATSSuggestion } from '@/hooks/useAIService';
+import { useAIService, type ATSScore, type ATSSuggestion, type JobFitResult } from '@/hooks/useAIService';
+import { JobFitBanner } from './JobFitBanner';
 
 interface RawSuggestion {
   id?: string;
@@ -51,7 +52,9 @@ export function CombinedATSAnalysis({
   const [analysisFailed, setAnalysisFailed] = useState(false);
   const [currentScore, setCurrentScore] = useState<ATSScore | null>(null);
   const [suggestions, setSuggestions] = useState<ATSSuggestion[]>([]);
-  const { performCombinedATSAnalysis } = useAIService();
+  const [jobFitResult, setJobFitResult] = useState<JobFitResult | null>(null);
+  const [isJobFitLoading, setIsJobFitLoading] = useState(false);
+  const { performCombinedATSAnalysis, analyzeJobFit } = useAIService();
 
   const updateSelectedSuggestions = useCallback((currentSuggestions: ATSSuggestion[]) => {
     const selectedSuggestions = currentSuggestions
@@ -64,6 +67,7 @@ export function CombinedATSAnalysis({
   useEffect(() => {
     setAnalysisComplete(false);
     setAnalysisFailed(false);
+    setJobFitResult(null);
   }, [jobDescription, resumeContent]);
 
   // Auto-analyze with debounce — only when both inputs are stable and no analysis is running
@@ -84,6 +88,14 @@ export function CombinedATSAnalysis({
     }
 
     setIsAnalyzing(true);
+    setIsJobFitLoading(true);
+
+    // Run job fit analysis in parallel — don't block ATS results if it fails
+    analyzeJobFit(jobDescription, resumeContent)
+      .then(setJobFitResult)
+      .catch(() => { /* job fit is non-critical, silently skip */ })
+      .finally(() => setIsJobFitLoading(false));
+
     try {
       const result = await performCombinedATSAnalysis(jobDescription, resumeContent);
       
@@ -181,6 +193,7 @@ export function CombinedATSAnalysis({
     setAnalysisFailed(false);
     setCurrentScore(null);
     setSuggestions([]);
+    setJobFitResult(null);
     performCombinedAnalysis();
   };
 
@@ -195,6 +208,11 @@ export function CombinedATSAnalysis({
 
   return (
     <div className="space-y-4">
+      {/* Job Fit Gate — shown as soon as analysis starts */}
+      {(isJobFitLoading || jobFitResult) && (
+        <JobFitBanner result={jobFitResult} isLoading={isJobFitLoading} />
+      )}
+
       {/* ATS Score Section */}
       <Card className="w-full">
         <CardHeader>
