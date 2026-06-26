@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { JobDescriptionInput } from "./components/JobDescriptionInput";
 import { ResumeInput } from "./components/ResumeInput";
 import { PromptDisplay } from "./components/PromptDisplay";
@@ -28,7 +28,8 @@ import { Settings, Trash2, Bot, Sparkles, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import type { PromptType, Template, CustomPrompt } from "./types";
 import { CombinedATSAnalysis } from "./components/CombinedATSAnalysis";
-import type { ATSScore } from "./hooks/useAIService";
+import { useAIService, type ATSScore } from "./hooks/useAIService";
+import { useApplicationTracker } from "./hooks/useApplicationTracker";
 
 function App() {
   const { currentUser } = useAuth();
@@ -51,6 +52,10 @@ function App() {
   });
   const { selectedModel } = useAIProvider();
   const { showOnboarding, completeOnboarding } = useOnboarding();
+  const { extractJobDetails } = useAIService();
+  const { addApplication, updateScores } = useApplicationTracker();
+  // Holds the ID of the most recently tracked application so ATS/fit scores can be linked back
+  const lastTrackedIdRef = useRef<string | null>(null);
   const [promptType, setPromptType] = useState<PromptType>("resume");
   const [resumeContent, setResumeContent] = useState("");
   const [coverLetterTemplate, setCoverLetterTemplate] = useState("");
@@ -179,7 +184,28 @@ function App() {
   }, [atsSuggestions, missingKeywords, hasOptionalInstructions, optionalInstructions]);
   const handleInitialATSAnalysis = useCallback((score: ATSScore) => {
     setInitialATSScore(score);
-  }, []);
+    // Link ATS score back to the tracked application if one exists
+    if (lastTrackedIdRef.current) {
+      updateScores(lastTrackedIdRef.current, score.overall);
+    }
+  }, [updateScores]);
+
+  // Fire-and-forget: extract job details and create a tracker entry in the background
+  const trackPromptGeneration = useCallback((type: PromptType) => {
+    if (!jobDescription) return;
+    extractJobDetails(jobDescription)
+      .then(details => {
+        const id = addApplication({
+          company: details.company,
+          role: details.role,
+          location: details.location,
+          promptType: type,
+          skills: details.skills,
+        });
+        lastTrackedIdRef.current = id;
+      })
+      .catch(() => { /* non-critical, silently skip */ });
+  }, [jobDescription, extractJobDetails, addApplication]);
 
   const handleMissingKeywords = useCallback((keywords: string[]) => {
     setMissingKeywords(keywords);
@@ -232,6 +258,7 @@ function App() {
       setGeneratedPrompt(prompt);
       if (!prompt.startsWith("Error:")) {
         toast.success("Superfast LaTeX resume prompt generated!");
+        trackPromptGeneration('resume');
       }
       return;
     }
@@ -255,6 +282,7 @@ function App() {
 
         if (!prompt.startsWith("Error:")) {
           toast.success("Resume prompt generated successfully!");
+          trackPromptGeneration('resume');
         }
       } else {
         toast.error("Please select a resume template and prompt template.");
@@ -297,6 +325,7 @@ function App() {
 
         if (!prompt.startsWith("Error:")) {
           toast.success("Cover letter prompt generated successfully!");
+          trackPromptGeneration('coverLetter');
         }
       } else {
         toast.error("Please select a cover letter template for LaTeX generation.");

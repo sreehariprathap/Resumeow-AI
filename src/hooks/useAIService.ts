@@ -36,6 +36,13 @@ export interface CombinedATSResult {
   suggestions: ATSSuggestion[];
 }
 
+export interface ExtractedJobDetails {
+  company: string;
+  role: string;
+  location: string;
+  skills: string[]; // top 10 skills/keywords from JD
+}
+
 export interface JobFitRequirement {
   requirement: string;
   met: boolean;
@@ -374,6 +381,27 @@ Provide 5-10 actionable suggestions. Each suggestion should be specific and impl
     }
   }, [makeAnalysisCall]);
 
+  // Extract company, role, location and top skills from a job description
+  const extractJobDetails = useCallback(async (jobDescription: string): Promise<ExtractedJobDetails> => {
+    const prompt = `Extract key details from this job description. Return ONLY valid JSON, no explanation.
+
+JOB DESCRIPTION:
+${jobDescription.slice(0, 8000)}
+
+Return exactly this JSON shape:
+{
+  "company": "<company name or 'Unknown' if not found>",
+  "role": "<job title>",
+  "location": "<city/country or 'Remote' or 'Unknown'>",
+  "skills": ["<skill1>", "<skill2>", "...up to 10 most important skills/technologies/certifications mentioned>"]
+}`;
+
+    const response = await makeAnalysisCall(prompt);
+    const match = response.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('No JSON in response');
+    return JSON.parse(match[0]) as ExtractedJobDetails;
+  }, [makeAnalysisCall]);
+
   // Analyze mandatory job requirements — certifications, languages, licenses, etc.
   const analyzeJobFit = useCallback(async (jobDescription: string, resumeContent: string): Promise<JobFitResult> => {
     const prompt = truncatePrompt(`You are a strict hiring gatekeeper. Analyze this job description for MANDATORY, non-negotiable requirements that would cause immediate rejection if missing. Then check the resume against each one.
@@ -436,5 +464,6 @@ If the job description has NO explicit mandatory requirements beyond general exp
     // Raw AI call if needed
     makeAICall: makeAICallWithRetry,
     analyzeJobFit,
+    extractJobDetails,
   };
 }

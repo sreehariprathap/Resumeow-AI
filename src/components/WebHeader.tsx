@@ -2,10 +2,13 @@ import { useAuth } from "@/lib/authContext";
 import { Button } from "./ui/button";
 import { ModeToggle } from "./mode-toggle";
 import { useTheme } from "./theme-provider";
+import { Link, useLocation } from "react-router-dom";
+import { LayoutList } from "lucide-react";
 
 export const WebHeader = () => {
   const { currentUser, logout } = useAuth();
   const { theme } = useTheme();
+  const { pathname } = useLocation();
 
   const handleLogout = async () => {
     try {
@@ -31,6 +34,12 @@ export const WebHeader = () => {
               <ModeToggle />
               {currentUser && (
                 <>
+                  <Link to={pathname === '/tracker' ? '/' : '/tracker'}>
+                    <Button variant={pathname === '/tracker' ? 'default' : 'outline'} size="sm" className="flex items-center gap-1.5">
+                      <LayoutList className="h-3.5 w-3.5" />
+                      {pathname === '/tracker' ? 'Prompter' : 'Tracker'}
+                    </Button>
+                  </Link>
                   <span className="text-sm hidden lg:flex text-muted-foreground">
                     Hello, {currentUser.displayName || currentUser.email}
                   </span>
