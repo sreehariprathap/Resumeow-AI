@@ -628,7 +628,7 @@ export const SettingsDialog = ({
                         className="h-8 text-sm"
                       />
                       <p className="text-xs text-muted-foreground">
-                        Direct DeepSeek API key for DeepSeek V3 and R1 models. Get yours at platform.deepseek.com.
+                        Direct DeepSeek API key for DeepSeek V4 Pro and Flash models. Get yours at platform.deepseek.com.
                       </p>
                     </div>
 

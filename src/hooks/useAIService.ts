@@ -59,10 +59,8 @@ export interface JobFitResult {
 export function useAIService() {
   const { makeAICall, makeAICallWithModel, makeAICallWithThinking, deepseekApiKey, openRouterApiKey, geminiApiKey, selectedModel, isUserApiKeyEnabled } = useAIProvider();
 
-  // deepseek-chat = DeepSeek V3 (fast, used for writing fallback & analysis)
-  // deepseek-reasoner = DeepSeek R1 with thinking (used for resume generation via makeAICallWithThinking)
-  const DEEPSEEK_WRITING_MODEL = 'deepseek-chat';
-  const DEEPSEEK_ANALYSIS_MODEL = 'deepseek-chat';
+  const DEEPSEEK_WRITING_MODEL = 'deepseek-v4-pro';
+  const DEEPSEEK_ANALYSIS_MODEL = 'deepseek-v4-flash';
 
   // In managed mode the env key is always present — route to task-specific models directly
   const callForWriting = useCallback((prompt: string) => {
@@ -143,7 +141,7 @@ export function useAIService() {
     }
   }, [callForAnalysis, hasAvailableProviders]);
 
-  // Generate LaTeX Resume — uses thinking mode (deepseek-reasoner) for highest quality output
+  // Generate LaTeX Resume — uses thinking mode (deepseek-v4-pro) for highest quality output
   const generateResumeLatex = useCallback(async (prompt: string): Promise<string> => {
     const enhancedPrompt = `
 ${prompt}

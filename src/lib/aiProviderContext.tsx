@@ -19,13 +19,13 @@ export interface AIModel {
 
 export const AVAILABLE_MODELS: AIModel[] = [
   {
-    id: 'deepseek-chat',
-    name: 'DeepSeek V3 (Chat)',
+    id: 'deepseek-v4-pro',
+    name: 'DeepSeek V4 Pro',
     provider: 'deepseek'
   },
   {
-    id: 'deepseek-reasoner',
-    name: 'DeepSeek R1 (Reasoner)',
+    id: 'deepseek-v4-flash',
+    name: 'DeepSeek V4 Flash',
     provider: 'deepseek'
   },
   {
@@ -432,7 +432,7 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
     return callAI(prompt, model);
   };
 
-  // Thinking mode call — uses deepseek-reasoner with chain-of-thought enabled.
+  // Thinking mode call — uses deepseek-v4-pro with chain-of-thought enabled.
   // Returns only the final content, not the reasoning trace.
   // Note: temperature/top_p/penalties must be omitted — they have no effect in thinking mode.
   const makeAICallWithThinking = async (prompt: string): Promise<string> => {
@@ -450,7 +450,7 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
     // extra_body is a valid OpenAI SDK param but not in the TS types
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const completion = await (client.chat.completions.create as any)({
-      model: 'deepseek-reasoner',
+      model: 'deepseek-v4-pro',
       messages: [{ role: 'user', content: prompt }],
       extra_body: { thinking: { type: 'enabled' } },
     });
