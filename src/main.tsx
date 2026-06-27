@@ -27,8 +27,8 @@ createRoot(document.getElementById('root')!).render(
       <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
         <BrowserRouter>
           <AuthProvider>
-            <AIProviderProvider>
-              <TokenProvider>
+            <TokenProvider>
+              <AIProviderProvider>
                 <OnboardingProvider>
                   <LazyModeProvider>
                     <AuthWrapper>
@@ -47,8 +47,8 @@ createRoot(document.getElementById('root')!).render(
                     <Toaster />
                   </LazyModeProvider>
                 </OnboardingProvider>
-              </TokenProvider>
-            </AIProviderProvider>
+              </AIProviderProvider>
+            </TokenProvider>
           </AuthProvider>
         </BrowserRouter>
       </ThemeProvider>

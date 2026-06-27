@@ -11,6 +11,7 @@ interface TokenContextType {
   isLoading: boolean;
   deductTokens: (chars: number) => Promise<boolean>;
   refetch: () => Promise<void>;
+  assertSufficientBalance: () => Promise<void>;
 }
 
 const TokenContext = createContext<TokenContextType | null>(null);
@@ -50,6 +51,22 @@ export function TokenProvider({ children }: { children: ReactNode }) {
     return ok;
   }, [currentUser, profile]);
 
+  // Fetches a fresh balance from Firestore before each AI call to avoid stale local state
+  const assertSufficientBalance = useCallback(async (): Promise<void> => {
+    if (!currentUser) return;
+    let fresh: UserProfile | null = null;
+    try {
+      fresh = await getUserProfile(currentUser.uid);
+    } catch {
+      // Offline or Firestore rules blocked read — fail open, don't block the call
+      console.warn('[tokens] Balance check skipped (offline or permission error)');
+      return;
+    }
+    if (fresh && !fresh.isAdmin && fresh.tokensRemaining <= 0) {
+      throw new Error('INSUFFICIENT_TOKENS');
+    }
+  }, [currentUser]);
+
   return (
     <TokenContext.Provider value={{
       profile,
@@ -60,6 +77,7 @@ export function TokenProvider({ children }: { children: ReactNode }) {
       isLoading,
       deductTokens,
       refetch,
+      assertSufficientBalance,
     }}>
       {children}
     </TokenContext.Provider>
