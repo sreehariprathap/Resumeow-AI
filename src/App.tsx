@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { JobDescriptionInput } from "./components/JobDescriptionInput";
 import { ResumeInput } from "./components/ResumeInput";
 import { PromptDisplay } from "./components/PromptDisplay";
@@ -51,7 +52,15 @@ function App() {
     getActivePrompt,
   });
   const { selectedModel } = useAIProvider();
-  const { showOnboarding, completeOnboarding } = useOnboarding();
+  const { showOnboarding, completeOnboarding, startOnboarding } = useOnboarding();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('onboarding') === 'true') {
+      startOnboarding();
+      setSearchParams({});
+    }
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
   const { extractJobDetails } = useAIService();
   const { addApplication, updateScores } = useApplicationTracker();
   // Holds the ID of the most recently tracked application so ATS/fit scores can be linked back

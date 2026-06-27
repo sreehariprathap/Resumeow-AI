@@ -9,6 +9,8 @@ import { useAuth } from '@/lib/authContext';
 import { useTokens } from '@/lib/tokenContext';
 import { useLazyMode } from '@/lib/lazyModeContext';
 import { getUserData } from '@/lib/firebaseWeb';
+import { useProfileGate } from '@/hooks/useProfileGate';
+import { ProfileGateBanner } from '@/components/ProfileGateBanner';
 import {
   runLazyModePipeline,
   PIPELINE_STEPS,
@@ -27,6 +29,7 @@ export function LazyModePage() {
   const { tokensRemaining } = useTokens();
   const { settings, openSettings } = useLazyMode();
   const navigate = useNavigate();
+  const { status, loading: gateLoading } = useProfileGate();
 
   const [jdText, setJdText] = useState('');
   const [pageState, setPageState] = useState<PageState>('input');
@@ -192,6 +195,8 @@ export function LazyModePage() {
         </Button>
       </div>
 
+      {!gateLoading && status && <ProfileGateBanner status={status} featureName="Lazy Mode" />}
+
       <Textarea
         placeholder="Paste the job description here — include requirements, responsibilities, and qualifications for the best results…"
         className="min-h-[320px] resize-none text-sm"
@@ -203,9 +208,9 @@ export function LazyModePage() {
         className="w-full lazy-generate-btn"
         size="lg"
         onClick={handleGenerate}
-        disabled={!jdText.trim()}
+        disabled={!jdText.trim() || !status?.hasMinimumData}
       >
-        ⚡ Generate My Resume
+        {!status?.hasMinimumData ? '⚡ Complete your profile first' : '⚡ Generate My Resume'}
       </Button>
 
       <p className="text-xs text-center text-muted-foreground">

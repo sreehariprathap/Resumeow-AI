@@ -20,6 +20,8 @@ import { getUserData, saveUserData } from '@/lib/firebaseWeb';
 import { generateLatexResume } from '@/lib/resumeGenerator';
 import type { ResumeProfile } from '@/types/resumeProfile';
 import { useNavigate } from 'react-router-dom';
+import { useProfileGate } from '@/hooks/useProfileGate';
+import { ProfileGateBanner } from '@/components/ProfileGateBanner';
 
 interface StrengthArea {
   area: string;
@@ -85,6 +87,7 @@ export function JDMatcherPage() {
   const { makeAICall } = useAIProvider();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const { status, loading: gateLoading } = useProfileGate();
 
   const [jdText, setJdText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -213,6 +216,8 @@ Analyze the match and respond with ONLY valid JSON in this exact structure:
         </p>
       </div>
 
+      {!gateLoading && status && <ProfileGateBanner status={status} featureName="Job Description Matcher" />}
+
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Left panel — input */}
         <div className="lg:col-span-2 space-y-3">
@@ -232,13 +237,15 @@ Analyze the match and respond with ONLY valid JSON in this exact structure:
           <Button
             className="w-full"
             onClick={handleAnalyze}
-            disabled={isAnalyzing || !jdText.trim()}
+            disabled={isAnalyzing || !jdText.trim() || !status?.hasMinimumData}
           >
             {isAnalyzing ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 Analyzing Match…
               </>
+            ) : !status?.hasMinimumData ? (
+              'Complete your profile first'
             ) : (
               <>
                 <Zap className="h-4 w-4 mr-2" />

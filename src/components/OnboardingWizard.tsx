@@ -19,6 +19,7 @@ import {
   Check,
   CheckCircle,
   Pencil,
+  AlertTriangle,
 } from 'lucide-react';
 import { useOnboarding } from '@/lib/onboardingContext';
 import { useAIProvider } from '@/lib/aiProviderContext';
@@ -155,7 +156,7 @@ const ResumeUploadStep = ({ onParsed, onSkip }: ResumeUploadStepProps) => {
 
 // ─── Step 0 — Welcome ───────────────────────────────────────────────────────
 
-const WelcomeStep = ({ onNext }: { onNext: () => void }) => (
+const WelcomeStep = ({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }) => (
   <div className="text-center space-y-8 py-8">
     <div className="mx-auto w-24 h-24 bg-gradient-to-br from-primary to-purple-600 rounded-full flex items-center justify-center">
       <FileText className="h-12 w-12 text-white" />
@@ -180,9 +181,18 @@ const WelcomeStep = ({ onNext }: { onNext: () => void }) => (
         </Card>
       ))}
     </div>
-    <Button size="lg" onClick={onNext} className="px-10">
-      Get Started <ChevronRight className="ml-2 h-4 w-4" />
-    </Button>
+    <div className="flex flex-col items-center gap-2">
+      <Button size="lg" onClick={onNext} className="px-10">
+        Get Started <ChevronRight className="ml-2 h-4 w-4" />
+      </Button>
+      <button
+        type="button"
+        onClick={onSkip}
+        className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline mt-2"
+      >
+        Skip for now →
+      </button>
+    </div>
   </div>
 );
 
@@ -193,9 +203,10 @@ interface PersonalInfoStepProps {
   onChange: (updates: Partial<ResumeProfile>) => void;
   onNext: () => void;
   onBack: () => void;
+  onSkip: () => void;
 }
 
-const PersonalInfoStep = ({ data, onChange, onNext, onBack }: PersonalInfoStepProps) => {
+const PersonalInfoStep = ({ data, onChange, onNext, onBack, onSkip }: PersonalInfoStepProps) => {
   const canProceed = data.firstName && data.lastName && data.email && data.phone && data.location;
 
   return (
@@ -232,7 +243,7 @@ const PersonalInfoStep = ({ data, onChange, onNext, onBack }: PersonalInfoStepPr
         <Label>Website / Portfolio <span className="text-muted-foreground text-xs">(optional)</span></Label>
         <Input value={data.website || ''} onChange={(e) => onChange({ website: e.target.value })} placeholder="janedoe.dev" />
       </div>
-      <StepNav onBack={onBack} onNext={onNext} canNext={!!canProceed} />
+      <StepNav onBack={onBack} onNext={onNext} canNext={!!canProceed} onSkip={onSkip} />
     </div>
   );
 };
@@ -244,9 +255,10 @@ interface DomainStepProps {
   onChange: (updates: Partial<ResumeProfile>) => void;
   onNext: () => void;
   onBack: () => void;
+  onSkip: () => void;
 }
 
-const DomainStep = ({ data, onChange, onNext, onBack }: DomainStepProps) => (
+const DomainStep = ({ data, onChange, onNext, onBack, onSkip }: DomainStepProps) => (
   <div className="space-y-5">
     <p className="text-sm text-muted-foreground">Select the field that best describes your career focus.</p>
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -264,7 +276,7 @@ const DomainStep = ({ data, onChange, onNext, onBack }: DomainStepProps) => (
         </button>
       ))}
     </div>
-    <StepNav onBack={onBack} onNext={onNext} canNext={!!data.domain} />
+    <StepNav onBack={onBack} onNext={onNext} canNext={!!data.domain} onSkip={onSkip} />
   </div>
 );
 
@@ -275,9 +287,10 @@ interface TargetRolesStepProps {
   onChange: (updates: Partial<ResumeProfile>) => void;
   onNext: () => void;
   onBack: () => void;
+  onSkip: () => void;
 }
 
-const TargetRolesStep = ({ data, onChange, onNext, onBack }: TargetRolesStepProps) => {
+const TargetRolesStep = ({ data, onChange, onNext, onBack, onSkip }: TargetRolesStepProps) => {
   const roles = data.domain ? (DOMAIN_ROLES[data.domain] ?? []) : [];
   const selected = data.targetRoles ?? [];
   const MAX = 5;
@@ -319,7 +332,7 @@ const TargetRolesStep = ({ data, onChange, onNext, onBack }: TargetRolesStepProp
           );
         })}
       </div>
-      <StepNav onBack={onBack} onNext={onNext} canNext={selected.length > 0} />
+      <StepNav onBack={onBack} onNext={onNext} canNext={selected.length > 0} onSkip={onSkip} />
     </div>
   );
 };
@@ -331,6 +344,7 @@ interface ExperienceStepProps {
   onChange: (updates: Partial<ResumeProfile>) => void;
   onNext: () => void;
   onBack: () => void;
+  onSkip: () => void;
 }
 
 const emptyExperience = (): Experience => ({
@@ -342,7 +356,7 @@ const emptyExperience = (): Experience => ({
   bullets: [''],
 });
 
-const ExperienceStep = ({ data, onChange, onNext, onBack }: ExperienceStepProps) => {
+const ExperienceStep = ({ data, onChange, onNext, onBack, onSkip }: ExperienceStepProps) => {
   const entries = data.experiences ?? [];
 
   const add = () => onChange({ experiences: [...entries, emptyExperience()] });
@@ -428,7 +442,7 @@ const ExperienceStep = ({ data, onChange, onNext, onBack }: ExperienceStepProps)
         <Plus className="h-4 w-4" /> Add Experience
       </Button>
 
-      <StepNav onBack={onBack} onNext={onNext} canNext={entries.length > 0} />
+      <StepNav onBack={onBack} onNext={onNext} canNext={entries.length > 0} onSkip={onSkip} />
     </div>
   );
 };
@@ -449,9 +463,10 @@ interface EducationStepProps {
   onChange: (updates: Partial<ResumeProfile>) => void;
   onNext: () => void;
   onBack: () => void;
+  onSkip: () => void;
 }
 
-const EducationStep = ({ data, onChange, onNext, onBack }: EducationStepProps) => {
+const EducationStep = ({ data, onChange, onNext, onBack, onSkip }: EducationStepProps) => {
   const entries = data.education ?? [];
 
   const add = () => onChange({ education: [...entries, emptyEducation()] });
@@ -537,7 +552,7 @@ const EducationStep = ({ data, onChange, onNext, onBack }: EducationStepProps) =
         <Plus className="h-4 w-4" /> Add Education
       </Button>
 
-      <StepNav onBack={onBack} onNext={onNext} canNext={entries.length > 0} />
+      <StepNav onBack={onBack} onNext={onNext} canNext={entries.length > 0} onSkip={onSkip} />
     </div>
   );
 };
@@ -622,18 +637,7 @@ const ProjectsStep = ({ data, onChange, onNext, onBack, onSkip }: ProjectsStepPr
         <Plus className="h-4 w-4" /> Add Project
       </Button>
 
-      <div className="flex gap-3 pt-2">
-        <Button variant="ghost" onClick={onBack} className="gap-1">
-          <ChevronLeft className="h-4 w-4" /> Back
-        </Button>
-        <div className="flex-1" />
-        <Button variant="link" onClick={onSkip} className="text-muted-foreground">
-          Skip this step
-        </Button>
-        <Button onClick={onNext} className="gap-1">
-          Continue <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+      <StepNav onBack={onBack} onNext={onNext} canNext={true} onSkip={onSkip} />
     </div>
   );
 };
@@ -645,9 +649,10 @@ interface CertificationsStepProps {
   onChange: (updates: Partial<ResumeProfile>) => void;
   onNext: () => void;
   onBack: () => void;
+  onSkip: () => void;
 }
 
-const CertificationsStep = ({ data, onChange, onNext, onBack }: CertificationsStepProps) => {
+const CertificationsStep = ({ data, onChange, onNext, onBack, onSkip }: CertificationsStepProps) => {
   const [search, setSearch] = useState('');
   const selected = data.certifications ?? [];
 
@@ -698,7 +703,7 @@ const CertificationsStep = ({ data, onChange, onNext, onBack }: CertificationsSt
         ))}
       </div>
 
-      <StepNav onBack={onBack} onNext={onNext} canNext={true} nextLabel="Continue" />
+      <StepNav onBack={onBack} onNext={onNext} canNext={true} nextLabel="Continue" onSkip={onSkip} />
     </div>
   );
 };
@@ -710,9 +715,10 @@ interface SkillsStepProps {
   onChange: (updates: Partial<ResumeProfile>) => void;
   onNext: () => void;
   onBack: () => void;
+  onSkip: () => void;
 }
 
-const SkillsStep = ({ data, onChange, onNext, onBack }: SkillsStepProps) => {
+const SkillsStep = ({ data, onChange, onNext, onBack, onSkip }: SkillsStepProps) => {
   const groups = data.skills ?? [];
   const [catInput, setCatInput] = useState('');
   const [skillsInput, setSkillsInput] = useState('');
@@ -794,7 +800,7 @@ const SkillsStep = ({ data, onChange, onNext, onBack }: SkillsStepProps) => {
         </CardContent>
       </Card>
 
-      <StepNav onBack={onBack} onNext={onNext} canNext={groups.length > 0} />
+      <StepNav onBack={onBack} onNext={onNext} canNext={groups.length > 0} onSkip={onSkip} />
     </div>
   );
 };
@@ -806,9 +812,10 @@ interface ExtrasStepProps {
   onChange: (updates: Partial<ResumeProfile>) => void;
   onNext: () => void;
   onBack: () => void;
+  onSkip: () => void;
 }
 
-const ExtrasStep = ({ data, onChange, onNext, onBack }: ExtrasStepProps) => {
+const ExtrasStep = ({ data, onChange, onNext, onBack, onSkip }: ExtrasStepProps) => {
   const { makeAICall } = useAIProvider();
   const [toggles, setToggles] = useState({
     summary: !!data.summary,
@@ -983,7 +990,7 @@ Output only the summary text, no quotes or labels.`;
         </div>
       </ExtraCard>
 
-      <StepNav onBack={onBack} onNext={onNext} canNext={true} nextLabel="Continue to Review" />
+      <StepNav onBack={onBack} onNext={onNext} canNext={true} nextLabel="Continue to Review" onSkip={onSkip} />
     </div>
   );
 };
@@ -1026,9 +1033,28 @@ interface ReviewStepProps {
   onGenerate: () => void;
   isGenerating: boolean;
   onEditStep: (step: number) => void;
+  skippedSteps: Set<number>;
 }
 
-const ReviewStep = ({ data, onBack, onGenerate, isGenerating, onEditStep }: ReviewStepProps) => {
+const SkippedWarningCard = ({
+  stepIndex,
+  label,
+  onGoToStep,
+}: {
+  stepIndex: number;
+  label: string;
+  onGoToStep: (s: number) => void;
+}) => (
+  <div className="flex items-center gap-2 p-3 rounded-lg border border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 text-sm text-yellow-700 dark:text-yellow-400">
+    <AlertTriangle className="h-4 w-4 shrink-0" />
+    <span>This section was skipped.</span>
+    <button onClick={() => onGoToStep(stepIndex)} className="underline ml-1">
+      Fill in {label} →
+    </button>
+  </div>
+);
+
+const ReviewStep = ({ data, onBack, onGenerate, isGenerating, onEditStep, skippedSteps }: ReviewStepProps) => {
   const domainLabel = DOMAINS.find((d) => d.id === data.domain)?.label ?? '—';
 
   return (
@@ -1036,25 +1062,35 @@ const ReviewStep = ({ data, onBack, onGenerate, isGenerating, onEditStep }: Revi
       <p className="text-sm text-muted-foreground">Review your profile below. Click Edit on any section to make changes.</p>
 
       {/* Personal Info */}
-      <ReviewCard title="Personal Info" onEdit={() => onEditStep(1)}>
-        <p className="text-sm font-medium">{data.firstName} {data.lastName}</p>
-        <p className="text-xs text-muted-foreground">{data.email} · {data.phone}</p>
-        <p className="text-xs text-muted-foreground">{data.location}</p>
-        {data.linkedin && <p className="text-xs text-muted-foreground">{data.linkedin}</p>}
-      </ReviewCard>
+      {skippedSteps.has(1) && !data.firstName ? (
+        <SkippedWarningCard stepIndex={1} label="Personal Info" onGoToStep={onEditStep} />
+      ) : (
+        <ReviewCard title="Personal Info" onEdit={() => onEditStep(1)}>
+          <p className="text-sm font-medium">{data.firstName} {data.lastName}</p>
+          <p className="text-xs text-muted-foreground">{data.email} · {data.phone}</p>
+          <p className="text-xs text-muted-foreground">{data.location}</p>
+          {data.linkedin && <p className="text-xs text-muted-foreground">{data.linkedin}</p>}
+        </ReviewCard>
+      )}
 
       {/* Domain & Roles */}
-      <ReviewCard title="Domain & Target Roles" onEdit={() => onEditStep(2)}>
-        <p className="text-sm font-medium">{domainLabel}</p>
-        <div className="flex flex-wrap gap-1 mt-1">
-          {(data.targetRoles ?? []).map((r) => (
-            <Badge key={r} variant="secondary" className="text-xs">{r}</Badge>
-          ))}
-        </div>
-      </ReviewCard>
+      {skippedSteps.has(2) && !data.domain ? (
+        <SkippedWarningCard stepIndex={2} label="Domain & Target Roles" onGoToStep={onEditStep} />
+      ) : (
+        <ReviewCard title="Domain & Target Roles" onEdit={() => onEditStep(2)}>
+          <p className="text-sm font-medium">{domainLabel}</p>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {(data.targetRoles ?? []).map((r) => (
+              <Badge key={r} variant="secondary" className="text-xs">{r}</Badge>
+            ))}
+          </div>
+        </ReviewCard>
+      )}
 
       {/* Experience */}
-      {(data.experiences?.length ?? 0) > 0 && (
+      {skippedSteps.has(4) && (data.experiences?.length ?? 0) === 0 ? (
+        <SkippedWarningCard stepIndex={4} label="Experience" onGoToStep={onEditStep} />
+      ) : (data.experiences?.length ?? 0) > 0 && (
         <ReviewCard title={`Experience (${data.experiences!.length})`} onEdit={() => onEditStep(4)}>
           <div className="space-y-3">
             {data.experiences!.map((exp) => (
@@ -1074,7 +1110,9 @@ const ReviewStep = ({ data, onBack, onGenerate, isGenerating, onEditStep }: Revi
       )}
 
       {/* Education */}
-      {(data.education?.length ?? 0) > 0 && (
+      {skippedSteps.has(5) && (data.education?.length ?? 0) === 0 ? (
+        <SkippedWarningCard stepIndex={5} label="Education" onGoToStep={onEditStep} />
+      ) : (data.education?.length ?? 0) > 0 && (
         <ReviewCard title={`Education (${data.education!.length})`} onEdit={() => onEditStep(5)}>
           <div className="space-y-2">
             {data.education!.map((edu) => (
@@ -1088,7 +1126,9 @@ const ReviewStep = ({ data, onBack, onGenerate, isGenerating, onEditStep }: Revi
       )}
 
       {/* Projects */}
-      {(data.projects?.length ?? 0) > 0 && (
+      {skippedSteps.has(6) && (data.projects?.length ?? 0) === 0 ? (
+        <SkippedWarningCard stepIndex={6} label="Projects" onGoToStep={onEditStep} />
+      ) : (data.projects?.length ?? 0) > 0 && (
         <ReviewCard title={`Projects (${data.projects!.length})`} onEdit={() => onEditStep(6)}>
           <div className="space-y-1">
             {data.projects!.map((p) => (
@@ -1104,7 +1144,9 @@ const ReviewStep = ({ data, onBack, onGenerate, isGenerating, onEditStep }: Revi
       )}
 
       {/* Skills */}
-      {(data.skills?.length ?? 0) > 0 && (
+      {skippedSteps.has(8) && (data.skills?.length ?? 0) === 0 ? (
+        <SkippedWarningCard stepIndex={8} label="Skills" onGoToStep={onEditStep} />
+      ) : (data.skills?.length ?? 0) > 0 && (
         <ReviewCard title={`Skills (${data.skills!.length} groups)`} onEdit={() => onEditStep(8)}>
           <div className="space-y-1">
             {data.skills!.map((g, i) => (
@@ -1174,16 +1216,30 @@ interface StepNavProps {
   onNext: () => void;
   canNext: boolean;
   nextLabel?: string;
+  onSkip?: () => void;
 }
 
-const StepNav = ({ onBack, onNext, canNext, nextLabel = 'Continue' }: StepNavProps) => (
-  <div className="flex gap-3 pt-2">
-    <Button variant="ghost" onClick={onBack} className="gap-1">
-      <ChevronLeft className="h-4 w-4" /> Back
-    </Button>
-    <Button className="flex-1 gap-1" onClick={onNext} disabled={!canNext}>
-      {nextLabel} <ChevronRight className="h-4 w-4" />
-    </Button>
+const StepNav = ({ onBack, onNext, canNext, nextLabel = 'Continue', onSkip }: StepNavProps) => (
+  <div className="space-y-1 pt-2">
+    <div className="flex gap-3">
+      <Button variant="ghost" onClick={onBack} className="gap-1">
+        <ChevronLeft className="h-4 w-4" /> Back
+      </Button>
+      <Button className="flex-1 gap-1" onClick={onNext} disabled={!canNext}>
+        {nextLabel} <ChevronRight className="h-4 w-4" />
+      </Button>
+    </div>
+    {onSkip && (
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={onSkip}
+          className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline mt-2"
+        >
+          Skip for now →
+        </button>
+      </div>
+    )}
   </div>
 );
 
@@ -1214,19 +1270,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const { makeAICall } = useAIProvider();
   const { currentUser } = useAuth();
 
-  // New users (no saved profile) start at step -1 (upload screen).
-  // Returning users resume from their saved step.
   const [step, setStep] = useState(() => (isFirstLogin ? -1 : (initialStep ?? 0)));
   const [profile, setProfile] = useState<Partial<ResumeProfile>>(
     savedProfile ?? defaultProfile()
   );
+  const [skippedSteps, setSkippedSteps] = useState<Set<number>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedLatex, setGeneratedLatex] = useState<string | null>(null);
   const [wasAutofilled, setWasAutofilled] = useState(false);
-  // When user clicks Edit from review step, we track so we can show "Back to Review"
   const [reviewJump, setReviewJump] = useState(false);
 
-  // Sync when context loads (handles async context resolution)
   useEffect(() => {
     if (isFirstLogin) {
       setStep(-1);
@@ -1242,13 +1295,19 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const handleParsedResume = (mapped: Partial<ResumeProfile>) => {
     setProfile((prev) => ({ ...prev, ...mapped }));
     setWasAutofilled(true);
-    setStep(0); // Go to Welcome with autofill banner
+    setStep(0);
     toast.success('Resume auto-filled! Review and edit each section.');
   };
 
   const saveProgress = async (nextStep: number, patch?: Partial<ResumeProfile>) => {
     if (!currentUser) return;
-    const updated = { ...profile, ...(patch ?? {}), currentStep: nextStep, lastUpdated: Date.now() };
+    const updated = {
+      ...profile,
+      ...(patch ?? {}),
+      currentStep: nextStep,
+      lastUpdated: Date.now(),
+      skippedSteps: Array.from(skippedSteps),
+    };
     setProfile(updated);
     try {
       await saveUserData(currentUser.uid, 'resumeProfile', updated as Record<string, unknown>);
@@ -1266,6 +1325,29 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   const goBack = () => {
     setStep((s) => Math.max(0, s - 1));
+    window.scrollTo(0, 0);
+  };
+
+  const handleSkip = async (stepNum: number) => {
+    const newSkipped = new Set(skippedSteps);
+    newSkipped.add(stepNum);
+    setSkippedSteps(newSkipped);
+    const next = step + 1;
+    if (currentUser) {
+      const updated = {
+        ...profile,
+        currentStep: next,
+        lastUpdated: Date.now(),
+        skippedSteps: Array.from(newSkipped),
+      };
+      setProfile(updated as Partial<ResumeProfile>);
+      try {
+        await saveUserData(currentUser.uid, 'resumeProfile', updated as Record<string, unknown>);
+      } catch {
+        // non-critical
+      }
+    }
+    setStep(next);
     window.scrollTo(0, 0);
   };
 
@@ -1292,6 +1374,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         completedAt: Date.now(),
         lastUpdated: Date.now(),
         currentStep: TOTAL_STEPS,
+        skippedSteps: Array.from(skippedSteps),
       };
 
       if (currentUser) {
@@ -1315,7 +1398,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   const progressPct = step <= 0 ? 0 : (step / (TOTAL_STEPS - 1)) * 100;
 
-  // Steps that benefit from autofill badges (have direct user-editable content)
   const autofillSteps = [1, 4, 5, 6, 7, 8];
 
   return (
@@ -1325,7 +1407,14 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         {step > 0 && (
           <div className="mb-8 space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">{STEP_LABELS[step]}</span>
+              <span className="font-medium flex items-center gap-2">
+                {STEP_LABELS[step]}
+                {skippedSteps.has(step) && (
+                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                    Skipped
+                  </span>
+                )}
+              </span>
               <span className="text-muted-foreground">Step {step} of {TOTAL_STEPS - 1}</span>
             </div>
             <Progress value={progressPct} className="h-2" />
@@ -1351,7 +1440,12 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           />
         )}
 
-        {step === 0 && <WelcomeStep onNext={() => setStep(1)} />}
+        {step === 0 && (
+          <WelcomeStep
+            onNext={() => setStep(1)}
+            onSkip={() => handleSkip(0)}
+          />
+        )}
 
         {step === 1 && (
           <PersonalInfoStep
@@ -1359,6 +1453,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             onChange={updateProfile}
             onNext={() => goNext()}
             onBack={goBack}
+            onSkip={() => handleSkip(1)}
           />
         )}
 
@@ -1368,6 +1463,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             onChange={updateProfile}
             onNext={() => goNext()}
             onBack={goBack}
+            onSkip={() => handleSkip(2)}
           />
         )}
 
@@ -1377,6 +1473,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             onChange={updateProfile}
             onNext={() => goNext()}
             onBack={goBack}
+            onSkip={() => handleSkip(3)}
           />
         )}
 
@@ -1386,6 +1483,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             onChange={updateProfile}
             onNext={() => goNext()}
             onBack={goBack}
+            onSkip={() => handleSkip(4)}
           />
         )}
 
@@ -1395,6 +1493,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             onChange={updateProfile}
             onNext={() => goNext()}
             onBack={goBack}
+            onSkip={() => handleSkip(5)}
           />
         )}
 
@@ -1404,7 +1503,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             onChange={updateProfile}
             onNext={() => goNext()}
             onBack={goBack}
-            onSkip={() => goNext()}
+            onSkip={() => handleSkip(6)}
           />
         )}
 
@@ -1414,6 +1513,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             onChange={updateProfile}
             onNext={() => goNext()}
             onBack={goBack}
+            onSkip={() => handleSkip(7)}
           />
         )}
 
@@ -1423,6 +1523,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             onChange={updateProfile}
             onNext={() => goNext()}
             onBack={goBack}
+            onSkip={() => handleSkip(8)}
           />
         )}
 
@@ -1432,6 +1533,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             onChange={updateProfile}
             onNext={() => goNext()}
             onBack={goBack}
+            onSkip={() => handleSkip(9)}
           />
         )}
 
@@ -1442,10 +1544,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             onGenerate={handleGenerate}
             isGenerating={isGenerating}
             onEditStep={handleEditFromReview}
+            skippedSteps={skippedSteps}
           />
         )}
 
-        {/* "Back to Review" overlay — appears when navigating from review step to edit a section */}
+        {/* "Back to Review" overlay */}
         {reviewJump && step !== 10 && (
           <div className="mt-6 pt-4 border-t">
             <Button

@@ -17,6 +17,8 @@ import { useAIProvider } from '@/lib/aiProviderContext';
 import { useAuth } from '@/lib/authContext';
 import { getUserData } from '@/lib/firebaseWeb';
 import { useOnboarding } from '@/lib/onboardingContext';
+import { useProfileGate } from '@/hooks/useProfileGate';
+import { ProfileGateBanner } from '@/components/ProfileGateBanner';
 
 interface ScoringCategory {
   name: string;
@@ -123,6 +125,7 @@ export function ResumeScoringPage() {
   const { makeAICall } = useAIProvider();
   const { currentUser } = useAuth();
   const { startOnboarding } = useOnboarding();
+  const { status, loading: gateLoading } = useProfileGate();
 
   const [isLoading, setIsLoading] = useState(true);
   const [result, setResult] = useState<ScoringResult | null>(null);
@@ -206,15 +209,20 @@ ${JSON.stringify(profileData, null, 2)}
   }, [currentUser, makeAICall]);
 
   useEffect(() => {
+    if (gateLoading) return;
+    if (!status?.hasMinimumData) {
+      setIsLoading(false);
+      return;
+    }
     runScoring();
-  }, [runScoring]);
+  }, [runScoring, status, gateLoading]);
 
   const handleFixResume = () => {
     startOnboarding();
     window.location.href = '/';
   };
 
-  if (isLoading) {
+  if (isLoading || gateLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -266,6 +274,8 @@ ${JSON.stringify(profileData, null, 2)}
           </Button>
         </div>
       </div>
+
+      {status && <ProfileGateBanner status={status} featureName="Resume Score" />}
 
       {result && (
         <>
