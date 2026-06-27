@@ -11,6 +11,7 @@
 import { useCallback } from 'react';
 import { useAIProvider } from '@/lib/aiProviderContext';
 import { toast } from 'sonner';
+import { cleanLatexResponse } from '@/lib/latexUtils';
 
 export interface ATSScore {
   overall: number;
@@ -157,12 +158,7 @@ Do not include explanations, just return the LaTeX code.
         throw new Error('No response received from AI service');
       }
 
-      // Clean the response of any markdown formatting
-      let cleanedLatex = response;
-      cleanedLatex = cleanedLatex.replace(/^```(?:latex)?/m, '');
-      cleanedLatex = cleanedLatex.replace(/```$/m, '');
-      cleanedLatex = cleanedLatex.trim();
-
+      const cleanedLatex = cleanLatexResponse(response);
       toast.success('LaTeX resume generated successfully!');
       return cleanedLatex;
     } catch (error) {
@@ -184,13 +180,7 @@ Do not include explanations, just return the LaTeX code.
         throw new Error('No response received from AI service');
       }
 
-      // Clean the response of any markdown formatting
-      let cleanedContent = response;
-      if (isLatex) {
-        cleanedContent = cleanedContent.replace(/^```(?:latex)?/m, '');
-        cleanedContent = cleanedContent.replace(/```$/m, '');
-      }
-      cleanedContent = cleanedContent.trim();
+      const cleanedContent = isLatex ? cleanLatexResponse(response) : response.trim();
 
       toast.success(`Cover letter ${isLatex ? 'LaTeX' : ''} generated successfully!`);
       return cleanedContent;

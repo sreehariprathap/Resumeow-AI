@@ -6,6 +6,7 @@ import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
 import { Clipboard, Download, FileEdit, Save, FileCode, RefreshCw, AlertCircle } from 'lucide-react';
 import { useAIService } from '@/hooks/useAIService';
+import { cleanLatexResponse } from '@/lib/latexUtils';
 
 interface ResumeLaTeXGeneratorProps {
   generatedPrompt: string;
@@ -72,18 +73,8 @@ export function ResumeLaTeXGenerator({
 
 const copyToClipboard = () => {
     if (generatedLatex) {
-        // Trim ```latex from beginning and ``` from end if present
-        let cleanedLatex = generatedLatex;
-        
-        // Remove ```latex or ``` from beginning
-        cleanedLatex = cleanedLatex.replace(/^```(?:latex)?/m, '');
-        
-        // Remove ``` from end
-        cleanedLatex = cleanedLatex.replace(/```$/m, '');
-        
-        // Trim any extra whitespace
-        cleanedLatex = cleanedLatex.trim();
-        
+        const cleanedLatex = cleanLatexResponse(generatedLatex);
+
         navigator.clipboard.writeText(cleanedLatex)
             .then(() => toast.success('LaTeX code copied to clipboard!'))
             .catch((err) => {
@@ -100,13 +91,7 @@ const retryGeneration = () => {
 
 const openEditDialog = () => {
   if (generatedLatex) {
-    // Clean the LaTeX before editing
-    let cleanedLatex = generatedLatex;
-    cleanedLatex = cleanedLatex.replace(/^```(?:latex)?/m, '');
-    cleanedLatex = cleanedLatex.replace(/```$/m, '');
-    cleanedLatex = cleanedLatex.trim();
-    
-    setEditedLatex(cleanedLatex);
+    setEditedLatex(cleanLatexResponse(generatedLatex));
     setIsDialogOpen(true);
   }
 };
@@ -119,11 +104,7 @@ const saveEditedLatex = () => {
 
 const downloadAsTex = () => {
   if (generatedLatex) {
-    // Clean the LaTeX before download
-    let cleanedLatex = generatedLatex;
-    cleanedLatex = cleanedLatex.replace(/^```(?:latex)?/m, '');
-    cleanedLatex = cleanedLatex.replace(/```$/m, '');
-    cleanedLatex = cleanedLatex.trim();
+    const cleanedLatex = cleanLatexResponse(generatedLatex);
     
     // Create a blob with the LaTeX content
     const blob = new Blob([cleanedLatex], { type: 'text/plain' });
@@ -148,9 +129,7 @@ const downloadAsTex = () => {
 
 const openInOverleaf = () => {
   if (!generatedLatex) return;
-  let cleanedLatex = generatedLatex.replace(/^```(?:latex)?/m, '');
-  cleanedLatex = cleanedLatex.replace(/```$/m, '');
-  cleanedLatex = cleanedLatex.trim();
+  const cleanedLatex = cleanLatexResponse(generatedLatex);
   // Set the value and submit the form
   const form = document.getElementById('ol_form') as HTMLFormElement | null;
   const input = document.getElementById('ol_encoded_snip') as HTMLInputElement | null;
