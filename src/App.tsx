@@ -1,5 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useSelectedTemplate } from "./hooks/useSelectedTemplate";
+import { useActivePrompts } from "./hooks/useActivePrompts";
+import { useFastCompile } from "./hooks/useFastCompile";
+import { useATSInstructions } from "./hooks/useATSInstructions";
 import { JobDescriptionInput } from "./components/JobDescriptionInput";
 import { ResumeInput } from "./components/ResumeInput";
 import { PromptDisplay } from "./components/PromptDisplay";
@@ -71,10 +75,13 @@ function App() {
   const [resumeContent, setResumeContent] = useState("");
   const [coverLetterTemplate, setCoverLetterTemplate] = useState("");
   const [jobDescription, setJobDescription] = useState("");
-  const [hasOptionalInstructions, setHasOptionalInstructions] = useState(false);
-  const [optionalInstructions, setOptionalInstructions] = useState("");
-  const [useTemporaryResume, setUseTemporaryResume] = useState(false); const [generateLatex, setGenerateLatex] = useState<boolean>(true); const [fastCompile, setFastCompile] = useState(false); const [originalResumeContent, setOriginalResumeContent] = useState("");
-  const [atsSuggestions, setAtsSuggestions] = useState<string[]>([]);
+  const [useTemporaryResume, setUseTemporaryResume] = useState(false);
+  const [generateLatex, setGenerateLatex] = useState<boolean>(true);
+  const [originalResumeContent, setOriginalResumeContent] = useState("");
+  const [generatedResumeLatex, setGeneratedResumeLatex] = useState<string>("");
+  const [generatedPrompt, setGeneratedPrompt] = useState("");
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isTemplateManagementOpen, setIsTemplateManagementOpen] = useState(false);
   const [initialATSScore, setInitialATSScore] = useState<{
     overall: number;
     keywordMatch: number;
@@ -85,76 +92,28 @@ function App() {
     missingKeywords: string[];
     recommendations: string[];
   } | null>(null);
-  const [missingKeywords, setMissingKeywords] = useState<string[]>([]);
-  // Fast Compile Mode: run the ATS job-scan before compiling (persisted preference)
-  const [fastCompileATS, setFastCompileATS] = useState<boolean>(() => {
-    try { return localStorage.getItem('fastCompileATS') !== 'false'; } catch { return true; }
-  });
-  const [fastSettingsOpen, setFastSettingsOpen] = useState(false);
-  const [fastAtsComplete, setFastAtsComplete] = useState(false);
-  const [isCompiling, setIsCompiling] = useState(false);
-  const [generatedResumeLatex, setGeneratedResumeLatex] = useState<string>("");  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(() => {
-    if (!currentUser) return "no-selection";
-    const userKey = `user_${currentUser.uid}`;
-    const saved = localStorage.getItem(`${userKey}_selectedTemplateId`);
-    return saved && saved !== "" ? saved : "no-selection";
-  });
-  const [selectedCoverLetterTemplateId, setSelectedCoverLetterTemplateId] = useState<string>(() => {
-    if (!currentUser) return "no-selection";
-    const userKey = `user_${currentUser.uid}`;
-    const saved = localStorage.getItem(`${userKey}_selectedCoverLetterTemplateId`);
-    return saved && saved !== "" ? saved : "no-selection";
-  });
-  const [generatedPrompt, setGeneratedPrompt] = useState("");
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);  const [activePrompts, setActivePrompts] = useState<Record<PromptType, string>>(() => {
-    if (!currentUser) return { resume: '', coverLetter: '' };
-    const userKey = `user_${currentUser.uid}`;
-    return {
-      resume: localStorage.getItem(`${userKey}_activePrompt_resume`) || '',
-      coverLetter: localStorage.getItem(`${userKey}_activePrompt_coverLetter`) || ''
-    };
-  });
-  const [isTemplateManagementOpen, setIsTemplateManagementOpen] = useState(false);
-  // Persist user preferences
-  useEffect(() => {
-    if (!currentUser) return;
-    const userKey = `user_${currentUser.uid}`;
-    // Only save valid template IDs
-    if (selectedTemplateId && selectedTemplateId !== "no-selection") {
-      localStorage.setItem(`${userKey}_selectedTemplateId`, selectedTemplateId);
-    }
-  }, [currentUser, selectedTemplateId]);
 
-  useEffect(() => {
-    if (!currentUser) return;
-    const userKey = `user_${currentUser.uid}`;
-    // Only save valid template IDs
-    if (selectedCoverLetterTemplateId && selectedCoverLetterTemplateId !== "no-selection") {
-      localStorage.setItem(`${userKey}_selectedCoverLetterTemplateId`, selectedCoverLetterTemplateId);
-    }  }, [currentUser, selectedCoverLetterTemplateId]);
-  // Handle user changes - reset state when user changes
-  useEffect(() => {
-    if (currentUser) {
-      // User logged in - load their saved preferences
-      const userKey = `user_${currentUser.uid}`;
-      const savedTemplateId = localStorage.getItem(`${userKey}_selectedTemplateId`);
-      const savedCoverLetterTemplateId = localStorage.getItem(`${userKey}_selectedCoverLetterTemplateId`);
-      const savedResumePrompt = localStorage.getItem(`${userKey}_activePrompt_resume`);
-      const savedCoverLetterPrompt = localStorage.getItem(`${userKey}_activePrompt_coverLetter`);
-      
-      setSelectedTemplateId(savedTemplateId && savedTemplateId !== "" ? savedTemplateId : "no-selection");
-      setSelectedCoverLetterTemplateId(savedCoverLetterTemplateId && savedCoverLetterTemplateId !== "" ? savedCoverLetterTemplateId : "no-selection");
-      setActivePrompts({
-        resume: savedResumePrompt || '',
-        coverLetter: savedCoverLetterPrompt || ''
-      });
-    } else {
-      // User logged out - reset to defaults
-      setSelectedTemplateId("no-selection");
-      setSelectedCoverLetterTemplateId("no-selection");
-      setActivePrompts({ resume: '', coverLetter: '' });
-    }
-  }, [currentUser]); // Include full currentUser object
+  const {
+    selectedTemplateId, setSelectedTemplateId,
+    selectedCoverLetterTemplateId, setSelectedCoverLetterTemplateId,
+  } = useSelectedTemplate(currentUser);
+
+  const { activePrompts, setActivePrompts } = useActivePrompts(currentUser);
+
+  const {
+    setAtsSuggestions,
+    hasOptionalInstructions, setHasOptionalInstructions,
+    optionalInstructions, setOptionalInstructions,
+    handleMissingKeywords,
+  } = useATSInstructions();
+
+  const {
+    fastCompile, setFastCompile,
+    fastCompileATS, handleToggleFastCompileATS,
+    fastSettingsOpen, setFastSettingsOpen,
+    fastAtsComplete, setFastAtsComplete,
+    isCompiling, setIsCompiling,
+  } = useFastCompile(jobDescription);
 
   // Reset ATS tracking when job description changes
   useEffect(() => {
@@ -162,44 +121,7 @@ function App() {
       setOriginalResumeContent(resumeContent);
     }
   }, [jobDescription, originalResumeContent, resumeContent]);
-  // Auto-update optional instructions when ATS suggestions or missing keywords change
-  useEffect(() => {
-    const instructionParts: string[] = [];
 
-    // Add missing keywords first
-    if (missingKeywords.length > 0) {
-      instructionParts.push(`--- Missing Keywords to Include ---\nPlease ensure these important keywords are naturally incorporated into the resume: ${missingKeywords.join(', ')}`);
-    }
-
-    // Add ATS suggestions
-    if (atsSuggestions.length > 0) {
-      instructionParts.push(`--- ATS Improvement Suggestions ---\n${atsSuggestions.join('\n\n')}`);
-    }
-
-    if (instructionParts.length > 0) {
-      const combinedInstructions = instructionParts.join('\n\n');
-
-      if (hasOptionalInstructions) {
-        // If user already has instructions, check if we need to update
-        const hasKeywords = optionalInstructions.includes('Missing Keywords to Include');
-        const hasSuggestions = optionalInstructions.includes('ATS Improvement Suggestions');
-
-        if (!hasKeywords || !hasSuggestions) {
-          setOptionalInstructions(prev => {
-            // Remove existing ATS sections and add new combined instructions
-            const updated = prev.replace(/--- Missing Keywords to Include ---[\s\S]*?(?=---|$)/g, '')
-              .replace(/--- ATS Improvement Suggestions ---[\s\S]*?(?=---|$)/g, '')
-              .trim();
-            return updated ? `${updated}\n\n${combinedInstructions}` : combinedInstructions;
-          });
-        }
-      } else {
-        // Auto-enable optional instructions and set combined instructions
-        setHasOptionalInstructions(true);
-        setOptionalInstructions(combinedInstructions);
-      }
-    }
-  }, [atsSuggestions, missingKeywords, hasOptionalInstructions, optionalInstructions]);
   const handleInitialATSAnalysis = useCallback((score: ATSScore) => {
     setInitialATSScore(score);
     // Link ATS score back to the tracked application if one exists
@@ -224,20 +146,6 @@ function App() {
       })
       .catch(() => { /* non-critical, silently skip */ });
   }, [jobDescription, extractJobDetails, addApplication]);
-
-  const handleMissingKeywords = useCallback((keywords: string[]) => {
-    setMissingKeywords(keywords);
-  }, []);
-
-  const handleToggleFastCompileATS = (value: boolean) => {
-    setFastCompileATS(value);
-    try { localStorage.setItem('fastCompileATS', String(value)); } catch { /* ignore */ }
-  };
-
-  // Re-require a fresh job scan whenever the job description changes
-  useEffect(() => {
-    setFastAtsComplete(false);
-  }, [jobDescription]);
 
   const handleLatexGenerated = useCallback((latex: string) => {
     setGeneratedResumeLatex(latex);
@@ -452,7 +360,7 @@ function App() {
     setOriginalResumeContent("");
     setAtsSuggestions([]);
     setInitialATSScore(null);
-    setMissingKeywords([]);
+    setAtsSuggestions([]);
     setGeneratedResumeLatex("");
     setSelectedTemplateId("no-selection");
     setSelectedCoverLetterTemplateId("no-selection");
