@@ -19,7 +19,6 @@ import {
   Check,
   CheckCircle,
   Pencil,
-  AlertTriangle,
 } from 'lucide-react';
 import { useOnboarding } from '@/lib/onboardingContext';
 import { useAIProvider } from '@/lib/aiProviderContext';
@@ -1045,11 +1044,13 @@ const SkippedWarningCard = ({
   label: string;
   onGoToStep: (s: number) => void;
 }) => (
-  <div className="flex items-center gap-2 p-3 rounded-lg border border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 text-sm text-yellow-700 dark:text-yellow-400">
-    <AlertTriangle className="h-4 w-4 shrink-0" />
-    <span>This section was skipped.</span>
-    <button onClick={() => onGoToStep(stepIndex)} className="underline ml-1">
-      Fill in {label} →
+  <div className="flex items-center justify-between p-3 rounded-lg border border-dashed border-muted-foreground/30 text-sm text-muted-foreground">
+    <span>Not filled in yet</span>
+    <button
+      onClick={() => onGoToStep(stepIndex)}
+      className="text-xs hover:text-foreground underline-offset-2 hover:underline"
+    >
+      Add {label} later →
     </button>
   </div>
 );
@@ -1178,9 +1179,18 @@ const ReviewStep = ({ data, onBack, onGenerate, isGenerating, onEditStep, skippe
           {isGenerating ? (
             <><Loader2 className="h-4 w-4 animate-spin" /> Generating Resume...</>
           ) : (
-            <><Sparkles className="h-4 w-4" /> Generate Resume</>
+            <><Sparkles className="h-4 w-4" /> Complete Onboarding & Go to Dashboard →</>
           )}
         </Button>
+      </div>
+      <div className="flex justify-center pt-1">
+        <button
+          onClick={onGenerate}
+          disabled={isGenerating}
+          className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline disabled:pointer-events-none"
+        >
+          Looks good, finish without reviewing →
+        </button>
       </div>
     </div>
   );
