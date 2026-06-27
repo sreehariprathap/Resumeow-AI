@@ -5,7 +5,7 @@ import { Button } from "./ui/button";
 import { ModeToggle } from "./mode-toggle";
 import { useTheme } from "./theme-provider";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutList, ShieldCheck, FileText } from "lucide-react";
+import { LayoutList, ShieldCheck, FileText, Target, BarChart3 } from "lucide-react";
 import { TokenBadge } from "./TokenBadge";
 
 export const WebHeader = () => {
@@ -46,12 +46,26 @@ export const WebHeader = () => {
                     </Button>
                   </Link>
                   {hasCompletedOnboarding && (
-                    <Link to="/resume">
-                      <Button variant={pathname === '/resume' ? 'default' : 'outline'} size="sm" className="flex items-center gap-1.5">
-                        <FileText className="h-3.5 w-3.5" />
-                        My Resume
-                      </Button>
-                    </Link>
+                    <>
+                      <Link to="/resume">
+                        <Button variant={pathname === '/resume' ? 'default' : 'outline'} size="sm" className="flex items-center gap-1.5">
+                          <FileText className="h-3.5 w-3.5" />
+                          My Resume
+                        </Button>
+                      </Link>
+                      <Link to="/jd-matcher">
+                        <Button variant={pathname === '/jd-matcher' ? 'default' : 'outline'} size="sm" className="flex items-center gap-1.5">
+                          <Target className="h-3.5 w-3.5" />
+                          Match JD
+                        </Button>
+                      </Link>
+                      <Link to="/resume-score">
+                        <Button variant={pathname === '/resume-score' ? 'default' : 'outline'} size="sm" className="flex items-center gap-1.5">
+                          <BarChart3 className="h-3.5 w-3.5" />
+                          Score Resume
+                        </Button>
+                      </Link>
+                    </>
                   )}
                   <span className="text-sm hidden lg:flex text-muted-foreground">
                     Hello, {currentUser.displayName || currentUser.email}

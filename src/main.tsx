@@ -15,6 +15,8 @@ import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { TokenProvider } from './lib/tokenContext.tsx'
 import { AdminPage } from './pages/AdminPage.tsx'
 import { ResumeGeneratorPage } from './pages/ResumeGeneratorPage.tsx'
+import { JDMatcherPage } from './pages/JDMatcherPage.tsx'
+import { ResumeScoringPage } from './pages/ResumeScoringPage.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -31,6 +33,8 @@ createRoot(document.getElementById('root')!).render(
                       <Route path="/tracker" element={<ApplicationTracker />} />
                       <Route path="/admin" element={<AdminPage />} />
                       <Route path="/resume" element={<ResumeGeneratorPage />} />
+                      <Route path="/jd-matcher" element={<JDMatcherPage />} />
+                      <Route path="/resume-score" element={<ResumeScoringPage />} />
                       <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                   </AuthWrapper>
