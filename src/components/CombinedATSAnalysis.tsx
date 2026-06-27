@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { AlertCircle, BarChart3, RefreshCw, CheckCircle, TrendingUp, CheckSquare } from 'lucide-react';
 import { useAIService, type ATSScore, type ATSSuggestion, type JobFitResult } from '@/hooks/useAIService';
 import { JobFitBanner } from './JobFitBanner';
+import { ensureKeySkillsSuggestion } from '@/lib/atsAnalysisUtils';
 
 interface RawSuggestion {
   id?: string;
@@ -115,32 +116,7 @@ export function CombinedATSAnalysis({
         selected: true // All suggestions are selected by default
       }));
 
-      // Always ensure there's a suggestion about adding key skills naturally
-      const hasKeySkillsSuggestion = suggestionsWithSelection.some((s: ATSSuggestion) => 
-        s.suggestion.toLowerCase().includes('key skills') || 
-        s.suggestion.toLowerCase().includes('essential skills') ||
-        s.suggestion.toLowerCase().includes('incorporate') && s.suggestion.toLowerCase().includes('skills') ||
-        (s.category.toLowerCase() === 'skills & technologies' && s.suggestion.toLowerCase().includes('add'))
-      );
-
-      if (!hasKeySkillsSuggestion) {
-        // Extract some skills from job description for a more specific suggestion
-        const skillKeywords = jobDescription.toLowerCase().match(/\b(?:python|javascript|react|node\.js|sql|aws|docker|kubernetes|git|agile|scrum|java|c\+\+|html|css|machine learning|data analysis|project management|leadership|communication|teamwork|problem solving|analytical|technical|programming|development|software|database|cloud|api|framework|library|testing|debugging|optimization)\b/gi) || [];
-        const uniqueSkills = [...new Set(skillKeywords)].slice(0, 5);
-        
-        const skillsText = uniqueSkills.length > 0 
-          ? `key skills (such as ${uniqueSkills.join(', ')}) ` 
-          : 'key skills ';
-
-        const keySkillsSuggestion: ATSSuggestion = {
-          id: 'key-skills-natural',
-          category: 'Skills & Technologies',
-          suggestion: `Add all ${skillsText}from the job description naturally throughout your resume, particularly in the skills section, experience descriptions, and summary to improve keyword matching and ATS compatibility.`,
-          impact: 'high' as const,
-          selected: true
-        };
-        suggestionsWithSelection = [keySkillsSuggestion, ...suggestionsWithSelection];
-      }
+      suggestionsWithSelection = ensureKeySkillsSuggestion(suggestionsWithSelection, jobDescription);
 
       setSuggestions(suggestionsWithSelection);
       updateSelectedSuggestions(suggestionsWithSelection);
