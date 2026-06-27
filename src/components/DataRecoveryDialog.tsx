@@ -28,7 +28,7 @@ interface BackupData {
   resumeTemplates: Template[];
   coverLetterTemplates: Template[];
   customPrompts: CustomPrompt[];
-  userSettings: Record<string, string | number | boolean>;
+  userSettings: Record<string, unknown>;
   timestamp: string;
   userId: string;
 }

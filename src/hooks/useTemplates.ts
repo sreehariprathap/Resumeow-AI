@@ -10,7 +10,7 @@ import {
   showDataIntegrityToast 
 } from "@/lib/dataIntegrity";
 import { useSyncStatus } from "./useSyncStatus";
-import { createEmergencyBackup, autoRecoverLostData, checkDataConsistency, getAvailableBackups, restoreFromBackup } from "@/lib/dataRecovery";
+import { createEmergencyBackup, autoRecoverLostData, checkDataConsistency, getAvailableBackups, restoreFromBackup } from "@/lib/dataIntegrity";
 import { 
   logFirebaseOperation, 
   logLocalStorageOperation, 
