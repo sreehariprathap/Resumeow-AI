@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "Resumeow — Smart Job Autofill",
+  "version": "1.0.0",
+  "description": "Scan job pages, match your resume, and auto-fill applications with AI",
+  "permissions": ["activeTab", "storage", "scripting", "identity"],
+  "host_permissions": [
+    "https://www.linkedin.com/*",
+    "https://www.indeed.com/*",
+    "https://www.glassdoor.com/*",
+    "https://*.greenhouse.io/*",
+    "https://*.lever.co/*",
+    "https://*.ashby.io/*",
+    "https://*.workday.com/*",
+    "https://*.smartrecruiters.com/*",
+    "https://jobs.ashbyhq.com/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "Resumeow"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.linkedin.com/jobs/*",
+        "https://www.indeed.com/*",
+        "https://www.glassdoor.com/job-listing/*",
+        "https://*.greenhouse.io/jobs/*",
+        "https://*.lever.co/*",
+        "https://*.ashby.io/*",
+        "https://*.workday.com/*",
+        "https://*.smartrecruiters.com/*",
+        "https://jobs.ashbyhq.com/*"
+      ],
+      "js": ["content/content-script.js"],
+      "css": ["content/content.css"]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

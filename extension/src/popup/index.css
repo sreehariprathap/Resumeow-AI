@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --indigo: #6366f1;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+}

@@ -1,0 +1,6 @@
+/* Resumeow extension content styles — intentionally minimal to avoid conflicts */
+
+[data-resumeow-highlighted] {
+  outline: 2px solid #6366f1 !important;
+  outline-offset: 2px !important;
+}
