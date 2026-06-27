@@ -12,8 +12,12 @@
     "https://*.lever.co/*",
     "https://*.ashby.io/*",
     "https://*.workday.com/*",
+    "https://*.myworkdayjobs.com/*",
     "https://*.smartrecruiters.com/*",
-    "https://jobs.ashbyhq.com/*"
+    "https://jobs.ashbyhq.com/*",
+    "https://*.icims.com/*",
+    "https://*.taleo.net/*",
+    "https://*.successfactors.com/*"
   ],
   "background": {
     "service_worker": "background/service-worker.js",
@@ -38,8 +42,12 @@
         "https://*.lever.co/*",
         "https://*.ashby.io/*",
         "https://*.workday.com/*",
+        "https://*.myworkdayjobs.com/*",
         "https://*.smartrecruiters.com/*",
-        "https://jobs.ashbyhq.com/*"
+        "https://jobs.ashbyhq.com/*",
+        "https://*.icims.com/*",
+        "https://*.taleo.net/*",
+        "https://*.successfactors.com/*"
       ],
       "js": ["content/content-script.js"],
       "css": ["content/content.css"]

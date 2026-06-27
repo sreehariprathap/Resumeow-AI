@@ -40,6 +40,21 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
 
+  if (msg.type === 'GET_RESUME_PROFILES') {
+    if (!currentUser) { sendResponse({ error: 'Not signed in' }); return false; }
+    getDoc(doc(db, 'users', currentUser.uid, 'resumeProfile', 'data'))
+      .then((snap) => {
+        const profile = snap.data() as ResumeProfile | undefined;
+        sendResponse({
+          profiles: profile
+            ? [{ id: 'default', label: 'Full Profile', profile }]
+            : [],
+        });
+      })
+      .catch((err: Error) => sendResponse({ error: err.message }));
+    return true;
+  }
+
   if (msg.type === 'GENERATE_AI_ANSWERS') {
     if (!currentUser) {
       sendResponse({ error: 'Not signed in' });

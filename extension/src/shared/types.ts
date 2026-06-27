@@ -92,7 +92,25 @@ export type JobSite =
   | 'workday'
   | 'glassdoor'
   | 'smartrecruiters'
+  | 'icims'
+  | 'taleo'
+  | 'successfactors'
   | 'unknown';
+
+export type WorkdayStep =
+  | 'my-information'
+  | 'my-experience'
+  | 'application-questions'
+  | 'self-identify'
+  | 'voluntary-disclosures'
+  | 'review'
+  | 'unknown';
+
+export interface ResumeProfileOption {
+  id: string;
+  label: string;
+  profile: ResumeProfile;
+}
 
 export type FieldType =
   | 'firstName'
@@ -119,6 +137,9 @@ export interface ScanResult {
   company: string;
   jobDescription: string;
   fieldCount: number;
+  workdayStep?: WorkdayStep;
+  isApplicationPage?: boolean;
+  isJobListingPage?: boolean;
 }
 
 export interface FillResult {
@@ -138,7 +159,10 @@ export type ExtMessage =
   | { type: 'GET_AUTH_STATE' }
   | { type: 'GET_PROFILE' }
   | { type: 'GET_RESUME_PROFILE' }
+  | { type: 'GET_RESUME_PROFILES' }
   | { type: 'GENERATE_AI_ANSWERS'; jobDescription: string; resumeProfile: ResumeProfile }
   | { type: 'SCAN_PAGE' }
+  | { type: 'SCAN_PAGE_ASYNC' }
   | { type: 'FILL_FORMS'; data: { profile: ResumeProfile; aiAnswers?: AIAnswers } }
+  | { type: 'FILL_FORMS_WORKDAY'; data: { profile: ResumeProfile; aiAnswers?: AIAnswers } }
   | { type: 'HIGHLIGHT_FIELDS' };

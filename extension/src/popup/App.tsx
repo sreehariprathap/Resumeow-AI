@@ -5,6 +5,7 @@ import type {
   AIAnswers,
   UserProfile,
   ResumeProfile,
+  ResumeProfileOption,
 } from '../shared/types';
 import { SignInView } from './components/SignInView';
 import { JobDetectedView } from './components/JobDetectedView';
@@ -36,15 +37,16 @@ async function sendToContentScript<T>(tabId: number, msg: object): Promise<T> {
 export default function App() {
   const [authState, setAuthState] = useState<AuthState>('loading');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [resumeProfile, setResumeProfile] = useState<ResumeProfile | null>(null);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [profiles, setProfiles] = useState<ResumeProfileOption[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState<string>('default');
   const [fillResult, setFillResult] = useState<FillResult | null>(null);
   const [aiAnswers, setAiAnswers] = useState<AIAnswers | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isFilling, setIsFilling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Init: check auth, load profiles, scan page
   useEffect(() => {
     (async () => {
       try {
@@ -59,44 +61,60 @@ export default function App() {
 
         setAuthState('signed-in');
 
-        // Load profiles in parallel
-        const [profileRes, resumeRes] = await Promise.allSettled([
+        // Load user profile and scan the page in parallel
+        const [profileRes] = await Promise.allSettled([
           sendToBackground<{ profile: UserProfile | null }>({ type: 'GET_PROFILE' }),
-          sendToBackground<{ resumeProfile: ResumeProfile | null }>({ type: 'GET_RESUME_PROFILE' }),
         ]);
 
         if (profileRes.status === 'fulfilled') setUserProfile(profileRes.value.profile);
-        if (resumeRes.status === 'fulfilled') setResumeProfile(resumeRes.value.resumeProfile);
 
-        // Auto-scan current tab
+        // Auto-scan the active tab
         await scanCurrentPage();
-      } catch (e) {
+
+        // Load resume profiles (after scan so we don't block the UI)
+        try {
+          const profilesRes = await sendToBackground<{ profiles: ResumeProfileOption[] }>(
+            { type: 'GET_RESUME_PROFILES' }
+          );
+          if (profilesRes.profiles?.length) {
+            setProfiles(profilesRes.profiles);
+            setSelectedProfileId(profilesRes.profiles[0].id);
+          }
+        } catch {
+          // profiles unavailable — fill button will be disabled
+        }
+      } catch {
         setAuthState('signed-out');
       }
     })();
   }, []);
 
   const scanCurrentPage = async () => {
+    setIsScanning(true);
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab?.id) return;
-      const res = await sendToContentScript<ScanResult>(tab.id, { type: 'SCAN_PAGE' });
+      if (!tab?.id) { setIsScanning(false); return; }
+      const res = await sendToContentScript<ScanResult>(tab.id, { type: 'SCAN_PAGE_ASYNC' });
       setScanResult(res);
     } catch {
-      // Content script not injected on this page — not a job page
       setScanResult(null);
+    } finally {
+      setIsScanning(false);
     }
   };
 
+  const selectedProfile: ResumeProfile | null =
+    profiles.find((p) => p.id === selectedProfileId)?.profile ?? null;
+
   const handleGenerateAI = async () => {
-    if (!scanResult || !resumeProfile) return;
+    if (!scanResult || !selectedProfile) return;
     setIsGenerating(true);
     setError(null);
     try {
       const res = await sendToBackground<{ answers: AIAnswers }>({
         type: 'GENERATE_AI_ANSWERS',
         jobDescription: scanResult.jobDescription,
-        resumeProfile,
+        resumeProfile: selectedProfile,
       });
       setAiAnswers(res.answers);
     } catch (e) {
@@ -111,21 +129,26 @@ export default function App() {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab?.id) return;
       await sendToContentScript(tab.id, { type: 'HIGHLIGHT_FIELDS' });
-    } catch (e) {
+    } catch {
       setError('Could not highlight fields on this page');
     }
   };
 
   const handleFill = async () => {
-    if (!resumeProfile) return;
+    if (!selectedProfile) return;
     setIsFilling(true);
     setError(null);
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab?.id) throw new Error('No active tab');
+
+      // Use Workday-specific fill when on a Workday application page
+      const isWorkday = scanResult?.site === 'workday' && scanResult.isApplicationPage;
+      const msgType = isWorkday ? 'FILL_FORMS_WORKDAY' : 'FILL_FORMS';
+
       const result = await sendToContentScript<FillResult>(tab.id, {
-        type: 'FILL_FORMS',
-        data: { profile: resumeProfile, aiAnswers: aiAnswers ?? undefined },
+        type: msgType,
+        data: { profile: selectedProfile, aiAnswers: aiAnswers ?? undefined },
       });
       setFillResult(result);
     } catch (e) {
@@ -162,7 +185,21 @@ export default function App() {
     );
   }
 
-  const isOnJobPage = scanResult && scanResult.site !== 'unknown' && scanResult.fieldCount > 0;
+  // Show job view when: on a known site, or there's a meaningful JD, or there are form fields
+  const isOnJobPage =
+    scanResult &&
+    (scanResult.site !== 'unknown' ||
+      scanResult.jobDescription.length > 100 ||
+      scanResult.fieldCount > 0);
+
+  if (isScanning) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[200px] gap-3">
+        <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs text-gray-400">Scanning page...</p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -176,7 +213,9 @@ export default function App() {
         <JobDetectedView
           scanResult={scanResult}
           userProfile={userProfile}
-          resumeProfile={resumeProfile}
+          profiles={profiles}
+          selectedProfileId={selectedProfileId}
+          onSelectProfile={setSelectedProfileId}
           aiAnswers={aiAnswers}
           isGenerating={isGenerating}
           isFilling={isFilling}

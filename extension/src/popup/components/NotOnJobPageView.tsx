@@ -11,9 +11,12 @@ const SUPPORTED_SITES = [
   { name: 'Greenhouse', host: '*.greenhouse.io' },
   { name: 'Lever', host: '*.lever.co' },
   { name: 'Ashby', host: '*.ashby.io' },
-  { name: 'Workday', host: '*.workday.com' },
+  { name: 'Workday', host: '*.myworkdayjobs.com' },
   { name: 'Glassdoor', host: 'glassdoor.com' },
   { name: 'SmartRecruiters', host: 'smartrecruiters.com' },
+  { name: 'iCIMS', host: '*.icims.com' },
+  { name: 'Taleo', host: '*.taleo.net' },
+  { name: 'SuccessFactors', host: '*.successfactors.com' },
 ];
 
 export function NotOnJobPageView({ userProfile }: Props) {
