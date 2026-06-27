@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { useAuth } from "@/lib/authContext";
+import { initUserProfile } from "@/lib/firebaseWeb";
 import { AuthScreen } from "./components/AuthScreen";
 import { WebHeader } from "./components/WebHeader";
 import { WebFooter } from "./components/WebFooter";
@@ -8,7 +10,17 @@ interface AuthWrapperProps {
 }
 
 export default function AuthWrapper({ children }: AuthWrapperProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, currentUser } = useAuth();
+
+  useEffect(() => {
+    if (currentUser) {
+      void initUserProfile(
+        currentUser.uid,
+        currentUser.email ?? '',
+        currentUser.displayName ?? ''
+      );
+    }
+  }, [currentUser]);
 
   // Show loading state
   if (isLoading) {

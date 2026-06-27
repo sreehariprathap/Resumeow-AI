@@ -155,7 +155,7 @@ const ResumeUploadStep = ({ onParsed, onSkip }: ResumeUploadStepProps) => {
 
 // ─── Step 0 — Welcome ───────────────────────────────────────────────────────
 
-const WelcomeStep = ({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }) => (
+const WelcomeStep = ({ onNext, onUpload, onSkip }: { onNext: () => void; onUpload: () => void; onSkip: () => void }) => (
   <div className="text-center space-y-8 py-8">
     <div className="mx-auto w-24 h-24 bg-gradient-to-br from-primary to-purple-600 rounded-full flex items-center justify-center">
       <FileText className="h-12 w-12 text-white" />
@@ -163,7 +163,7 @@ const WelcomeStep = ({ onNext, onSkip }: { onNext: () => void; onSkip: () => voi
     <div className="space-y-3">
       <h2 className="text-3xl font-bold">Let's build your resume</h2>
       <p className="text-muted-foreground max-w-md mx-auto text-base">
-        We'll collect your professional details step by step, then use AI to generate a polished LaTeX resume ready to compile on Overleaf.
+        Upload an existing resume and we'll auto-fill everything with AI, or fill in your details step by step. Either way you'll get a polished LaTeX resume ready to compile on Overleaf.
       </p>
     </div>
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 text-left">
@@ -180,14 +180,19 @@ const WelcomeStep = ({ onNext, onSkip }: { onNext: () => void; onSkip: () => voi
         </Card>
       ))}
     </div>
-    <div className="flex flex-col items-center gap-2">
-      <Button size="lg" onClick={onNext} className="px-10">
-        Get Started <ChevronRight className="ml-2 h-4 w-4" />
-      </Button>
+    <div className="flex flex-col items-center gap-3">
+      <div className="flex flex-col sm:flex-row items-center gap-3">
+        <Button size="lg" variant="outline" onClick={onUpload} className="px-8">
+          <Sparkles className="mr-2 h-4 w-4" /> Upload a resume
+        </Button>
+        <Button size="lg" onClick={onNext} className="px-8">
+          Fill in manually <ChevronRight className="ml-2 h-4 w-4" />
+        </Button>
+      </div>
       <button
         type="button"
         onClick={onSkip}
-        className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline mt-2"
+        className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline mt-1"
       >
         Skip for now →
       </button>
@@ -1277,11 +1282,14 @@ interface OnboardingWizardProps {
 }
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
-  const { showOnboarding, completeOnboarding, resumeProfile: savedProfile, initialStep, isFirstLogin } = useOnboarding();
+  const { showOnboarding, completeOnboarding, resumeProfile: savedProfile, initialStep } = useOnboarding();
   const { makeAICall } = useAIProvider();
   const { currentUser } = useAuth();
 
-  const [step, setStep] = useState(() => (isFirstLogin ? -1 : (initialStep ?? 0)));
+  // Start with the resume-upload step whenever onboarding begins from the top
+  // (brand-new users and anyone who re-opens onboarding). Only jump straight to
+  // a section when the user is resuming a partially-completed run.
+  const [step, setStep] = useState(() => ((initialStep ?? 0) > 0 ? initialStep : -1));
   const [profile, setProfile] = useState<Partial<ResumeProfile>>(
     savedProfile ?? defaultProfile()
   );
@@ -1292,12 +1300,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [reviewJump, setReviewJump] = useState(false);
 
   useEffect(() => {
-    if (isFirstLogin) {
-      setStep(-1);
-    } else if (initialStep !== undefined && initialStep > 0) {
-      setStep(initialStep);
-    }
-  }, [isFirstLogin, initialStep]); // eslint-disable-line react-hooks/exhaustive-deps
+    setStep((initialStep ?? 0) > 0 ? initialStep : -1);
+  }, [initialStep]);
 
   const updateProfile = (updates: Partial<ResumeProfile>) => {
     setProfile((prev) => ({ ...prev, ...updates }));
@@ -1479,6 +1483,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         {step === 0 && (
           <WelcomeStep
             onNext={() => setStep(1)}
+            onUpload={() => setStep(-1)}
             onSkip={() => handleSkip(0)}
           />
         )}

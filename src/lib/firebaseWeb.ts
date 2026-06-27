@@ -15,6 +15,8 @@ import {
 } from "firebase/auth";
 import type { User } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, collection, getDocs, updateDoc, increment, query, orderBy } from "firebase/firestore";
+import type { ResumeProfile } from "@/types/resumeProfile";
+import { computeMissingDefaults, RESUME_PROFILE_DEFAULTS } from "./profileSeeding";
 
 // Your Firebase configuration
 const firebaseConfig = {
@@ -208,7 +210,18 @@ export interface UserProfile {
 
 // --- Token system ---
 
-/** Called on first login. Creates userProfiles doc if it doesn't exist. */
+const FREE_TOKENS = 100;
+
+/**
+ * Called on every login. Acts as a self-healing seeder:
+ *  1. Creates the userProfiles doc on first login.
+ *  2. Backfills any token-doc fields added after the user signed up.
+ *  3. Backfills the newer ResumeProfile fields onto an existing onboarding doc.
+ *
+ * Each step is non-fatal: if Firestore rules deny the token-doc write (e.g.
+ * userProfiles updates are admin-only), login and the resumeProfile backfill
+ * still proceed.
+ */
 export const initUserProfile = async (
   uid: string,
   email: string,
@@ -217,7 +230,6 @@ export const initUserProfile = async (
   const profileRef = doc(db, 'userProfiles', uid);
   const snap = await getDoc(profileRef);
   if (!snap.exists()) {
-    const FREE_TOKENS = 100;
     await setDoc(profileRef, {
       uid,
       email,
@@ -231,7 +243,45 @@ export const initUserProfile = async (
       lastActiveAt: Date.now(),
     });
   } else {
-    await updateDoc(profileRef, { lastActiveAt: Date.now() });
+    try {
+      const existing = snap.data();
+      const patch = computeMissingDefaults<UserProfile>(existing as Partial<UserProfile>, {
+        uid,
+        email: email || (existing.email as string),
+        displayName: displayName || (existing.displayName as string) || email.split('@')[0],
+        plan: 'free',
+        tokensAllocated: FREE_TOKENS,
+        tokensUsed: 0,
+        tokensRemaining: FREE_TOKENS,
+        isAdmin: false,
+        createdAt: Date.now(),
+      });
+      await updateDoc(profileRef, { ...patch, lastActiveAt: Date.now() });
+    } catch (error) {
+      console.error('Token profile backfill skipped:', error);
+    }
+  }
+
+  await backfillResumeProfile(uid);
+};
+
+/**
+ * Fill in the newer ResumeProfile collection fields on a user's existing
+ * onboarding document. Does nothing for users who never onboarded — onboarding
+ * is responsible for creating the doc in the first place.
+ */
+export const backfillResumeProfile = async (uid: string): Promise<void> => {
+  try {
+    const existing = await getUserData(uid, 'resumeProfile');
+    if (!existing) return;
+    const patch = computeMissingDefaults<ResumeProfile>(
+      existing as Partial<ResumeProfile>,
+      RESUME_PROFILE_DEFAULTS,
+    );
+    if (Object.keys(patch).length === 0) return;
+    await saveUserData(uid, 'resumeProfile', { ...existing, ...patch });
+  } catch (error) {
+    console.error('Resume profile backfill skipped:', error);
   }
 };
 

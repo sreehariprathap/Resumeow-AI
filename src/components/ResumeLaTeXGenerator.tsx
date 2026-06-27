@@ -11,19 +11,34 @@ interface ResumeLaTeXGeneratorProps {
   generatedPrompt: string;
   autoGenerate?: boolean;
   onLatexGenerated?: (latex: string) => void;
+  onGeneratingChange?: (generating: boolean) => void;
 }
 
-export function ResumeLaTeXGenerator({ 
+export function ResumeLaTeXGenerator({
   generatedPrompt,
   autoGenerate = false,
-  onLatexGenerated
-}: ResumeLaTeXGeneratorProps) {  
+  onLatexGenerated,
+  onGeneratingChange
+}: ResumeLaTeXGeneratorProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedLatex, setGeneratedLatex] = useState<string | null>(null);
   const [generationFailed, setGenerationFailed] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editedLatex, setEditedLatex] = useState<string>('');
   const { generateResumeLatex, hasAvailableProviders } = useAIService();
+
+  // Mirror generation state to the parent (covers both success and failure,
+  // since `isGenerating` is always cleared in the `finally` of generateLatex).
+  useEffect(() => {
+    onGeneratingChange?.(isGenerating);
+  }, [isGenerating, onGeneratingChange]);
+
+  // When the prompt changes, drop the stale result so a fresh prompt can
+  // (auto-)generate again instead of being blocked by the previous output.
+  useEffect(() => {
+    setGeneratedLatex(null);
+    setGenerationFailed(false);
+  }, [generatedPrompt]);
   const generateLatex = useCallback(async () => {
     if (!hasAvailableProviders()) {
       return; // Error toast is handled by the AI service

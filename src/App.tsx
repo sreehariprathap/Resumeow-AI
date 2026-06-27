@@ -24,8 +24,10 @@ import { Card, CardContent, CardHeader, CardAction } from "./components/ui/card"
 import { Button } from "./components/ui/button";
 import { Label } from "./components/ui/label";
 import { Checkbox } from "./components/ui/checkbox";
+import { Switch } from "./components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./components/ui/dialog";
 import { Badge } from "./components/ui/badge";
-import { Settings, Trash2, Bot, Sparkles, FolderOpen } from "lucide-react";
+import { Settings, Trash2, Bot, Sparkles, FolderOpen, Zap } from "lucide-react";
 import { toast } from "sonner";
 import type { PromptType, Template, CustomPrompt } from "./types";
 import { CombinedATSAnalysis } from "./components/CombinedATSAnalysis";
@@ -52,7 +54,7 @@ function App() {
     getActivePrompt,
   });
   const { selectedModel } = useAIProvider();
-  const { showOnboarding, completeOnboarding, startOnboarding } = useOnboarding();
+  const { showOnboarding, completeOnboarding, startOnboarding, hasCompletedOnboarding } = useOnboarding();
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
@@ -84,6 +86,13 @@ function App() {
     recommendations: string[];
   } | null>(null);
   const [missingKeywords, setMissingKeywords] = useState<string[]>([]);
+  // Fast Compile Mode: run the ATS job-scan before compiling (persisted preference)
+  const [fastCompileATS, setFastCompileATS] = useState<boolean>(() => {
+    try { return localStorage.getItem('fastCompileATS') !== 'false'; } catch { return true; }
+  });
+  const [fastSettingsOpen, setFastSettingsOpen] = useState(false);
+  const [fastAtsComplete, setFastAtsComplete] = useState(false);
+  const [isCompiling, setIsCompiling] = useState(false);
   const [generatedResumeLatex, setGeneratedResumeLatex] = useState<string>("");  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(() => {
     if (!currentUser) return "no-selection";
     const userKey = `user_${currentUser.uid}`;
@@ -219,8 +228,20 @@ function App() {
   const handleMissingKeywords = useCallback((keywords: string[]) => {
     setMissingKeywords(keywords);
   }, []);
+
+  const handleToggleFastCompileATS = (value: boolean) => {
+    setFastCompileATS(value);
+    try { localStorage.setItem('fastCompileATS', String(value)); } catch { /* ignore */ }
+  };
+
+  // Re-require a fresh job scan whenever the job description changes
+  useEffect(() => {
+    setFastAtsComplete(false);
+  }, [jobDescription]);
+
   const handleLatexGenerated = useCallback((latex: string) => {
     setGeneratedResumeLatex(latex);
+    setIsCompiling(false);
   }, []);
 
   const handleSetActivePrompt = useCallback((type: PromptType, promptId: string) => {
@@ -256,17 +277,25 @@ function App() {
       const resumeTemplate = resumeTemplates.find(t => t.id === templateIdToUse);
       const resumeToUse = resumeTemplate?.resumeLatex || "";
 
+      // Fold in the ATS job-scan insights (missing keywords + suggestions) so the
+      // compiled resume is actually tailored to the analysis.
+      const atsInstructions = hasOptionalInstructions && optionalInstructions
+        ? `${optionalInstructions}\n\n`
+        : "";
+
       const prompt = generateResumePrompt({
         jobDescription,
         resumeContent: resumeToUse,
         templateId: templateIdToUse,
         showResumeInput: true,
-        optionalInstructions: "Return the output as pure LaTeX code."
+        optionalInstructions: `${atsInstructions}Return the output as pure LaTeX code.`
       });
 
       setGeneratedPrompt(prompt);
       if (!prompt.startsWith("Error:")) {
-        toast.success("Superfast LaTeX resume prompt generated!");
+        setGeneratedResumeLatex("");
+        setIsCompiling(true);
+        toast.success("Compiling your tailored LaTeX resume…");
         trackPromptGeneration('resume');
       }
       return;
@@ -519,30 +548,77 @@ function App() {
               onChange={handlePromptTypeChange}
             />
 
-            {/* Fast Compile toggle - only show for resume type */}
-            {promptType === 'resume' && (
-              <div className="space-y-1">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="fastCompile"
-                    checked={fastCompile}
-                    onCheckedChange={(checked) => setFastCompile(checked as boolean)}
-                  />
-                  <Label htmlFor="fastCompile" className="text-xs cursor-pointer">
-                    Fast Compile Mode
-                  </Label>
+            {/* Fast Compile Mode — paste a JD and compile using your saved defaults */}
+            {promptType === 'resume' && hasCompletedOnboarding && (
+              <div
+                className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${
+                  fastCompile
+                    ? 'border-amber-400/60 bg-amber-50 dark:bg-amber-950/20'
+                    : 'border-border bg-muted/30 hover:border-amber-300/50'
+                }`}
+              >
+                <div
+                  className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors ${
+                    fastCompile ? 'bg-amber-400 text-white' : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  <Zap className="h-4 w-4" />
                 </div>
-                <p className="text-xs text-gray-500 ml-5">
-                  {fastCompile
-                    ? "One-click: Generate prompt and LaTeX resume automatically"
-                    : "Standard mode with manual template selection"}
-                </p>
+                <div className="flex-1 space-y-0.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="fastCompile" className="cursor-pointer text-sm font-semibold">
+                      Fast Compile Mode
+                    </Label>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setFastSettingsOpen(true)}
+                        className="rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
+                        title="Fast Compile settings"
+                      >
+                        <Settings className="h-3.5 w-3.5" />
+                      </button>
+                      <Switch
+                        id="fastCompile"
+                        checked={fastCompile}
+                        onCheckedChange={(checked) => setFastCompile(checked as boolean)}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {fastCompile
+                      ? 'Just paste the job description and hit Compile — we use your saved resume and default prompt.'
+                      : 'Turn on to skip the manual steps: paste a job description and compile in one click.'}
+                  </p>
+                </div>
               </div>
             )}
             <JobDescriptionInput
               jobDescription={jobDescription}
               onChange={(e) => setJobDescription(e.target.value)}
             />
+
+            {/* Fast Compile job scan — ATS analysis + insights before compiling */}
+            {fastCompile && promptType === 'resume' && fastCompileATS && jobDescription && (() => {
+              const fastTemplate = resumeTemplates.find(t => t.id === selectedTemplateId && selectedTemplateId !== 'no-selection') ?? resumeTemplates[0];
+              const fastResume = fastTemplate?.resumeLatex || "";
+              if (!fastResume) {
+                return (
+                  <p className="text-xs text-muted-foreground">
+                    Add a saved resume template to run the ATS job scan, or turn off ATS analysis in Fast Compile settings.
+                  </p>
+                );
+              }
+              return (
+                <CombinedATSAnalysis
+                  jobDescription={jobDescription}
+                  resumeContent={fastResume}
+                  onAnalysisComplete={(score) => { handleInitialATSAnalysis(score); setFastAtsComplete(true); }}
+                  onMissingKeywords={handleMissingKeywords}
+                  onSuggestionsChange={setAtsSuggestions}
+                />
+              );
+            })()}
 
             {/* Hide these sections when Fast Compile is enabled for resume */}
             {!(fastCompile && promptType === 'resume') && (
@@ -648,8 +724,9 @@ function App() {
               disabled={
                 !jobDescription ||
                 (fastCompile && promptType === 'resume' ?
-                  // Fast Compile mode for resume - only need job description
-                  false :
+                  // Fast Compile mode for resume — block while compiling, and (if
+                  // enabled) until the ATS job scan has finished.
+                  (isCompiling || (fastCompileATS && !fastAtsComplete)) :
                   // Normal mode - need all the usual requirements
                   (!activePrompts[promptType] || activePrompts[promptType] === "placeholder" ||
                     (promptType === 'resume' && (!selectedTemplateId || selectedTemplateId === "no-selection")) ||
@@ -658,7 +735,9 @@ function App() {
               }
             >
               {fastCompile && promptType === 'resume'
-                ? 'Fast Generate LaTeX Resume'
+                ? (isCompiling
+                    ? 'Compiling…'
+                    : (fastCompileATS && !fastAtsComplete ? 'Run job scan to enable Compile' : 'Compile'))
                 : `Generate ${promptType === 'resume' ? 'Resume' : 'Cover Letter'} Prompt`
               }
             </Button>
@@ -674,6 +753,7 @@ function App() {
                   generatedPrompt={generatedPrompt}
                   autoGenerate={fastCompile && !!generatedPrompt}
                   onLatexGenerated={handleLatexGenerated}
+                  onGeneratingChange={fastCompile ? setIsCompiling : undefined}
                 />
               )}          {promptType === 'coverLetter' && generatedPrompt && (
                 <CoverLetterGenerator
@@ -719,6 +799,35 @@ function App() {
         onDeleteTemplate={deleteTemplate}
         onAddTemplate={addTemplate}
       />
+
+      <Dialog open={fastSettingsOpen} onOpenChange={setFastSettingsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Fast Compile settings</DialogTitle>
+            <DialogDescription>
+              Control what happens when you compile a resume from just a job description.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-start gap-3 rounded-lg border p-3">
+            <Checkbox
+              id="fastCompileATS"
+              checked={fastCompileATS}
+              onCheckedChange={(checked) => handleToggleFastCompileATS(checked as boolean)}
+              className="mt-0.5"
+            />
+            <div className="space-y-1">
+              <Label htmlFor="fastCompileATS" className="cursor-pointer text-sm font-medium">
+                Run ATS analysis before compiling
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Scans your resume against the job description for an ATS score, missing keywords and
+                insights. Compile stays disabled until the scan finishes, and its results are fed into
+                the compiled resume.
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

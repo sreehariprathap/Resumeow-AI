@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { useAuth } from './authContext';
-import { getUserData, saveUserData } from './firebaseWeb';
+import { getUserData, saveUserData, getUserProfile, deductTokens as fbDeductTokens } from './firebaseWeb';
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
 import { toast } from 'sonner';
@@ -330,8 +330,40 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
     await saveSettings({ googleApiKey: key });
   };
 
+  const checkAndDeductTokens = async (promptChars: number, responseChars: number): Promise<void> => {
+    if (!currentUser) return;
+    const totalChars = promptChars + responseChars;
+    await fbDeductTokens(currentUser.uid, Math.max(1, Math.ceil(totalChars / 750)));
+  };
+
+  const assertTokenBalance = async (): Promise<void> => {
+    if (!currentUser) return;
+    let profile;
+    try {
+      profile = await getUserProfile(currentUser.uid);
+    } catch (error) {
+      // Couldn't read the balance (e.g. Firestore rules/offline). Don't block
+      // the AI call over a failed guard — fail open and let the call proceed.
+      console.warn('Token balance check skipped:', error);
+      return;
+    }
+    if (profile && !profile.isAdmin && profile.tokensRemaining <= 0) {
+      throw new Error('INSUFFICIENT_TOKENS');
+    }
+  };
+
   // Make AI call with failsafe — fallback only picks providers that have keys configured
   const makeAICall = async (prompt: string): Promise<string> => {
+    try {
+      await assertTokenBalance();
+    } catch (error) {
+      if (error instanceof Error && error.message === 'INSUFFICIENT_TOKENS') {
+        toast.error("You've used all your tokens. Contact the admin to get more.");
+        throw error;
+      }
+      throw error;
+    }
+
     const primaryModel = selectedModel;
     const fallbackModel = AVAILABLE_MODELS.find(
       m => m.provider !== primaryModel.provider && (
@@ -342,17 +374,18 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
     );
 
     try {
-      // Try primary model first
       const result = await callAI(prompt, primaryModel);
+      void checkAndDeductTokens(prompt.length, result.length);
       return result;
     } catch (error) {
       console.error(`Primary AI call failed with ${primaryModel.name}:`, error);
-      
+
       if (fallbackModel) {
         try {
           toast.info(`${primaryModel.name} failed, trying ${fallbackModel.name}...`);
           const result = await callAI(prompt, fallbackModel);
           toast.warning(`Response generated using fallback provider: ${fallbackModel.name}`);
+          void checkAndDeductTokens(prompt.length, result.length);
           return result;
         } catch (fallbackError) {
           console.error(`Fallback AI call failed with ${fallbackModel.name}:`, fallbackError);
@@ -427,15 +460,36 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
   };
   // Call any model by ID — resolves provider from AVAILABLE_MODELS or defaults to deepseek
   const makeAICallWithModel = async (prompt: string, modelId: string): Promise<string> => {
+    try {
+      await assertTokenBalance();
+    } catch (error) {
+      if (error instanceof Error && error.message === 'INSUFFICIENT_TOKENS') {
+        toast.error("You've used all your tokens. Contact the admin to get more.");
+        throw error;
+      }
+      throw error;
+    }
     const knownModel = AVAILABLE_MODELS.find(m => m.id === modelId);
     const model: AIModel = knownModel ?? { id: modelId, name: modelId, provider: 'deepseek' };
-    return callAI(prompt, model);
+    const result = await callAI(prompt, model);
+    void checkAndDeductTokens(prompt.length, result.length);
+    return result;
   };
 
   // Thinking mode call — uses deepseek-v4-pro with chain-of-thought enabled.
   // Returns only the final content, not the reasoning trace.
   // Note: temperature/top_p/penalties must be omitted — they have no effect in thinking mode.
   const makeAICallWithThinking = async (prompt: string): Promise<string> => {
+    try {
+      await assertTokenBalance();
+    } catch (error) {
+      if (error instanceof Error && error.message === 'INSUFFICIENT_TOKENS') {
+        toast.error("You've used all your tokens. Contact the admin to get more.");
+        throw error;
+      }
+      throw error;
+    }
+
     const effectiveKey = USE_USER_API_KEY ? deepseekApiKey : ENV_DEEPSEEK_KEY;
     if (!effectiveKey) {
       throw new Error('DeepSeek API key not configured. Add it in Settings.');
@@ -455,7 +509,9 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
       extra_body: { thinking: { type: 'enabled' } },
     });
 
-    return completion.choices[0]?.message?.content || 'No response received';
+    const result = completion.choices[0]?.message?.content || 'No response received';
+    void checkAndDeductTokens(prompt.length, result.length);
+    return result;
   };
 
   const value: AIProviderContextType = {

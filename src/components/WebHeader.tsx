@@ -1,20 +1,17 @@
 import { useAuth } from "@/lib/authContext";
 import { useTokens } from "@/lib/tokenContext";
 import { useOnboarding } from "@/lib/onboardingContext";
-import { useLazyMode } from "@/lib/lazyModeContext";
 import { Button } from "./ui/button";
-import { Switch } from "./ui/switch";
 import { ModeToggle } from "./mode-toggle";
 import { useTheme } from "./theme-provider";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutList, ShieldCheck, FileText, Target, BarChart3, Settings, Zap } from "lucide-react";
+import { LayoutList, ShieldCheck, FileText, Target, BarChart3 } from "lucide-react";
 import { TokenBadge } from "./TokenBadge";
 
 export const WebHeader = () => {
   const { currentUser, logout } = useAuth();
   const { isAdmin } = useTokens();
   const { hasCompletedOnboarding } = useOnboarding();
-  const { isLazyMode, toggleLazyMode, openSettings } = useLazyMode();
   const { theme } = useTheme();
   const { pathname } = useLocation();
 
@@ -51,58 +48,24 @@ export const WebHeader = () => {
                   </Link>
                   {hasCompletedOnboarding && (
                     <>
-                      {isLazyMode ? (
-                        <Link to="/lazy">
-                          <Button
-                            variant={pathname === '/lazy' ? 'default' : 'outline'}
-                            size="sm"
-                            className="flex items-center gap-1.5 lazy-nav-btn"
-                          >
-                            <Zap className="h-3.5 w-3.5" />
-                            ⚡ Lazy
-                          </Button>
-                        </Link>
-                      ) : (
-                        <>
-                          <Link to="/resume">
-                            <Button variant={pathname === '/resume' ? 'default' : 'outline'} size="sm" className="flex items-center gap-1.5">
-                              <FileText className="h-3.5 w-3.5" />
-                              My Resume
-                            </Button>
-                          </Link>
-                          <Link to="/jd-matcher">
-                            <Button variant={pathname === '/jd-matcher' ? 'default' : 'outline'} size="sm" className="flex items-center gap-1.5">
-                              <Target className="h-3.5 w-3.5" />
-                              Match JD
-                            </Button>
-                          </Link>
-                          <Link to="/resume-score">
-                            <Button variant={pathname === '/resume-score' ? 'default' : 'outline'} size="sm" className="flex items-center gap-1.5">
-                              <BarChart3 className="h-3.5 w-3.5" />
-                              Score Resume
-                            </Button>
-                          </Link>
-                        </>
-                      )}
-
-                      {/* Lazy Mode toggle */}
-                      <div className={`flex items-center gap-1.5 ${isLazyMode ? 'lazy-mode-active' : ''}`}>
-                        <button
-                          onClick={openSettings}
-                          className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded"
-                          title="Lazy Mode Settings"
-                        >
-                          <Settings className="h-3.5 w-3.5" />
-                        </button>
-                        <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                          <span className="text-sm font-medium hidden sm:inline">⚡ Lazy</span>
-                          <Switch
-                            checked={isLazyMode}
-                            onCheckedChange={toggleLazyMode}
-                            className={`lazy-toggle ${isLazyMode ? 'lazy-toggle-active' : ''}`}
-                          />
-                        </label>
-                      </div>
+                      <Link to="/resume">
+                        <Button variant={pathname === '/resume' ? 'default' : 'outline'} size="sm" className="flex items-center gap-1.5">
+                          <FileText className="h-3.5 w-3.5" />
+                          My Resume
+                        </Button>
+                      </Link>
+                      <Link to="/jd-matcher">
+                        <Button variant={pathname === '/jd-matcher' ? 'default' : 'outline'} size="sm" className="flex items-center gap-1.5">
+                          <Target className="h-3.5 w-3.5" />
+                          Match JD
+                        </Button>
+                      </Link>
+                      <Link to="/resume-score">
+                        <Button variant={pathname === '/resume-score' ? 'default' : 'outline'} size="sm" className="flex items-center gap-1.5">
+                          <BarChart3 className="h-3.5 w-3.5" />
+                          Score Resume
+                        </Button>
+                      </Link>
                     </>
                   )}
                   <span className="text-sm hidden lg:flex text-muted-foreground">
