@@ -1,12 +1,17 @@
 import { useAuth } from "@/lib/authContext";
+import { useTokens } from "@/lib/tokenContext";
+import { useOnboarding } from "@/lib/onboardingContext";
 import { Button } from "./ui/button";
 import { ModeToggle } from "./mode-toggle";
 import { useTheme } from "./theme-provider";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutList } from "lucide-react";
+import { LayoutList, ShieldCheck, FileText } from "lucide-react";
+import { TokenBadge } from "./TokenBadge";
 
 export const WebHeader = () => {
   const { currentUser, logout } = useAuth();
+  const { isAdmin } = useTokens();
+  const { hasCompletedOnboarding } = useOnboarding();
   const { theme } = useTheme();
   const { pathname } = useLocation();
 
@@ -40,9 +45,26 @@ export const WebHeader = () => {
                       {pathname === '/tracker' ? 'Prompter' : 'Tracker'}
                     </Button>
                   </Link>
+                  {hasCompletedOnboarding && (
+                    <Link to="/resume">
+                      <Button variant={pathname === '/resume' ? 'default' : 'outline'} size="sm" className="flex items-center gap-1.5">
+                        <FileText className="h-3.5 w-3.5" />
+                        My Resume
+                      </Button>
+                    </Link>
+                  )}
                   <span className="text-sm hidden lg:flex text-muted-foreground">
                     Hello, {currentUser.displayName || currentUser.email}
                   </span>
+                  <TokenBadge />
+                  {isAdmin && (
+                    <Link to="/admin">
+                      <Button variant="ghost" size="sm" className="flex items-center gap-1.5">
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Admin
+                      </Button>
+                    </Link>
+                  )}
                   <Button variant="outline" size="sm" onClick={handleLogout}>
                     Log Out
                   </Button>

@@ -12,6 +12,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ApplicationTracker } from './components/ApplicationTracker.tsx'
 import { ThemeProvider } from './components/theme-provider.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
+import { TokenProvider } from './lib/tokenContext.tsx'
+import { AdminPage } from './pages/AdminPage.tsx'
+import { ResumeGeneratorPage } from './pages/ResumeGeneratorPage.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -20,16 +23,20 @@ createRoot(document.getElementById('root')!).render(
         <BrowserRouter>
           <AuthProvider>
             <AIProviderProvider>
-              <OnboardingProvider>
-                <AuthWrapper>
-                  <Routes>
-                    <Route path="/" element={<App />} />
-                    <Route path="/tracker" element={<ApplicationTracker />} />
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                  </Routes>
-                </AuthWrapper>
-                <Toaster />
-              </OnboardingProvider>
+              <TokenProvider>
+                <OnboardingProvider>
+                  <AuthWrapper>
+                    <Routes>
+                      <Route path="/" element={<App />} />
+                      <Route path="/tracker" element={<ApplicationTracker />} />
+                      <Route path="/admin" element={<AdminPage />} />
+                      <Route path="/resume" element={<ResumeGeneratorPage />} />
+                      <Route path="*" element={<Navigate to="/" replace />} />
+                    </Routes>
+                  </AuthWrapper>
+                  <Toaster />
+                </OnboardingProvider>
+              </TokenProvider>
             </AIProviderProvider>
           </AuthProvider>
         </BrowserRouter>

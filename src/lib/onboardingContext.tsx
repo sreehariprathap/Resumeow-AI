@@ -1,11 +1,14 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { useAuth } from './authContext';
 import { getUserData, saveUserData } from './firebaseWeb';
+import type { ResumeProfile } from '@/types/resumeProfile';
 
 interface OnboardingContextType {
   showOnboarding: boolean;
   isFirstLogin: boolean;
   hasCompletedOnboarding: boolean;
+  resumeProfile: Partial<ResumeProfile> | null;
+  initialStep: number;
   startOnboarding: () => void;
   completeOnboarding: () => void;
   skipOnboarding: () => void;
@@ -24,40 +27,49 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [isFirstLogin, setIsFirstLogin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [resumeProfile, setResumeProfile] = useState<Partial<ResumeProfile> | null>(null);
+  const [initialStep, setInitialStep] = useState(0);
 
-  // Check onboarding status when user changes
   useEffect(() => {
     const checkOnboardingStatus = async () => {
       if (currentUser) {
         try {
-          // Check if user has completed onboarding
-          const userData = await getUserData(currentUser.uid, "onboarding");
-          const hasCompleted = userData?.completed === true;
-          
-          setHasCompletedOnboarding(hasCompleted);
-          
-          // Check if this is a first-time login
-          // If no onboarding data exists, it's likely a first login
-          const isNewUser = !userData || !userData.completed;
-          setIsFirstLogin(isNewUser);
-          
-          // Show onboarding for new users who haven't completed it
-          if (isNewUser && !hasCompleted) {
+          const profileData = await getUserData(currentUser.uid, 'resumeProfile');
+
+          if (profileData && (profileData as Partial<ResumeProfile>).completedAt) {
+            // Profile complete — onboarding done
+            setResumeProfile(profileData as Partial<ResumeProfile>);
+            setHasCompletedOnboarding(true);
+            setIsFirstLogin(false);
+            setShowOnboarding(false);
+          } else if (profileData) {
+            // Profile started but not finished — resume from saved step
+            const saved = profileData as Partial<ResumeProfile>;
+            setResumeProfile(saved);
+            setInitialStep(saved.currentStep ?? 1);
+            setHasCompletedOnboarding(false);
+            setIsFirstLogin(false);
+            setShowOnboarding(true);
+          } else {
+            // No profile at all — new user
+            setResumeProfile(null);
+            setInitialStep(0);
+            setHasCompletedOnboarding(false);
+            setIsFirstLogin(true);
             setShowOnboarding(true);
           }
         } catch (error) {
-          console.error("Error checking onboarding status:", error);
-          // On error, treat as new user to be safe
+          console.error('Error checking onboarding status:', error);
           setIsFirstLogin(true);
           setShowOnboarding(true);
         }
       } else {
-        // User not logged in
         setHasCompletedOnboarding(false);
         setIsFirstLogin(false);
         setShowOnboarding(false);
+        setResumeProfile(null);
       }
-      
+
       setIsLoading(false);
     };
 
@@ -71,19 +83,16 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   const completeOnboarding = async () => {
     if (currentUser) {
       try {
-        // Save onboarding completion to Firebase
-        await saveUserData(currentUser.uid, "onboarding", {
+        await saveUserData(currentUser.uid, 'onboarding', {
           completed: true,
           completedAt: new Date().toISOString(),
-          version: "1.0" // Track onboarding version for future updates
+          version: '2.0',
         });
-        
         setHasCompletedOnboarding(true);
         setShowOnboarding(false);
         setIsFirstLogin(false);
       } catch (error) {
-        console.error("Error saving onboarding completion:", error);
-        // Still hide onboarding even if save fails
+        console.error('Error saving onboarding completion:', error);
         setShowOnboarding(false);
       }
     }
@@ -92,20 +101,17 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   const skipOnboarding = async () => {
     if (currentUser) {
       try {
-        // Save that user skipped onboarding
-        await saveUserData(currentUser.uid, "onboarding", {
+        await saveUserData(currentUser.uid, 'onboarding', {
           completed: true,
           skipped: true,
           skippedAt: new Date().toISOString(),
-          version: "1.0"
+          version: '2.0',
         });
-        
         setHasCompletedOnboarding(true);
         setShowOnboarding(false);
         setIsFirstLogin(false);
       } catch (error) {
-        console.error("Error saving onboarding skip:", error);
-        // Still hide onboarding even if save fails
+        console.error('Error saving onboarding skip:', error);
         setShowOnboarding(false);
       }
     }
@@ -115,10 +121,12 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     showOnboarding,
     isFirstLogin,
     hasCompletedOnboarding,
+    resumeProfile,
+    initialStep,
     startOnboarding,
     completeOnboarding,
     skipOnboarding,
-    isLoading
+    isLoading,
   };
 
   return (
