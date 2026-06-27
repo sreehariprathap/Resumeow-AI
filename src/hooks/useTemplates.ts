@@ -11,15 +11,6 @@ import {
 } from "@/lib/dataIntegrity";
 import { useSyncStatus } from "./useSyncStatus";
 import { createEmergencyBackup, autoRecoverLostData, checkDataConsistency, getAvailableBackups, restoreFromBackup } from "@/lib/dataIntegrity";
-import { 
-  logFirebaseOperation, 
-  logLocalStorageOperation, 
-  logDataIntegrityIssue, 
-  logBackupOperation,
-  showUserFriendlyError,
-  showUserFriendlyWarning,
-  showUserFriendlyInfo
-} from "@/lib/dataPersistenceLogger";
 
 // Default templates to show for first-time users
 const DEFAULT_RESUME_TEMPLATES: Template[] = [
@@ -93,19 +84,15 @@ export function useTemplates() {
       const userKey = `user_${currentUser.uid}`;
       if (resumeTemplates.length > 0) {
         localStorage.setItem(`${userKey}_resumeTemplates`, JSON.stringify(resumeTemplates));
-        logLocalStorageOperation('save', true, currentUser.uid, 'resumeTemplates');
       }
       if (coverLetterTemplates.length > 0) {
         localStorage.setItem(`${userKey}_coverLetterTemplates`, JSON.stringify(coverLetterTemplates));
-        logLocalStorageOperation('save', true, currentUser.uid, 'coverLetterTemplates');
       }
       if (customPrompts.length > 0) {
         localStorage.setItem(`${userKey}_customPrompts`, JSON.stringify(customPrompts));
-        logLocalStorageOperation('save', true, currentUser.uid, 'customPrompts');
       }
     } catch (error) {
-      console.error("Error saving to localStorage:", error);
-      logLocalStorageOperation('save', false, currentUser.uid, 'templates', error as Error);
+      console.error('[localStorage] save templates failed:', error);
     }
   }, [currentUser, resumeTemplates, coverLetterTemplates, customPrompts]);// Save to Firebase if user is logged in with retry logic
   const saveToFirebase = useCallback(async (retryCount = 0) => {
@@ -132,12 +119,9 @@ export function useTemplates() {
       await saveUserData(currentUser.uid, "templates", templatesData);
       console.log("Templates successfully saved to Firebase");
       
-      logFirebaseOperation('save', true, currentUser.uid, 'templates');
       markSyncSuccess();
     } catch (error) {
-      console.error("Error saving templates to Firebase:", error);
-      
-      logFirebaseOperation('save', false, currentUser.uid, 'templates', error as Error, retryCount);
+      console.error('[firebase] save templates failed:', { retryCount, error });
       markSyncError(error instanceof Error ? error.message : "Unknown sync error");
       
       // Retry up to 3 times with exponential backoff
@@ -147,12 +131,7 @@ export function useTemplates() {
           saveToFirebase(retryCount + 1);
         }, delay);
       } else {
-        console.error("Failed to save templates after 3 retries");
-        showUserFriendlyWarning(
-          "Sync Failed",
-          "Your templates are saved locally but couldn't sync to the cloud. They'll sync when connection is restored.",
-          "sync"
-        );
+        console.error('[firebase] save templates failed after 3 retries');
       }
     } finally {
       pendingSaveRef.current = false;
@@ -292,7 +271,7 @@ export function useTemplates() {
               const integrityReport = checkDataIntegrity(userData);
                 if (!integrityReport.isValid) {
                 console.warn("Data integrity issues found, attempting repair");
-                logDataIntegrityIssue(currentUser.uid, 'invalid_data', 'Data integrity validation failed', integrityReport as unknown as Record<string, unknown>);
+                console.warn('[integrity] invalid_data', { uid: currentUser.uid, integrityReport });
                 
                 const repairedData = repairData(userData, {
                   resumeTemplates: DEFAULT_RESUME_TEMPLATES,
@@ -305,23 +284,21 @@ export function useTemplates() {
                   setResumeTemplates(repairedData.resumeTemplates);
                 } else {
                   console.warn("Resume templates still invalid after repair, using defaults");
-                  logDataIntegrityIssue(currentUser.uid, 'repair_failed', 'Resume templates invalid after repair');
+                  console.warn('[integrity] repair_failed resume templates', currentUser.uid);
                   setResumeTemplates(DEFAULT_RESUME_TEMPLATES);
                 }
-                
+
                 if (validateTemplateData(repairedData.coverLetterTemplates)) {
                   setCoverLetterTemplates(repairedData.coverLetterTemplates);
                 } else {
-                  console.warn("Cover letter templates still invalid after repair, using defaults");
-                  logDataIntegrityIssue(currentUser.uid, 'repair_failed', 'Cover letter templates invalid after repair');
+                  console.warn('[integrity] repair_failed cover letter templates', currentUser.uid);
                   setCoverLetterTemplates(DEFAULT_COVER_LETTER_TEMPLATES);
                 }
-                
+
                 if (validateCustomPrompts(repairedData.customPrompts)) {
                   setCustomPrompts(repairedData.customPrompts);
                 } else {
-                  console.warn("Custom prompts still invalid after repair, using defaults");
-                  logDataIntegrityIssue(currentUser.uid, 'repair_failed', 'Custom prompts invalid after repair');
+                  console.warn('[integrity] repair_failed custom prompts', currentUser.uid);
                   setCustomPrompts(DEFAULT_CUSTOM_PROMPTS);
                 }
                 
@@ -368,22 +345,16 @@ export function useTemplates() {
               const consistency = checkDataConsistency(currentUser.uid);
                 if (!consistency.hasData && consistency.hasBackups) {
                 console.log("No current data found but backups available, attempting auto-recovery");
-                logBackupOperation('restore', false, currentUser.uid, { reason: 'auto_recovery_attempt', consistency });
-                
+                console.warn('[backup] restore attempt', { uid: currentUser.uid, consistency });
+
                 const recovered = autoRecoverLostData(currentUser.uid);
                 if (recovered) {
-                  logBackupOperation('restore', true, currentUser.uid, { reason: 'auto_recovery_success' });
-                  showUserFriendlyInfo(
-                    "Data Recovered",
-                    "Your templates were automatically restored from a recent backup.",
-                    "recovery"
-                  );
-                  // Reload after recovery
+                  console.debug('[backup] restore success', currentUser.uid);
                   loadFromLocalStorage();
                   setTimeout(() => saveToFirebase(), 1000);
                   return;
                 } else {
-                  logBackupOperation('restore', false, currentUser.uid, { reason: 'auto_recovery_failed' });
+                  console.error('[backup] restore failed', currentUser.uid);
                 }
               }
               
@@ -429,11 +400,8 @@ export function useTemplates() {
       lastBackupHashRef.current = dataHash;
       try {
         createEmergencyBackup(currentUser.uid, { resumeTemplates, coverLetterTemplates, customPrompts });
-        logBackupOperation('create', true, currentUser.uid, {
-          templateCount: resumeTemplates.length + coverLetterTemplates.length + customPrompts.length
-        });
       } catch (error) {
-        logBackupOperation('create', false, currentUser.uid, { error: (error as Error).message });
+        console.error('[backup] create failed:', { uid: currentUser.uid, error });
       }
     }
     
@@ -565,8 +533,7 @@ export function useTemplates() {
           version: 1
         };
           await saveUserData(currentUser.uid, "templates", templatesData);
-        logFirebaseOperation('save', true, currentUser.uid, 'templates');
-        
+
         // Add back defaults to localStorage with user isolation
         localStorage.setItem(`${userKey}_resumeTemplates`, JSON.stringify(DEFAULT_RESUME_TEMPLATES));
         localStorage.setItem(`${userKey}_coverLetterTemplates`, JSON.stringify(DEFAULT_COVER_LETTER_TEMPLATES));
@@ -574,9 +541,8 @@ export function useTemplates() {
         
         console.log("All user data cleared and reset to defaults");
       } catch (error) {
-        console.error("Error clearing cloud data:", error);
-        logFirebaseOperation('save', false, currentUser.uid, 'templates', error as Error);
-        throw error; // Re-throw so the UI can handle the error
+        console.error('[firebase] clear data failed:', error);
+        throw error;
       }
     }
     
@@ -613,53 +579,20 @@ export function useTemplates() {
       if (backup) {
         const success = restoreFromBackup(backup);
         if (success) {
-          logBackupOperation('restore', true, currentUser.uid, { 
-            backupTimestamp, 
-            reason: 'manual_recovery' 
-          });
-          showUserFriendlyInfo(
-            "Backup Restored",
-            `Data successfully restored from backup created on ${new Date(backupTimestamp).toLocaleString()}`,
-            "recovery"
-          );
-          // Reload the templates after recovery
+          console.debug('[backup] manual restore success', { uid: currentUser.uid, backupTimestamp });
           setTimeout(() => {
             loadFromLocalStorage();
             saveToFirebase();
           }, 500);
         } else {
-          logBackupOperation('restore', false, currentUser.uid, { 
-            backupTimestamp, 
-            reason: 'manual_recovery_failed' 
-          });
-          showUserFriendlyError(
-            "Recovery Failed",
-            "Failed to restore data from the selected backup. Please try a different backup.",
-            "recovery"
-          );
+          console.error('[backup] manual restore failed', { uid: currentUser.uid, backupTimestamp });
         }
         return success;
       } else {
-        logBackupOperation('restore', false, currentUser.uid, { 
-          backupTimestamp, 
-          reason: 'backup_not_found' 
-        });
-        showUserFriendlyError(
-          "Backup Not Found",
-          "The selected backup could not be found.",
-          "recovery"
-        );
+        console.error('[backup] backup not found', { uid: currentUser.uid, backupTimestamp });
       }
     } catch (error) {
-      logBackupOperation('restore', false, currentUser.uid, { 
-        backupTimestamp, 
-        error: (error as Error).message 
-      });
-      showUserFriendlyError(
-        "Recovery Error",
-        "An error occurred while restoring the backup.",
-        "recovery"
-      );
+      console.error('[backup] restore error', { uid: currentUser.uid, backupTimestamp, error });
     }
     return false;
   }, [currentUser, loadFromLocalStorage, saveToFirebase]);  return {
