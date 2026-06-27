@@ -18,7 +18,9 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
         currentUser.uid,
         currentUser.email ?? '',
         currentUser.displayName ?? ''
-      );
+      ).catch((err) => {
+        console.warn('[auth] initUserProfile failed', err);
+      });
     }
   }, [currentUser]);
 

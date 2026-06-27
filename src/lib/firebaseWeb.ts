@@ -228,7 +228,13 @@ export const initUserProfile = async (
   displayName: string
 ): Promise<void> => {
   const profileRef = doc(db, 'userProfiles', uid);
-  const snap = await getDoc(profileRef);
+  let snap: Awaited<ReturnType<typeof getDoc>>;
+  try {
+    snap = await getDoc(profileRef);
+  } catch (error) {
+    console.warn('[auth] userProfiles read denied (token not ready?)', error);
+    return;
+  }
   if (!snap.exists()) {
     await setDoc(profileRef, {
       uid,

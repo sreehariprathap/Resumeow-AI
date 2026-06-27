@@ -1,13 +1,14 @@
 import { createContext, useState, useEffect, useContext } from "react";
 import type { ReactNode } from "react";
-import { 
+import {
   auth,
-  getGoogleRedirectResult, 
-  signInWithGoogle, 
+  getGoogleRedirectResult,
+  signInWithGoogle,
   signInWithEmailAndPassword,
   registerWithEmailAndPassword,
   sendPasswordReset,
-  logOut
+  logOut,
+  getUserProfile,
 } from "./firebaseWeb";
 import type { User } from "firebase/auth";
 import { toast } from "sonner";
@@ -81,6 +82,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {  const 
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setCurrentUser(user);
       setIsLoading(false);
+      if (user) {
+        void getUserProfile(user.uid)
+          .then((profile) => {
+            console.log('[auth] user logged in', { user, profile });
+          })
+          .catch((err) => {
+            console.warn('[auth] could not fetch profile on login', err);
+          });
+      }
     });
 
     // Check for redirect result on extension load/reload

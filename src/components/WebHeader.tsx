@@ -4,9 +4,40 @@ import { useOnboarding } from "@/lib/onboardingContext";
 import { Button } from "./ui/button";
 import { ModeToggle } from "./mode-toggle";
 import { useTheme } from "./theme-provider";
-import { Link, useLocation } from "react-router-dom";
-import { LayoutList, ShieldCheck, FileText, Target, BarChart3 } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { LayoutList, ShieldCheck, FileText, Target, BarChart3, LogOut, User } from "lucide-react";
 import { TokenBadge } from "./TokenBadge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+
+const NavIcon = ({ to, icon: Icon, label, active }: {
+  to: string;
+  icon: React.ElementType;
+  label: string;
+  active: boolean;
+}) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Link to={to}>
+        <Button
+          variant={active ? 'default' : 'ghost'}
+          size="icon"
+          className="h-8 w-8"
+        >
+          <Icon className="h-4 w-4" />
+        </Button>
+      </Link>
+    </TooltipTrigger>
+    <TooltipContent side="bottom">{label}</TooltipContent>
+  </Tooltip>
+);
 
 export const WebHeader = () => {
   const { currentUser, logout } = useAuth();
@@ -14,10 +45,12 @@ export const WebHeader = () => {
   const { hasCompletedOnboarding } = useOnboarding();
   const { theme } = useTheme();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
       await logout();
+      navigate('/');
     } catch (error) {
       console.error("Error logging out:", error);
     }
@@ -34,60 +67,59 @@ export const WebHeader = () => {
           />
           <span className="text-sm font-normal text-foreground">prompter</span>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <nav className="nav-links">
-            <div className="flex items-center gap-4">
-              <ModeToggle />
-              {currentUser && (
-                <>
-                  <Link to={pathname === '/tracker' ? '/' : '/tracker'}>
-                    <Button variant={pathname === '/tracker' ? 'default' : 'outline'} size="sm" className="flex items-center gap-1.5">
-                      <LayoutList className="h-3.5 w-3.5" />
-                      {pathname === '/tracker' ? 'Prompter' : 'Tracker'}
-                    </Button>
-                  </Link>
-                  {hasCompletedOnboarding && (
-                    <>
-                      <Link to="/resume">
-                        <Button variant={pathname === '/resume' ? 'default' : 'outline'} size="sm" className="flex items-center gap-1.5">
-                          <FileText className="h-3.5 w-3.5" />
-                          My Resume
+
+        <TooltipProvider delayDuration={300}>
+          <div className="flex items-center gap-1">
+            <ModeToggle />
+
+            {currentUser && (
+              <>
+                <NavIcon
+                  to={pathname === '/tracker' ? '/' : '/tracker'}
+                  icon={LayoutList}
+                  label={pathname === '/tracker' ? 'Prompter' : 'Tracker'}
+                  active={pathname === '/tracker'}
+                />
+
+                {hasCompletedOnboarding && (
+                  <>
+                    <NavIcon to="/resume" icon={FileText} label="My Resume" active={pathname === '/resume'} />
+                    <NavIcon to="/jd-matcher" icon={Target} label="Match JD" active={pathname === '/jd-matcher'} />
+                    <NavIcon to="/resume-score" icon={BarChart3} label="Score Resume" active={pathname === '/resume-score'} />
+                  </>
+                )}
+
+                {isAdmin && (
+                  <NavIcon to="/admin" icon={ShieldCheck} label="Admin" active={pathname === '/admin'} />
+                )}
+
+                <TokenBadge />
+
+                <DropdownMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <User className="h-4 w-4" />
                         </Button>
-                      </Link>
-                      <Link to="/jd-matcher">
-                        <Button variant={pathname === '/jd-matcher' ? 'default' : 'outline'} size="sm" className="flex items-center gap-1.5">
-                          <Target className="h-3.5 w-3.5" />
-                          Match JD
-                        </Button>
-                      </Link>
-                      <Link to="/resume-score">
-                        <Button variant={pathname === '/resume-score' ? 'default' : 'outline'} size="sm" className="flex items-center gap-1.5">
-                          <BarChart3 className="h-3.5 w-3.5" />
-                          Score Resume
-                        </Button>
-                      </Link>
-                    </>
-                  )}
-                  <span className="text-sm hidden lg:flex text-muted-foreground">
-                    Hello, {currentUser.displayName || currentUser.email}
-                  </span>
-                  <TokenBadge />
-                  {isAdmin && (
-                    <Link to="/admin">
-                      <Button variant="ghost" size="sm" className="flex items-center gap-1.5">
-                        <ShieldCheck className="h-3.5 w-3.5" />
-                        Admin
-                      </Button>
-                    </Link>
-                  )}
-                  <Button variant="outline" size="sm" onClick={handleLogout}>
-                    Log Out
-                  </Button>
-                </>
-              )}
-            </div>
-          </nav>
-        </div>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Account</TooltipContent>
+                  </Tooltip>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuLabel className="text-xs font-normal text-muted-foreground truncate">
+                      {currentUser.displayName || currentUser.email}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout} className="gap-2 text-destructive focus:text-destructive">
+                      <LogOut className="h-3.5 w-3.5" /> Log Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            )}
+          </div>
+        </TooltipProvider>
       </div>
     </header>
   );
