@@ -14,7 +14,7 @@ import {
   sendPasswordResetEmail
 } from "firebase/auth";
 import type { User } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, updateDoc, increment, query, orderBy } from "firebase/firestore";
 
 // Your Firebase configuration
 const firebaseConfig = {
@@ -185,3 +185,125 @@ export const sendPasswordReset = async (email: string): Promise<void> => {
 
 // Export Firebase instances for use in other parts of the app
 export { auth, db };
+
+// Firestore Security Rules needed:
+// userProfiles:
+//   - read: request.auth.uid == resource.data.uid (own doc)
+//   - read: get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.isAdmin == true (admin read all)
+//   - write: get(...).data.isAdmin == true (admin only writes)
+//   - create: request.auth.uid == request.resource.data.uid (own creation)
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  plan: 'free' | 'pro' | 'admin';
+  tokensAllocated: number;
+  tokensUsed: number;
+  tokensRemaining: number;
+  isAdmin: boolean;
+  createdAt: number;
+  lastActiveAt: number;
+}
+
+// --- Token system ---
+
+/** Called on first login. Creates userProfiles doc if it doesn't exist. */
+export const initUserProfile = async (
+  uid: string,
+  email: string,
+  displayName: string
+): Promise<void> => {
+  const profileRef = doc(db, 'userProfiles', uid);
+  const snap = await getDoc(profileRef);
+  if (!snap.exists()) {
+    const FREE_TOKENS = 100;
+    await setDoc(profileRef, {
+      uid,
+      email,
+      displayName: displayName || email.split('@')[0],
+      plan: 'free',
+      tokensAllocated: FREE_TOKENS,
+      tokensUsed: 0,
+      tokensRemaining: FREE_TOKENS,
+      isAdmin: false,
+      createdAt: Date.now(),
+      lastActiveAt: Date.now(),
+    });
+  } else {
+    await updateDoc(profileRef, { lastActiveAt: Date.now() });
+  }
+};
+
+/** Fetch the current user's profile */
+export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
+  const snap = await getDoc(doc(db, 'userProfiles', uid));
+  return snap.exists() ? (snap.data() as UserProfile) : null;
+};
+
+/** Deduct tokens atomically. Returns false if insufficient balance. */
+export const deductTokens = async (uid: string, amount: number): Promise<boolean> => {
+  const profileRef = doc(db, 'userProfiles', uid);
+  const snap = await getDoc(profileRef);
+  if (!snap.exists()) return false;
+  const profile = snap.data() as UserProfile;
+  if (profile.tokensRemaining < amount) return false;
+  await updateDoc(profileRef, {
+    tokensUsed: increment(amount),
+    tokensRemaining: increment(-amount),
+    lastActiveAt: Date.now(),
+  });
+  return true;
+};
+
+/** Admin: get all user profiles ordered by createdAt */
+export const getAllUserProfiles = async (): Promise<UserProfile[]> => {
+  const q = query(collection(db, 'userProfiles'), orderBy('createdAt', 'desc'));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data() as UserProfile);
+};
+
+// --- Lazy Mode ---
+
+export interface LazyModeSettings {
+  enabled: boolean;
+  defaultPrompt: string;
+  defaultResumeProfileId: string;
+  autoGenerate: boolean;
+  savedAt: number;
+}
+
+export const getLazyModeSettings = async (uid: string): Promise<LazyModeSettings | null> => {
+  try {
+    const docRef = doc(db, 'users', uid, 'lazyMode', 'data');
+    const snap = await getDoc(docRef);
+    return snap.exists() ? (snap.data() as LazyModeSettings) : null;
+  } catch (error) {
+    console.error('Error getting lazy mode settings:', error);
+    return null;
+  }
+};
+
+export const saveLazyModeSettings = async (uid: string, settings: LazyModeSettings): Promise<void> => {
+  const docRef = doc(db, 'users', uid, 'lazyMode', 'data');
+  await setDoc(docRef, settings);
+};
+
+/** Admin: update a user's token allocation */
+export const adminUpdateUserTokens = async (
+  uid: string,
+  tokensAllocated: number,
+  plan: 'free' | 'pro' | 'admin'
+): Promise<void> => {
+  const profileRef = doc(db, 'userProfiles', uid);
+  const snap = await getDoc(profileRef);
+  if (!snap.exists()) return;
+  const profile = snap.data() as UserProfile;
+  const newRemaining = Math.max(0, tokensAllocated - profile.tokensUsed);
+  await updateDoc(profileRef, {
+    tokensAllocated,
+    tokensRemaining: newRemaining,
+    plan,
+    isAdmin: plan === 'admin',
+  });
+};
