@@ -1030,6 +1030,7 @@ interface ReviewStepProps {
   data: Partial<ResumeProfile>;
   onBack: () => void;
   onGenerate: () => void;
+  onSkipToFinish: () => void;
   isGenerating: boolean;
   onEditStep: (step: number) => void;
   skippedSteps: Set<number>;
@@ -1055,7 +1056,7 @@ const SkippedWarningCard = ({
   </div>
 );
 
-const ReviewStep = ({ data, onBack, onGenerate, isGenerating, onEditStep, skippedSteps }: ReviewStepProps) => {
+const ReviewStep = ({ data, onBack, onGenerate, onSkipToFinish, isGenerating, onEditStep, skippedSteps }: ReviewStepProps) => {
   const domainLabel = DOMAINS.find((d) => d.id === data.domain)?.label ?? '—';
 
   return (
@@ -1185,7 +1186,7 @@ const ReviewStep = ({ data, onBack, onGenerate, isGenerating, onEditStep, skippe
       </div>
       <div className="flex justify-center pt-1">
         <button
-          onClick={onGenerate}
+          onClick={onSkipToFinish}
           disabled={isGenerating}
           className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline disabled:pointer-events-none"
         >
@@ -1404,6 +1405,31 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     }
   };
 
+  const handleSkipToFinish = async () => {
+    setIsGenerating(true);
+    try {
+      const finalProfile = {
+        ...profile,
+        completedAt: Date.now(),
+        lastUpdated: Date.now(),
+        currentStep: TOTAL_STEPS,
+        skippedSteps: Array.from(skippedSteps),
+      };
+      if (currentUser) {
+        await saveUserData(currentUser.uid, 'resumeProfile', finalProfile as Record<string, unknown>);
+        await saveUserData(currentUser.uid, 'onboarding', { completed: true, completedAt: Date.now() });
+      }
+      completeOnboarding();
+      onComplete?.();
+      window.location.href = '/';
+    } catch (e) {
+      console.error('Failed to finish onboarding:', e);
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   if (!showOnboarding) return null;
 
   const progressPct = step <= 0 ? 0 : (step / (TOTAL_STEPS - 1)) * 100;
@@ -1552,6 +1578,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             data={profile}
             onBack={goBack}
             onGenerate={handleGenerate}
+            onSkipToFinish={handleSkipToFinish}
             isGenerating={isGenerating}
             onEditStep={handleEditFromReview}
             skippedSteps={skippedSteps}
