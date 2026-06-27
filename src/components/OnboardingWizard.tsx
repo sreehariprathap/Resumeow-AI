@@ -17,6 +17,8 @@ import {
   FileText,
   Loader2,
   Check,
+  CheckCircle,
+  Pencil,
 } from 'lucide-react';
 import { useOnboarding } from '@/lib/onboardingContext';
 import { useAIProvider } from '@/lib/aiProviderContext';
@@ -35,6 +37,8 @@ import type {
   Award,
   VolunteerEntry,
 } from '@/types/resumeProfile';
+import { extractTextFromFile, parseResumeWithAI, mapParsedToProfile } from '@/lib/resumeParser';
+import { ResumeDropzone } from './ResumeDropzone';
 
 const uid = () => crypto.randomUUID();
 
@@ -62,6 +66,92 @@ const defaultProfile = (): Omit<ResumeProfile, 'domain' | 'completedAt'> & { dom
   publications: [],
   lastUpdated: Date.now(),
 });
+
+// ─── Autofill badge ───────────────────────────────────────────────────────────
+
+const AutofillBadge = () => (
+  <div className="flex items-center gap-1.5 text-xs text-green-600 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 px-3 py-1.5 rounded-full mb-4">
+    <CheckCircle className="h-3.5 w-3.5" />
+    Auto-filled from your resume — review and edit as needed
+  </div>
+);
+
+// ─── Step -1 — Resume Upload (pre-step) ──────────────────────────────────────
+
+interface ResumeUploadStepProps {
+  onParsed: (profile: Partial<ResumeProfile>) => void;
+  onSkip: () => void;
+}
+
+const ResumeUploadStep = ({ onParsed, onSkip }: ResumeUploadStepProps) => {
+  const { makeAICall } = useAIProvider();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [parsedSummary, setParsedSummary] = useState<{
+    experiences: number;
+    education: number;
+    skills: number;
+  } | null>(null);
+  const [parsed, setParsed] = useState<Partial<ResumeProfile> | null>(null);
+
+  const handleFile = async (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File is too large. Please use a file under 5MB.');
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    setParsedSummary(null);
+    setParsed(null);
+
+    try {
+      const text = await extractTextFromFile(file);
+      const parsedData = await parseResumeWithAI(text, makeAICall);
+      const mapped = mapParsedToProfile(parsedData);
+      setParsed(mapped);
+      setParsedSummary({
+        experiences: parsedData.experiences.length,
+        education: parsedData.education.length,
+        skills: parsedData.skills.length,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Parsing failed.';
+      setError(`${msg} You can still fill in manually.`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="text-center space-y-8 py-8">
+      <div className="mx-auto w-24 h-24 bg-gradient-to-br from-primary to-purple-600 rounded-full flex items-center justify-center">
+        <FileText className="h-12 w-12 text-white" />
+      </div>
+      <div className="space-y-3">
+        <h2 className="text-3xl font-bold">Have a resume ready?</h2>
+        <p className="text-muted-foreground max-w-md mx-auto text-base">
+          Upload it and we'll fill everything for you. You can edit anything before finishing.
+        </p>
+      </div>
+
+      <ResumeDropzone
+        onFile={handleFile}
+        isLoading={isLoading}
+        parsedSummary={parsedSummary}
+        error={error}
+        onContinue={() => parsed && onParsed(parsed)}
+      />
+
+      <button
+        type="button"
+        onClick={onSkip}
+        className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+      >
+        Start from scratch instead
+      </button>
+    </div>
+  );
+};
 
 // ─── Step 0 — Welcome ───────────────────────────────────────────────────────
 
@@ -935,46 +1025,146 @@ interface ReviewStepProps {
   onBack: () => void;
   onGenerate: () => void;
   isGenerating: boolean;
+  onEditStep: (step: number) => void;
 }
 
-const ReviewStep = ({ data, onBack, onGenerate, isGenerating }: ReviewStepProps) => (
-  <div className="space-y-5">
-    <p className="text-sm text-muted-foreground">Review your profile below, then generate your LaTeX resume.</p>
+const ReviewStep = ({ data, onBack, onGenerate, isGenerating, onEditStep }: ReviewStepProps) => {
+  const domainLabel = DOMAINS.find((d) => d.id === data.domain)?.label ?? '—';
 
-    <div className="space-y-3 text-sm">
-      <ReviewRow label="Name" value={`${data.firstName} ${data.lastName}`} />
-      <ReviewRow label="Contact" value={`${data.email} · ${data.phone} · ${data.location}`} />
-      <ReviewRow label="Domain" value={DOMAINS.find((d) => d.id === data.domain)?.label ?? '—'} />
-      <ReviewRow label="Target Roles" value={(data.targetRoles ?? []).join(', ') || '—'} />
-      <ReviewRow label="Experience entries" value={String(data.experiences?.length ?? 0)} />
-      <ReviewRow label="Education entries" value={String(data.education?.length ?? 0)} />
-      <ReviewRow label="Projects" value={String(data.projects?.length ?? 0)} />
-      <ReviewRow label="Certifications" value={String(data.certifications?.length ?? 0)} />
-      <ReviewRow label="Skill groups" value={String(data.skills?.length ?? 0)} />
-      {data.summary && <ReviewRow label="Summary" value="✓ Included" />}
-      {(data.languages?.length ?? 0) > 0 && <ReviewRow label="Languages" value={`${data.languages!.length} added`} />}
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">Review your profile below. Click Edit on any section to make changes.</p>
+
+      {/* Personal Info */}
+      <ReviewCard title="Personal Info" onEdit={() => onEditStep(1)}>
+        <p className="text-sm font-medium">{data.firstName} {data.lastName}</p>
+        <p className="text-xs text-muted-foreground">{data.email} · {data.phone}</p>
+        <p className="text-xs text-muted-foreground">{data.location}</p>
+        {data.linkedin && <p className="text-xs text-muted-foreground">{data.linkedin}</p>}
+      </ReviewCard>
+
+      {/* Domain & Roles */}
+      <ReviewCard title="Domain & Target Roles" onEdit={() => onEditStep(2)}>
+        <p className="text-sm font-medium">{domainLabel}</p>
+        <div className="flex flex-wrap gap-1 mt-1">
+          {(data.targetRoles ?? []).map((r) => (
+            <Badge key={r} variant="secondary" className="text-xs">{r}</Badge>
+          ))}
+        </div>
+      </ReviewCard>
+
+      {/* Experience */}
+      {(data.experiences?.length ?? 0) > 0 && (
+        <ReviewCard title={`Experience (${data.experiences!.length})`} onEdit={() => onEditStep(4)}>
+          <div className="space-y-3">
+            {data.experiences!.map((exp) => (
+              <div key={exp.id} className="space-y-1">
+                <p className="text-sm font-medium">{exp.role} @ {exp.company}</p>
+                <p className="text-xs text-muted-foreground">{exp.from} – {exp.to}</p>
+                {exp.bullets.slice(0, 2).map((b, i) => (
+                  <p key={i} className="text-xs text-muted-foreground pl-2 border-l border-border">• {b}</p>
+                ))}
+                {exp.bullets.length > 2 && (
+                  <p className="text-xs text-muted-foreground pl-2">+{exp.bullets.length - 2} more</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </ReviewCard>
+      )}
+
+      {/* Education */}
+      {(data.education?.length ?? 0) > 0 && (
+        <ReviewCard title={`Education (${data.education!.length})`} onEdit={() => onEditStep(5)}>
+          <div className="space-y-2">
+            {data.education!.map((edu) => (
+              <div key={edu.id}>
+                <p className="text-sm font-medium">{edu.degree}</p>
+                <p className="text-xs text-muted-foreground">{edu.school} · {edu.from} – {edu.to}</p>
+              </div>
+            ))}
+          </div>
+        </ReviewCard>
+      )}
+
+      {/* Projects */}
+      {(data.projects?.length ?? 0) > 0 && (
+        <ReviewCard title={`Projects (${data.projects!.length})`} onEdit={() => onEditStep(6)}>
+          <div className="space-y-1">
+            {data.projects!.map((p) => (
+              <div key={p.id}>
+                <p className="text-sm font-medium">{p.name}</p>
+                {p.skills.length > 0 && (
+                  <p className="text-xs text-muted-foreground">{p.skills.join(', ')}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </ReviewCard>
+      )}
+
+      {/* Skills */}
+      {(data.skills?.length ?? 0) > 0 && (
+        <ReviewCard title={`Skills (${data.skills!.length} groups)`} onEdit={() => onEditStep(8)}>
+          <div className="space-y-1">
+            {data.skills!.map((g, i) => (
+              <p key={i} className="text-xs">
+                <span className="font-medium">{g.category}:</span>{' '}
+                <span className="text-muted-foreground">{g.skills.join(', ')}</span>
+              </p>
+            ))}
+          </div>
+        </ReviewCard>
+      )}
+
+      {/* Certifications */}
+      {(data.certifications?.length ?? 0) > 0 && (
+        <ReviewCard title={`Certifications (${data.certifications!.length})`} onEdit={() => onEditStep(7)}>
+          <div className="flex flex-wrap gap-1">
+            {data.certifications!.map((c) => (
+              <Badge key={c} variant="outline" className="text-xs">{c}</Badge>
+            ))}
+          </div>
+        </ReviewCard>
+      )}
+
+      <div className="flex gap-3 pt-2">
+        <Button variant="ghost" onClick={onBack} className="gap-1" disabled={isGenerating}>
+          <ChevronLeft className="h-4 w-4" /> Back
+        </Button>
+        <Button className="flex-1 gap-2" onClick={onGenerate} disabled={isGenerating}>
+          {isGenerating ? (
+            <><Loader2 className="h-4 w-4 animate-spin" /> Generating Resume...</>
+          ) : (
+            <><Sparkles className="h-4 w-4" /> Generate Resume</>
+          )}
+        </Button>
+      </div>
     </div>
+  );
+};
 
-    <div className="flex gap-3 pt-2">
-      <Button variant="ghost" onClick={onBack} className="gap-1" disabled={isGenerating}>
-        <ChevronLeft className="h-4 w-4" /> Back
-      </Button>
-      <Button className="flex-1 gap-2" onClick={onGenerate} disabled={isGenerating}>
-        {isGenerating ? (
-          <><Loader2 className="h-4 w-4 animate-spin" /> Generating Resume...</>
-        ) : (
-          <><Sparkles className="h-4 w-4" /> Generate Resume</>
-        )}
-      </Button>
-    </div>
-  </div>
-);
+interface ReviewCardProps {
+  title: string;
+  onEdit: () => void;
+  children: React.ReactNode;
+}
 
-const ReviewRow = ({ label, value }: { label: string; value: string }) => (
-  <div className="flex justify-between border-b border-border/50 pb-1.5">
-    <span className="text-muted-foreground">{label}</span>
-    <span className="font-medium text-right max-w-[60%]">{value}</span>
-  </div>
+const ReviewCard = ({ title, onEdit, children }: ReviewCardProps) => (
+  <Card>
+    <CardHeader className="pb-2 flex flex-row items-start justify-between gap-2">
+      <CardTitle className="text-sm font-medium">{title}</CardTitle>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onEdit}
+        className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground shrink-0"
+      >
+        <Pencil className="h-3 w-3" /> Edit
+      </Button>
+    </CardHeader>
+    <CardContent className="pt-0">{children}</CardContent>
+  </Card>
 );
 
 // ─── Navigation helper ────────────────────────────────────────────────────────
@@ -1020,26 +1210,40 @@ interface OnboardingWizardProps {
 }
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
-  const { showOnboarding, completeOnboarding, resumeProfile: savedProfile, initialStep } = useOnboarding();
+  const { showOnboarding, completeOnboarding, resumeProfile: savedProfile, initialStep, isFirstLogin } = useOnboarding();
   const { makeAICall } = useAIProvider();
   const { currentUser } = useAuth();
 
-  const [step, setStep] = useState(initialStep ?? 0);
+  // New users (no saved profile) start at step -1 (upload screen).
+  // Returning users resume from their saved step.
+  const [step, setStep] = useState(() => (isFirstLogin ? -1 : (initialStep ?? 0)));
   const [profile, setProfile] = useState<Partial<ResumeProfile>>(
     savedProfile ?? defaultProfile()
   );
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedLatex, setGeneratedLatex] = useState<string | null>(null);
+  const [wasAutofilled, setWasAutofilled] = useState(false);
+  // When user clicks Edit from review step, we track so we can show "Back to Review"
+  const [reviewJump, setReviewJump] = useState(false);
 
-  // Sync initialStep when context loads it
+  // Sync when context loads (handles async context resolution)
   useEffect(() => {
-    if (initialStep !== undefined && initialStep !== step) {
+    if (isFirstLogin) {
+      setStep(-1);
+    } else if (initialStep !== undefined && initialStep > 0) {
       setStep(initialStep);
     }
-  }, [initialStep]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isFirstLogin, initialStep]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateProfile = (updates: Partial<ResumeProfile>) => {
     setProfile((prev) => ({ ...prev, ...updates }));
+  };
+
+  const handleParsedResume = (mapped: Partial<ResumeProfile>) => {
+    setProfile((prev) => ({ ...prev, ...mapped }));
+    setWasAutofilled(true);
+    setStep(0); // Go to Welcome with autofill banner
+    toast.success('Resume auto-filled! Review and edit each section.');
   };
 
   const saveProgress = async (nextStep: number, patch?: Partial<ResumeProfile>) => {
@@ -1065,6 +1269,18 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     window.scrollTo(0, 0);
   };
 
+  const handleEditFromReview = (targetStep: number) => {
+    setReviewJump(true);
+    setStep(targetStep);
+    window.scrollTo(0, 0);
+  };
+
+  const returnToReview = () => {
+    setReviewJump(false);
+    setStep(10);
+    window.scrollTo(0, 0);
+  };
+
   const handleGenerate = async () => {
     setIsGenerating(true);
     try {
@@ -1082,12 +1298,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         await saveUserData(currentUser.uid, 'resumeProfile', finalProfile as Record<string, unknown>);
       }
 
-      // Store latex in sessionStorage so ResumeGeneratorPage can pick it up
       sessionStorage.setItem('generatedLatex', latex);
 
       completeOnboarding();
       onComplete?.();
-      // Navigate to /resume
       window.location.href = '/resume';
     } catch (err) {
       console.error(err);
@@ -1099,12 +1313,15 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   if (!showOnboarding) return null;
 
-  const progressPct = step === 0 ? 0 : (step / (TOTAL_STEPS - 1)) * 100;
+  const progressPct = step <= 0 ? 0 : (step / (TOTAL_STEPS - 1)) * 100;
+
+  // Steps that benefit from autofill badges (have direct user-editable content)
+  const autofillSteps = [1, 4, 5, 6, 7, 8];
 
   return (
     <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
       <div className="max-w-2xl mx-auto px-4 py-8 min-h-full">
-        {/* Header */}
+        {/* Header / progress */}
         {step > 0 && (
           <div className="mb-8 space-y-2">
             <div className="flex items-center justify-between text-sm">
@@ -1115,7 +1332,25 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           </div>
         )}
 
+        {/* Autofill resume banner shown at step 0 after upload */}
+        {step === 0 && wasAutofilled && (
+          <div className="mb-6 flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 px-4 py-2.5 rounded-lg">
+            <CheckCircle className="h-4 w-4 shrink-0" />
+            Your resume was auto-filled — review and edit below as you go through each step.
+          </div>
+        )}
+
+        {/* Autofill badge for data-heavy steps */}
+        {wasAutofilled && autofillSteps.includes(step) && <AutofillBadge />}
+
         {/* Steps */}
+        {step === -1 && (
+          <ResumeUploadStep
+            onParsed={handleParsedResume}
+            onSkip={() => setStep(0)}
+          />
+        )}
+
         {step === 0 && <WelcomeStep onNext={() => setStep(1)} />}
 
         {step === 1 && (
@@ -1206,7 +1441,21 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             onBack={goBack}
             onGenerate={handleGenerate}
             isGenerating={isGenerating}
+            onEditStep={handleEditFromReview}
           />
+        )}
+
+        {/* "Back to Review" overlay — appears when navigating from review step to edit a section */}
+        {reviewJump && step !== 10 && (
+          <div className="mt-6 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={returnToReview}
+              className="w-full gap-2"
+            >
+              <CheckCircle className="h-4 w-4" /> Done editing — back to Review
+            </Button>
+          </div>
         )}
 
         {generatedLatex && (
