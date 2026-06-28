@@ -1,6 +1,6 @@
 /**
  * Unified AI Service Hook
- * 
+ *
  * This hook centralizes all AI LLM integrations across the application.
  * It provides a single interface for all AI generation calls with:
  * - Unified provider selection (OpenRouter/Gemini)
@@ -14,6 +14,8 @@ import { useTokens } from '@/lib/tokenContext';
 import { toast } from 'sonner';
 import { cleanLatexResponse } from '@/lib/latexUtils';
 import { ensureKeySkillsSuggestion } from '@/lib/atsAnalysisUtils';
+import { callForTask as resolveAndCall } from '@/lib/llmConfigResolver';
+import type { LLMTaskKey } from '@/config/llm.config';
 
 export interface ATSScore {
   overall: number;
@@ -94,20 +96,6 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
     });
   }, [deductTokens, opts]);
 
-  const DEEPSEEK_WRITING_MODEL = 'deepseek-v4-pro';
-  const DEEPSEEK_ANALYSIS_MODEL = 'deepseek-v4-flash';
-
-  // In managed mode the env key is always present — route to task-specific models directly
-  const callForWriting = useCallback((prompt: string) => {
-    if (!isUserApiKeyEnabled || deepseekApiKey) return makeAICallWithModel(prompt, DEEPSEEK_WRITING_MODEL);
-    return makeAICall(prompt);
-  }, [isUserApiKeyEnabled, deepseekApiKey, makeAICall, makeAICallWithModel]);
-
-  const callForAnalysis = useCallback((prompt: string) => {
-    if (!isUserApiKeyEnabled || deepseekApiKey) return makeAICallWithModel(prompt, DEEPSEEK_ANALYSIS_MODEL);
-    return makeAICall(prompt);
-  }, [isUserApiKeyEnabled, deepseekApiKey, makeAICall, makeAICallWithModel]);
-
   const hasAvailableProviders = useCallback(() => {
     // Managed mode: env key is always available
     if (!isUserApiKeyEnabled) return true;
@@ -145,9 +133,27 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
     }
   }, [makeAICall, hasAvailableProviders, checkTokens, bill]);
 
-  // Writing tasks → deepseek-v4-pro; Analysis tasks → deepseek-v4-flash
   const truncatePrompt = (prompt: string, maxChars = 50000): string =>
     prompt.length > maxChars ? prompt.slice(0, maxChars) + '\n[Content truncated to fit API limits]' : prompt;
+
+  // Bound callForTask — token-checked, truncated, error-handled
+  const callForTaskBound = useCallback(async (task: LLMTaskKey, prompt: string): Promise<string> => {
+    await checkTokens();
+    prompt = truncatePrompt(prompt);
+    if (!hasAvailableProviders()) {
+      const errorMessage = 'No AI providers available. Please configure API keys in Settings.';
+      toast.error(errorMessage);
+      throw new Error(errorMessage);
+    }
+    try {
+      const response = await resolveAndCall(task, prompt, makeAICallWithModel, makeAICallWithThinking);
+      bill(response.length, task);
+      return response;
+    } catch (error) {
+      handleAIError(error);
+      throw error;
+    }
+  }, [makeAICallWithModel, makeAICallWithThinking, hasAvailableProviders, checkTokens, bill]);
 
   const makeWritingCall = useCallback(async (prompt: string): Promise<string> => {
     await checkTokens();
@@ -158,14 +164,14 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
       throw new Error(errorMessage);
     }
     try {
-      const response = await callForWriting(prompt);
+      const response = await resolveAndCall('coverLetter', prompt, makeAICallWithModel, makeAICallWithThinking);
       bill(response.length, 'writing');
       return response;
     } catch (error) {
       handleAIError(error);
       throw error;
     }
-  }, [callForWriting, hasAvailableProviders, checkTokens, bill]);
+  }, [makeAICallWithModel, makeAICallWithThinking, hasAvailableProviders, checkTokens, bill]);
 
   const makeAnalysisCall = useCallback(async (prompt: string): Promise<string> => {
     await checkTokens();
@@ -176,16 +182,16 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
       throw new Error(errorMessage);
     }
     try {
-      const response = await callForAnalysis(prompt);
+      const response = await resolveAndCall('atsAnalysis', prompt, makeAICallWithModel, makeAICallWithThinking);
       bill(response.length, 'analysis');
       return response;
     } catch (error) {
       handleAIError(error);
       throw error;
     }
-  }, [callForAnalysis, hasAvailableProviders, checkTokens, bill]);
+  }, [makeAICallWithModel, makeAICallWithThinking, hasAvailableProviders, checkTokens, bill]);
 
-  // Generate LaTeX Resume — uses thinking mode (deepseek-v4-pro) for highest quality output
+  // Generate LaTeX Resume — driven by llmConfig 'resumeLatex' task (thinking mode by default)
   const generateResumeLatex = useCallback(async (prompt: string): Promise<string> => {
     await checkTokens();
     const enhancedPrompt = `
@@ -196,7 +202,7 @@ Do not include explanations, just return the LaTeX code.
 `;
 
     try {
-      const response = await makeAICallWithThinking(truncatePrompt(enhancedPrompt));
+      const response = await callForTaskBound('resumeLatex', truncatePrompt(enhancedPrompt));
 
       if (!response) {
         throw new Error('No response received from AI service');
@@ -210,7 +216,7 @@ Do not include explanations, just return the LaTeX code.
       console.error('Error generating LaTeX resume:', error);
       throw error;
     }
-  }, [makeWritingCall, makeAICallWithThinking, checkTokens, bill]);
+  }, [callForTaskBound, checkTokens, bill]);
 
   // Generate Cover Letter
   const generateCoverLetter = useCallback(async (prompt: string, isLatex: boolean = false): Promise<string> => {
@@ -220,7 +226,7 @@ Do not include explanations, just return the LaTeX code.
 
     try {
       const response = await makeWritingCall(enhancedPrompt);
-      
+
       if (!response) {
         throw new Error('No response received from AI service');
       }
@@ -270,13 +276,12 @@ Provide specific, actionable feedback. Return only valid JSON.
 `;
 
     try {
-      const response = await makeAnalysisCall(prompt);
-      
+      const response = await callForTaskBound('atsAnalysis', prompt);
+
       if (!response) {
         throw new Error('No response received from AI service');
       }
-      
-      // Try to extract JSON from the response
+
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const atsScore = JSON.parse(jsonMatch[0]);
@@ -288,7 +293,7 @@ Provide specific, actionable feedback. Return only valid JSON.
       console.error('Error analyzing ATS score:', error);
       throw error;
     }
-  }, [makeAnalysisCall]);
+  }, [callForTaskBound]);
 
   // Combined ATS Analysis (Score + Suggestions)
   const performCombinedATSAnalysis = useCallback(async (jobDescription: string, resumeContent: string): Promise<CombinedATSResult> => {
@@ -337,7 +342,7 @@ Focus particularly on identifying ALL missing keywords from the job description 
 FOR SUGGESTIONS:
 Categories should include:
 - Keywords & Terminology
-- Skills & Technologies  
+- Skills & Technologies
 - Experience Descriptions
 - Formatting & Structure
 - Industry Standards
@@ -357,21 +362,19 @@ Provide 5-10 actionable suggestions. Each suggestion should be specific and impl
 `;
 
     try {
-      const response = await makeAnalysisCall(prompt);
-      
+      const response = await callForTaskBound('combinedATS', prompt);
+
       if (!response) {
         throw new Error('No response received from AI service');
       }
-      
-      // Try to extract JSON from the response
+
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const result = JSON.parse(jsonMatch[0]);
-          // Process suggestions to ensure they have required fields
         let suggestionsWithSelection = result.suggestions.map((suggestion: Partial<ATSSuggestion>, index: number) => ({
           ...suggestion,
           id: suggestion.id || `suggestion-${index}`,
-          selected: true // All suggestions are selected by default
+          selected: true
         }));
 
         suggestionsWithSelection = ensureKeySkillsSuggestion(suggestionsWithSelection, jobDescription);
@@ -387,7 +390,7 @@ Provide 5-10 actionable suggestions. Each suggestion should be specific and impl
       console.error('Error performing combined ATS analysis:', error);
       throw error;
     }
-  }, [makeAnalysisCall]);
+  }, [callForTaskBound]);
 
   // Extract company, role, location and top skills from a job description
   const extractJobDetails = useCallback(async (jobDescription: string): Promise<ExtractedJobDetails> => {
@@ -404,11 +407,11 @@ Return exactly this JSON shape:
   "skills": ["<skill1>", "<skill2>", "...up to 10 most important skills/technologies/certifications mentioned>"]
 }`;
 
-    const response = await makeAnalysisCall(prompt);
+    const response = await callForTaskBound('extractJobDetails', prompt);
     const match = response.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('No JSON in response');
     return JSON.parse(match[0]) as ExtractedJobDetails;
-  }, [makeAnalysisCall]);
+  }, [callForTaskBound]);
 
   // Analyze mandatory job requirements — certifications, languages, licenses, etc.
   const analyzeJobFit = useCallback(async (jobDescription: string, resumeContent: string): Promise<JobFitResult> => {
@@ -452,11 +455,11 @@ Score guidelines (base on mandatory requirements only):
 If the job description has NO explicit mandatory requirements beyond general experience, set fitScore to 75 and label to "Decent Match".
 `);
 
-    const response = await makeAnalysisCall(prompt);
+    const response = await callForTaskBound('jobFit', prompt);
     const jsonMatch = response.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('Invalid response from AI');
     return JSON.parse(jsonMatch[0]) as JobFitResult;
-  }, [makeAnalysisCall]);
+  }, [callForTaskBound]);
 
   return {
     // Provider info
@@ -475,5 +478,8 @@ If the job description has NO explicit mandatory requirements beyond general exp
     makeWritingCall,
     analyzeJobFit,
     extractJobDetails,
+
+    // Config-driven task dispatch — preferred for new callers
+    callForTask: callForTaskBound,
   };
 }
