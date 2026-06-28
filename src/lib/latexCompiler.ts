@@ -1,8 +1,4 @@
-const COMPILE_BASE = 'https://latexonline.cc/compile';
-
-// latexonline.cc uses GET with ?text= query param.
-// URL length limit is ~8KB in most environments; warn if content is large.
-const URL_SAFE_LIMIT = 7500;
+const COMPILE_URL = 'https://latex.ytotech.com/builds/sync';
 
 export class LatexCompileError extends Error {
   constructor(public log: string) {
@@ -12,16 +8,14 @@ export class LatexCompileError extends Error {
 }
 
 export async function compileLatexToPdf(latex: string): Promise<Blob> {
-  const params = new URLSearchParams({ text: latex, command: 'pdflatex' });
-  const fullUrl = `${COMPILE_BASE}?${params.toString()}`;
-
-  if (fullUrl.length > URL_SAFE_LIMIT) {
-    throw new LatexCompileError(
-      `LaTeX source is too large to compile via this service (${fullUrl.length} chars, limit ~${URL_SAFE_LIMIT}). Try shortening your resume content.`
-    );
-  }
-
-  const response = await fetch(fullUrl);
+  const response = await fetch(COMPILE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      compiler: 'pdflatex',
+      resources: [{ main: true, content: latex }],
+    }),
+  });
 
   if (!response.ok) {
     const log = await response.text();
