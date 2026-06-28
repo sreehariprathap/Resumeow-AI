@@ -13,7 +13,7 @@ import {
   Pencil,
   Lightbulb,
 } from 'lucide-react';
-import { useAIProvider } from '@/lib/aiProviderContext';
+import { useAIService } from '@/hooks/useAIService';
 import { useAuth } from '@/lib/authContext';
 import { getUserData } from '@/lib/firebaseWeb';
 import { useOnboarding } from '@/lib/onboardingContext';
@@ -122,7 +122,7 @@ function CategoryCard({ cat }: { cat: ScoringCategory }) {
 }
 
 export function ResumeScoringPage() {
-  const { makeAICall } = useAIProvider();
+  const { callForTask } = useAIService();
   const { currentUser } = useAuth();
   const { startOnboarding } = useOnboarding();
   const { status, loading: gateLoading } = useProfileGate();
@@ -194,7 +194,7 @@ ${JSON.stringify(profileData, null, 2)}
   "actionPlan": "Focus first on quantifying your impact bullets — this alone could raise your score by 15 points."
 }`;
 
-      const raw = await makeAICall(prompt);
+      const raw = await callForTask('resumeScore', prompt);
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('Invalid AI response');
       const parsed: ScoringResult = JSON.parse(jsonMatch[0]);
@@ -206,7 +206,7 @@ ${JSON.stringify(profileData, null, 2)}
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser, makeAICall]);
+  }, [currentUser, callForTask]);
 
   useEffect(() => {
     if (gateLoading) return;

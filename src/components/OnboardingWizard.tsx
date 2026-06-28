@@ -4,7 +4,7 @@ import { Progress } from './ui/progress';
 import { Button } from './ui/button';
 import { CheckCircle, Loader2 } from 'lucide-react';
 import { useOnboarding } from '@/lib/onboardingContext';
-import { useAIProvider } from '@/lib/aiProviderContext';
+import { useAIService } from '@/hooks/useAIService';
 import { useAuth } from '@/lib/authContext';
 import { saveUserData } from '@/lib/firebaseWeb';
 import { toast } from 'sonner';
@@ -52,7 +52,7 @@ interface OnboardingWizardProps {
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const { showOnboarding, completeOnboarding, resumeProfile: savedProfile, initialStep } = useOnboarding();
-  const { makeAICall } = useAIProvider();
+  const { callForTask } = useAIService();
   const { currentUser } = useAuth();
 
   const [step, setStep] = useState(() => ((initialStep ?? 0) > 0 ? initialStep : -1));
@@ -153,7 +153,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     setIsGenerating(true);
     try {
       const templateTex = await fetchTemplateTex(selectedTemplate.texUrl);
-      const latex = await generateLatexResume(profile as ResumeProfile, makeAICall, templateTex);
+      const latex = await generateLatexResume(
+        profile as ResumeProfile,
+        (prompt) => callForTask('resumeLatex', prompt),
+        templateTex
+      );
       setGeneratedLatex(latex);
 
       const finalProfile = {

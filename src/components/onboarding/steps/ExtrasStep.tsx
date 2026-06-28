@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Check, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { StepNav } from '../shared';
-import { useAIProvider } from '@/lib/aiProviderContext';
+import { useAIService } from '@/hooks/useAIService';
 import type { ResumeProfile, Language, Award, VolunteerEntry } from '@/types/resumeProfile';
 
 interface ExtraCardProps {
@@ -49,7 +49,7 @@ interface ExtrasStepProps {
 }
 
 export const ExtrasStep = ({ data, onChange, onNext, onBack, onSkip }: ExtrasStepProps) => {
-  const { makeAICall } = useAIProvider();
+  const { callForTask } = useAIService();
   const [toggles, setToggles] = useState({
     summary: !!data.summary,
     languages: (data.languages?.length ?? 0) > 0,
@@ -71,7 +71,7 @@ Experience: ${(data.experiences ?? []).map((e) => `${e.role} at ${e.company}`).j
 Skills: ${(data.skills ?? []).map((s) => `${s.category}: ${s.skills.join(', ')}`).join('; ')}
 
 Output only the summary text, no quotes or labels.`;
-      const summary = await makeAICall(prompt);
+      const summary = await callForTask('bioSummary', prompt);
       onChange({ summary });
       toast.success('Summary generated!');
     } catch {

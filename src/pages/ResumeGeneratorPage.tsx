@@ -15,7 +15,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAIProvider } from '@/lib/aiProviderContext';
+import { useAIService } from '@/hooks/useAIService';
 import { useAuth } from '@/lib/authContext';
 import { getUserData, saveUserData } from '@/lib/firebaseWeb';
 import { generateLatexResume } from '@/lib/resumeGenerator';
@@ -26,7 +26,7 @@ import type { ResumeProfile } from '@/types/resumeProfile';
 import { useOnboarding } from '@/lib/onboardingContext';
 
 export function ResumeGeneratorPage() {
-  const { makeAICall } = useAIProvider();
+  const { callForTask } = useAIService();
   const { currentUser } = useAuth();
   const { startOnboarding } = useOnboarding();
 
@@ -98,7 +98,11 @@ export function ResumeGeneratorPage() {
     try {
       const template = RESUME_TEMPLATES.find((t) => t.id === selectedTemplateId);
       const templateTex = template ? await fetchTemplateTex(template.texUrl) : undefined;
-      const newLatex = await generateLatexResume(profile, makeAICall, templateTex);
+      const newLatex = await generateLatexResume(
+        profile,
+        (prompt) => callForTask('resumeLatex', prompt),
+        templateTex
+      );
       setLatex(newLatex);
       sessionStorage.setItem('generatedLatex', newLatex);
       sessionStorage.setItem('selectedTemplateId', selectedTemplateId);
@@ -120,7 +124,7 @@ export function ResumeGeneratorPage() {
     setUploadSummary(null);
     try {
       const text = await extractTextFromFile(file);
-      const parsedData = await parseResumeWithAI(text, makeAICall);
+      const parsedData = await parseResumeWithAI(text, (prompt) => callForTask('resumeParse', prompt));
       const mapped = mapParsedToProfile(parsedData);
       setUploadSummary({
         experiences: parsedData.experiences.length,
