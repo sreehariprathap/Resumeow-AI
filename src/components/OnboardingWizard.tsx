@@ -25,8 +25,11 @@ import { CertificationsStep } from './onboarding/steps/CertificationsStep';
 import { SkillsStep } from './onboarding/steps/SkillsStep';
 import { ExtrasStep } from './onboarding/steps/ExtrasStep';
 import { ReviewStep } from './onboarding/steps/ReviewStep';
+import { TemplatePickerStep } from './onboarding/steps/TemplatePickerStep';
+import { RESUME_TEMPLATES, fetchTemplateTex } from '@/lib/templateRegistry';
+import type { ResumeTemplate } from '@/lib/templateRegistry';
 
-const TOTAL_STEPS = 11;
+const TOTAL_STEPS = 12;
 
 const STEP_LABELS = [
   'Welcome',
@@ -40,6 +43,7 @@ const STEP_LABELS = [
   'Skills',
   'Extras',
   'Review & Generate',
+  'Choose Template',
 ];
 
 interface OnboardingWizardProps {
@@ -64,6 +68,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [isPdfOpen, setIsPdfOpen] = useState(false);
   const [isCompiling, setIsCompiling] = useState(false);
   const [compileError, setCompileError] = useState<string | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<ResumeTemplate>(RESUME_TEMPLATES[0]);
 
   useEffect(() => {
     setStep((initialStep ?? 0) > 0 ? initialStep : -1);
@@ -147,7 +152,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const handleGenerate = async () => {
     setIsGenerating(true);
     try {
-      const latex = await generateLatexResume(profile as ResumeProfile, makeAICall);
+      const templateTex = await fetchTemplateTex(selectedTemplate.texUrl);
+      const latex = await generateLatexResume(profile as ResumeProfile, makeAICall, templateTex);
       setGeneratedLatex(latex);
 
       const finalProfile = {
@@ -163,6 +169,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       }
 
       sessionStorage.setItem('generatedLatex', latex);
+      sessionStorage.setItem('selectedTemplateId', selectedTemplate.id);
       completeOnboarding();
       onComplete?.();
 
@@ -357,11 +364,21 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           <ReviewStep
             data={profile}
             onBack={goBack}
-            onGenerate={handleGenerate}
+            onGenerate={() => goNext()}
             onSkipToFinish={handleSkipToFinish}
             isGenerating={isGenerating}
             onEditStep={handleEditFromReview}
             skippedSteps={skippedSteps}
+          />
+        )}
+
+        {step === 11 && (
+          <TemplatePickerStep
+            selectedId={selectedTemplate.id}
+            onSelect={setSelectedTemplate}
+            onNext={handleGenerate}
+            onBack={goBack}
+            isGenerating={isGenerating}
           />
         )}
 
@@ -377,7 +394,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           </div>
         )}
 
-        {isGenerating && (
+        {isGenerating && step !== 11 && (
           <div className="mt-6 p-4 bg-muted rounded-lg text-center flex items-center justify-center gap-3">
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             <p className="text-sm font-medium">Generating your resume…</p>
