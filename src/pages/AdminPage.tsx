@@ -19,9 +19,11 @@ export function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<{ uid: string; tokens: string; plan: string } | null>(null);
 
+  const isAllowed = isAdmin || currentUser?.email === 'srhari615@gmail.com';
+
   useEffect(() => {
-    if (!tokensLoading && !isAdmin) navigate('/', { replace: true });
-  }, [isAdmin, tokensLoading, navigate]);
+    if (!tokensLoading && !isAllowed) navigate('/', { replace: true });
+  }, [isAllowed, tokensLoading, navigate]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -35,7 +37,7 @@ export function AdminPage() {
     }
   };
 
-  useEffect(() => { if (isAdmin) void fetchUsers(); }, [isAdmin]);
+  useEffect(() => { if (isAllowed) void fetchUsers(); }, [isAllowed]);
 
   const handleSave = async (uid: string) => {
     if (!editing || editing.uid !== uid) return;
