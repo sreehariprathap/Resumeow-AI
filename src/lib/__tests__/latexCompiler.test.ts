@@ -28,7 +28,7 @@ describe('compileLatexToPdf', () => {
     expect(result.type).toBe('application/pdf');
   });
 
-  it('POSTs to latexonline.cc with url-encoded body', async () => {
+  it('GETs latexonline.cc with text and command query params', async () => {
     const mockBlob = new Blob(['%PDF'], { type: 'application/pdf' });
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
@@ -37,15 +37,19 @@ describe('compileLatexToPdf', () => {
 
     await compileLatexToPdf(SAMPLE_LATEX);
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://latexonline.cc/compile',
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({
-          'Content-Type': 'application/x-www-form-urlencoded',
-        }),
-      })
-    );
+    const calledUrl: string = (global.fetch as jest.Mock).mock.calls[0][0];
+    expect(calledUrl).toContain('https://latexonline.cc/compile');
+    expect(calledUrl).toContain('text=');
+    expect(calledUrl).toContain('command=pdflatex');
+    // Should be a GET — no second argument (options object) or no method override
+    const calledOptions = (global.fetch as jest.Mock).mock.calls[0][1];
+    expect(calledOptions).toBeUndefined();
+  });
+
+  it('throws LatexCompileError when LaTeX source exceeds URL safe limit', async () => {
+    const hugeLaTeX = 'x'.repeat(8000);
+    await expect(compileLatexToPdf(hugeLaTeX)).rejects.toBeInstanceOf(LatexCompileError);
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it('throws LatexCompileError on non-200 response', async () => {
