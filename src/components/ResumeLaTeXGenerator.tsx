@@ -4,9 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
-import { Clipboard, Download, FileEdit, Save, FileCode, RefreshCw, AlertCircle } from 'lucide-react';
+import { Clipboard, Download, FileEdit, Save, FileCode, RefreshCw, AlertCircle, FileDown } from 'lucide-react';
 import { useAIService } from '@/hooks/useAIService';
 import { cleanLatexResponse } from '@/lib/latexUtils';
+import { compileLatexToPdf, downloadPdf, LatexCompileError } from '@/lib/latexCompiler';
+import { PdfPreviewDialog } from './PdfPreviewDialog';
 
 interface ResumeLaTeXGeneratorProps {
   generatedPrompt: string;
@@ -26,6 +28,10 @@ export function ResumeLaTeXGenerator({
   const [generationFailed, setGenerationFailed] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editedLatex, setEditedLatex] = useState<string>('');
+  const [isPdfOpen, setIsPdfOpen] = useState(false);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [isCompiling, setIsCompiling] = useState(false);
+  const [compileError, setCompileError] = useState<string | null>(null);
   const { generateResumeLatex, hasAvailableProviders } = useAIService();
 
   // Mirror generation state to the parent (covers both success and failure,
@@ -127,6 +133,46 @@ const downloadAsTex = () => {
   }
 };
 
+const compileAndPreview = async () => {
+  if (!generatedLatex) return;
+  const cleaned = cleanLatexResponse(generatedLatex);
+  setPdfBlob(null);
+  setCompileError(null);
+  setIsPdfOpen(true);
+  setIsCompiling(true);
+  try {
+    const blob = await compileLatexToPdf(cleaned);
+    setPdfBlob(blob);
+  } catch (err) {
+    const log = err instanceof LatexCompileError ? err.log : String(err);
+    setCompileError(log);
+    toast.error('Compilation failed — see error log in preview.');
+  } finally {
+    setIsCompiling(false);
+  }
+};
+
+const handleDownloadPdf = async () => {
+  if (pdfBlob) {
+    downloadPdf(pdfBlob);
+    toast.success('PDF downloaded!');
+    return;
+  }
+  if (!generatedLatex) return;
+  const cleaned = cleanLatexResponse(generatedLatex);
+  setIsCompiling(true);
+  try {
+    const blob = await compileLatexToPdf(cleaned);
+    setPdfBlob(blob);
+    downloadPdf(blob);
+    toast.success('PDF downloaded!');
+  } catch {
+    toast.error('PDF compilation failed. Try "Open in Overleaf" instead.');
+  } finally {
+    setIsCompiling(false);
+  }
+};
+
 const openInOverleaf = () => {
   if (!generatedLatex) return;
   const cleanedLatex = cleanLatexResponse(generatedLatex);
@@ -184,6 +230,28 @@ const openInOverleaf = () => {
                     >
                     <Download className="h-4 w-4 md:mr-2" />
                     <span className="hidden md:inline">Download .tex</span>
+                    </Button>
+                    <Button
+                    variant="outline"
+                    onClick={compileAndPreview}
+                    disabled={isCompiling}
+                    className="h-8 text-sm"
+                    size="sm"
+                    >
+                    {isCompiling
+                      ? <><RefreshCw className="h-4 w-4 md:mr-2 animate-spin" /><span className="hidden md:inline">Compiling…</span></>
+                      : <><FileDown className="h-4 w-4 md:mr-2" /><span className="hidden md:inline">Preview PDF</span></>
+                    }
+                    </Button>
+                    <Button
+                    variant="outline"
+                    onClick={handleDownloadPdf}
+                    disabled={isCompiling}
+                    className="h-8 text-sm"
+                    size="sm"
+                    >
+                    <FileDown className="h-4 w-4 md:mr-2" />
+                    <span className="hidden md:inline">Download PDF</span>
                     </Button>
                     <Button
                     variant="outline"
@@ -271,6 +339,15 @@ const openInOverleaf = () => {
       <form id="ol_form" action="https://www.overleaf.com/docs" method="post" target="_blank" style={{ display: 'none' }}>
         <input id="ol_encoded_snip" type="hidden" name="encoded_snip" />
       </form>
+
+      <PdfPreviewDialog
+        open={isPdfOpen}
+        onOpenChange={setIsPdfOpen}
+        pdfBlob={pdfBlob}
+        isCompiling={isCompiling}
+        compileError={compileError}
+        onDownload={handleDownloadPdf}
+      />
     </>
   );
 }
