@@ -36,20 +36,25 @@ export function TokenProvider({ children }: { children: ReactNode }) {
   useEffect(() => { void refetch(); }, [refetch]);
 
   const deductTokens = useCallback(async (chars: number): Promise<boolean> => {
-    if (!currentUser || !profile) return false;
-    if (profile.isAdmin) return true;
+    if (!currentUser) return false;
+    // Admins never pay — check local profile first since it's fast
+    if (profile?.isAdmin) return true;
     const amount = Math.max(1, Math.ceil(chars / 750));
-    if (profile.tokensRemaining < amount) return false;
+    // Firestore is authoritative — skip stale local pre-check, let the DB decide
     const ok = await fbDeductTokens(currentUser.uid, amount);
     if (ok) {
+      // Optimistic local update so UI reflects immediately without a refetch
       setProfile(prev => prev ? {
         ...prev,
         tokensUsed: prev.tokensUsed + amount,
-        tokensRemaining: prev.tokensRemaining - amount,
+        tokensRemaining: Math.max(0, prev.tokensRemaining - amount),
       } : prev);
+    } else {
+      // Deduction failed (insufficient balance or doc missing) — sync local state
+      void refetch();
     }
     return ok;
-  }, [currentUser, profile]);
+  }, [currentUser, profile, refetch]);
 
   // Fetches a fresh balance from Firestore before each AI call to avoid stale local state
   const assertSufficientBalance = useCallback(async (): Promise<void> => {

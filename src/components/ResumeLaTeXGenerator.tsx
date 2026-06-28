@@ -36,10 +36,19 @@ export function ResumeLaTeXGenerator({
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [isCompiling, setIsCompiling] = useState(false);
   const [compileError, setCompileError] = useState<string | null>(null);
+  const [inlinePdfUrl, setInlinePdfUrl] = useState<string | null>(null);
   const [resumeProfile, setResumeProfile] = useState<Partial<ResumeProfile>>({});
   const { generateResumeLatex, hasAvailableProviders } = useAIService();
   const { deductTokens, isAdmin } = useTokens();
   const { currentUser } = useAuth();
+
+  // Manage inline PDF object URL lifecycle to avoid memory leaks
+  useEffect(() => {
+    if (!pdfBlob) { setInlinePdfUrl(null); return; }
+    const url = URL.createObjectURL(pdfBlob);
+    setInlinePdfUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pdfBlob]);
 
   // Load profile for filename generation
   useEffect(() => {
@@ -60,6 +69,8 @@ export function ResumeLaTeXGenerator({
   useEffect(() => {
     setGeneratedLatex(null);
     setGenerationFailed(false);
+    setPdfBlob(null);
+    setCompileError(null);
   }, [generatedPrompt]);
   const generateLatex = useCallback(async () => {
     if (!hasAvailableProviders()) {
@@ -91,6 +102,15 @@ export function ResumeLaTeXGenerator({
       generateLatex();
     }
   }, [autoGenerate, hasAvailableProviders, generatedPrompt, isGenerating, generatedLatex, generateLatex]);
+
+  // In fast compile mode: auto-trigger PDF compilation once LaTeX is ready
+  useEffect(() => {
+    if (autoGenerate && generatedLatex && !pdfBlob && !isCompiling && !compileError) {
+      void compileAndPreview();
+    }
+  // compileAndPreview is defined below — use a ref to avoid stale closure issues
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoGenerate, generatedLatex]);
 
 const copyToClipboard = () => {
     if (generatedLatex) {
@@ -320,12 +340,41 @@ const openInOverleaf = () => {
             </div>
           )}
           
-          {generatedLatex && (
+          {generatedLatex && !autoGenerate && (
             <div className="mt-4 border rounded-md p-3">
               <h3 className="text-sm font-medium mb-2">Generated LaTeX Resume:</h3>
               <div className="h-48 overflow-y-auto">
                 <pre className="text-xs whitespace-pre-wrap">{generatedLatex}</pre>
               </div>
+            </div>
+          )}
+
+          {autoGenerate && generatedLatex && (
+            <div className="mt-4 border rounded-md overflow-hidden">
+              {isCompiling && (
+                <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
+                  <RefreshCw className="h-6 w-6 animate-spin" />
+                  <p className="text-sm">Compiling PDF — this takes ~5 seconds…</p>
+                </div>
+              )}
+              {compileError && !isCompiling && (
+                <div className="p-4 bg-destructive/10 border-t border-destructive/20 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                    <p className="text-sm font-medium text-destructive">Compilation failed</p>
+                  </div>
+                  <pre className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed max-h-40 overflow-auto">
+                    {compileError}
+                  </pre>
+                </div>
+              )}
+              {inlinePdfUrl && !isCompiling && (
+                <iframe
+                  src={inlinePdfUrl}
+                  className="w-full h-[600px]"
+                  title="Resume PDF Preview"
+                />
+              )}
             </div>
           )}
         </CardContent>

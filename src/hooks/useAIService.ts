@@ -82,10 +82,16 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
   }, [assertSufficientBalance, opts]);
 
   // Deduct based on output character count: 1 token per 750 chars (min 1)
-  // Fire-and-forget — a deduction failure never blocks the caller
-  const bill = useCallback((outputChars: number) => {
+  // Non-blocking — deduction failure never blocks the caller but is always logged
+  const bill = useCallback((outputChars: number, label = 'ai_call') => {
     if (opts?.skipTokenCheck) return;
-    void deductTokens(outputChars);
+    const tokensCharged = Math.max(1, Math.ceil(outputChars / 750));
+    console.log(`[tokens] ${label} — ${outputChars} chars → ${tokensCharged} token${tokensCharged !== 1 ? 's' : ''}`);
+    deductTokens(outputChars).then(ok => {
+      if (!ok) console.warn(`[tokens] deduction failed after ${label} (${outputChars} chars, ${tokensCharged} tokens)`);
+    }).catch(err => {
+      console.error(`[tokens] deduction error after ${label}`, err);
+    });
   }, [deductTokens, opts]);
 
   const DEEPSEEK_WRITING_MODEL = 'deepseek-v4-pro';
@@ -131,7 +137,7 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
     }
     try {
       const response = await makeAICall(prompt);
-      bill(response.length);
+      bill(response.length, 'generic');
       return response;
     } catch (error) {
       handleAIError(error);
@@ -153,7 +159,7 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
     }
     try {
       const response = await callForWriting(prompt);
-      bill(response.length);
+      bill(response.length, 'writing');
       return response;
     } catch (error) {
       handleAIError(error);
@@ -171,7 +177,7 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
     }
     try {
       const response = await callForAnalysis(prompt);
-      bill(response.length);
+      bill(response.length, 'analysis');
       return response;
     } catch (error) {
       handleAIError(error);
@@ -196,7 +202,7 @@ Do not include explanations, just return the LaTeX code.
         throw new Error('No response received from AI service');
       }
 
-      bill(response.length);
+      bill(response.length, 'resume_latex');
       const cleanedLatex = cleanLatexResponse(response);
       toast.success('LaTeX resume generated successfully!');
       return cleanedLatex;
@@ -456,15 +462,17 @@ If the job description has NO explicit mandatory requirements beyond general exp
     // Provider info
     selectedModel,
     hasAvailableProviders,
-    
+
     // Core AI functions
     generateResumeLatex,
     generateCoverLetter,
     analyzeATSScore,
     performCombinedATSAnalysis,
-    
-    // Raw AI call if needed
+
+    // Raw AI calls — use the right one for the task
     makeAICall: makeAICallWithRetry,
+    makeAnalysisCall,
+    makeWritingCall,
     analyzeJobFit,
     extractJobDetails,
   };
