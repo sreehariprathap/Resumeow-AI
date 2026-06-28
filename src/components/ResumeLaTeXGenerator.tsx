@@ -7,8 +7,12 @@ import { toast } from 'sonner';
 import { Clipboard, Download, FileEdit, Save, FileCode, RefreshCw, AlertCircle, FileDown } from 'lucide-react';
 import { useAIService } from '@/hooks/useAIService';
 import { cleanLatexResponse } from '@/lib/latexUtils';
-import { compileLatexToPdf, downloadPdf, LatexCompileError } from '@/lib/latexCompiler';
+import { compileLatexToPdf, downloadPdf, LatexCompileError, PDF_COMPILE_TOKEN_COST, getResumePdfFilename } from '@/lib/latexCompiler';
 import { PdfPreviewDialog } from './PdfPreviewDialog';
+import { useTokens } from '@/lib/tokenContext';
+import { useAuth } from '@/lib/authContext';
+import { getUserData } from '@/lib/firebaseWeb';
+import type { ResumeProfile } from '@/types/resumeProfile';
 
 interface ResumeLaTeXGeneratorProps {
   generatedPrompt: string;
@@ -32,7 +36,18 @@ export function ResumeLaTeXGenerator({
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [isCompiling, setIsCompiling] = useState(false);
   const [compileError, setCompileError] = useState<string | null>(null);
+  const [resumeProfile, setResumeProfile] = useState<Partial<ResumeProfile>>({});
   const { generateResumeLatex, hasAvailableProviders } = useAIService();
+  const { deductTokens, isAdmin } = useTokens();
+  const { currentUser } = useAuth();
+
+  // Load profile for filename generation
+  useEffect(() => {
+    if (!currentUser) return;
+    void getUserData(currentUser.uid, 'resumeProfile').then(data => {
+      if (data) setResumeProfile(data as ResumeProfile);
+    });
+  }, [currentUser]);
 
   // Mirror generation state to the parent (covers both success and failure,
   // since `isGenerating` is always cleared in the `finally` of generateLatex).
@@ -133,6 +148,12 @@ const downloadAsTex = () => {
   }
 };
 
+const pdfFilename = getResumePdfFilename({
+  firstName: resumeProfile.firstName,
+  lastName: resumeProfile.lastName,
+  position: resumeProfile.targetRoles?.[0],
+});
+
 const compileAndPreview = async () => {
   if (!generatedLatex) return;
   const cleaned = cleanLatexResponse(generatedLatex);
@@ -143,6 +164,7 @@ const compileAndPreview = async () => {
   try {
     const blob = await compileLatexToPdf(cleaned);
     setPdfBlob(blob);
+    if (!isAdmin) void deductTokens(PDF_COMPILE_TOKEN_COST);
   } catch (err) {
     const log = err instanceof LatexCompileError ? err.log : String(err);
     setCompileError(log);
@@ -154,7 +176,7 @@ const compileAndPreview = async () => {
 
 const handleDownloadPdf = async () => {
   if (pdfBlob) {
-    downloadPdf(pdfBlob);
+    downloadPdf(pdfBlob, pdfFilename);
     toast.success('PDF downloaded!');
     return;
   }
@@ -164,7 +186,8 @@ const handleDownloadPdf = async () => {
   try {
     const blob = await compileLatexToPdf(cleaned);
     setPdfBlob(blob);
-    downloadPdf(blob);
+    downloadPdf(blob, pdfFilename);
+    if (!isAdmin) void deductTokens(PDF_COMPILE_TOKEN_COST);
     toast.success('PDF downloaded!');
   } catch {
     toast.error('PDF compilation failed. Try "Open in Overleaf" instead.');

@@ -1,0 +1,55 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    function isAdminEmail() {
+      return request.auth.token.email == 'srhari615@gmail.com';
+    }
+
+    function isAdminDoc() {
+      return isSignedIn() && (
+        get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.get('isAdmin', false) == true
+      );
+    }
+
+    // ── userProfiles ──────────────────────────────────────────────────────────
+    match /userProfiles/{uid} {
+      // Any signed-in user can read their own profile
+      allow read: if isSignedIn() && (isOwner(uid) || isAdminEmail() || isAdminDoc());
+
+      // Users can create their own profile doc on first login
+      allow create: if isSignedIn() && isOwner(uid) && request.resource.data.uid == uid;
+
+      // Only admins (by email whitelist or isAdmin flag) can update profiles
+      allow update: if isSignedIn() && (isAdminEmail() || isAdminDoc());
+
+      allow delete: if false;
+    }
+
+    // ── users/{uid}/... (per-user data) ───────────────────────────────────────
+    match /users/{uid}/{document=**} {
+      allow read, write: if isSignedIn() && isOwner(uid);
+    }
+
+    // ── tokenRequests ─────────────────────────────────────────────────────────
+    match /tokenRequests/{requestId} {
+      // Users can create their own requests and read their own
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow read: if isSignedIn() && (
+        resource.data.uid == request.auth.uid || isAdminEmail() || isAdminDoc()
+      );
+      // Only admins can update (approve/reject)
+      allow update: if isSignedIn() && (isAdminEmail() || isAdminDoc());
+      allow delete: if false;
+    }
+  }
+}

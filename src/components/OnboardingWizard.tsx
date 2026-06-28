@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { generateLatexResume } from '@/lib/resumeGenerator';
 import { Progress } from './ui/progress';
 import { Button } from './ui/button';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, Loader2 } from 'lucide-react';
 import { useOnboarding } from '@/lib/onboardingContext';
 import { useAIProvider } from '@/lib/aiProviderContext';
 import { useAuth } from '@/lib/authContext';
@@ -11,6 +11,8 @@ import { toast } from 'sonner';
 import type { ResumeProfile } from '@/types/resumeProfile';
 import { defaultProfile } from '@/lib/onboardingDefaults';
 import { AutofillBadge } from './onboarding/shared';
+import { compileLatexToPdf, downloadPdf, LatexCompileError, getResumePdfFilename } from '@/lib/latexCompiler';
+import { PdfPreviewDialog } from './PdfPreviewDialog';
 import { ResumeUploadStep } from './onboarding/steps/ResumeUploadStep';
 import { WelcomeStep } from './onboarding/steps/WelcomeStep';
 import { PersonalInfoStep } from './onboarding/steps/PersonalInfoStep';
@@ -55,9 +57,13 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   );
   const [skippedSteps, setSkippedSteps] = useState<Set<number>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedLatex, setGeneratedLatex] = useState<string | null>(null);
+  const [_generatedLatex, setGeneratedLatex] = useState<string | null>(null);
   const [wasAutofilled, setWasAutofilled] = useState(false);
   const [reviewJump, setReviewJump] = useState(false);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [isPdfOpen, setIsPdfOpen] = useState(false);
+  const [isCompiling, setIsCompiling] = useState(false);
+  const [compileError, setCompileError] = useState<string | null>(null);
 
   useEffect(() => {
     setStep((initialStep ?? 0) > 0 ? initialStep : -1);
@@ -157,10 +163,24 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       }
 
       sessionStorage.setItem('generatedLatex', latex);
-
       completeOnboarding();
       onComplete?.();
-      window.location.href = '/resume';
+
+      // Compile to PDF and show preview; fall back to redirect on failure
+      setPdfBlob(null);
+      setCompileError(null);
+      setIsCompiling(true);
+      setIsPdfOpen(true);
+      try {
+        const blob = await compileLatexToPdf(latex);
+        setPdfBlob(blob);
+      } catch (compileErr) {
+        const log = compileErr instanceof LatexCompileError ? compileErr.log : String(compileErr);
+        setCompileError(log);
+        toast.error('PDF preview unavailable — you can still download the .tex file on the resume page.');
+      } finally {
+        setIsCompiling(false);
+      }
     } catch (err) {
       console.error(err);
       toast.error('Resume generation failed. Please try again.');
@@ -357,12 +377,31 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           </div>
         )}
 
-        {generatedLatex && (
-          <div className="mt-6 p-4 bg-muted rounded-lg text-center space-y-2">
-            <p className="text-sm font-medium">Resume generated! Redirecting...</p>
+        {isGenerating && (
+          <div className="mt-6 p-4 bg-muted rounded-lg text-center flex items-center justify-center gap-3">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <p className="text-sm font-medium">Generating your resume…</p>
           </div>
         )}
       </div>
+
+      <PdfPreviewDialog
+        open={isPdfOpen}
+        onOpenChange={(open) => {
+          setIsPdfOpen(open);
+          if (!open) window.location.href = '/resume';
+        }}
+        pdfBlob={pdfBlob}
+        isCompiling={isCompiling}
+        compileError={compileError}
+        onDownload={() => {
+          if (pdfBlob) downloadPdf(pdfBlob, getResumePdfFilename({
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            position: profile.targetRoles?.[0],
+          }));
+        }}
+      />
     </div>
   );
 }

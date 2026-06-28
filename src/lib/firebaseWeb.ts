@@ -14,7 +14,7 @@ import {
   sendPasswordResetEmail
 } from "firebase/auth";
 import type { User } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, collection, getDocs, updateDoc, increment, query, orderBy } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, updateDoc, increment, query, orderBy, addDoc, where } from "firebase/firestore";
 import type { ResumeProfile } from "@/types/resumeProfile";
 import { computeMissingDefaults, RESUME_PROFILE_DEFAULTS } from "./profileSeeding";
 
@@ -236,25 +236,30 @@ export const initUserProfile = async (
     return;
   }
   if (!snap.exists()) {
-    await setDoc(profileRef, {
-      uid,
-      email,
-      displayName: displayName || email.split('@')[0],
-      plan: 'free',
-      tokensAllocated: FREE_TOKENS,
-      tokensUsed: 0,
-      tokensRemaining: FREE_TOKENS,
-      isAdmin: false,
-      createdAt: Date.now(),
-      lastActiveAt: Date.now(),
-    });
+    try {
+      await setDoc(profileRef, {
+        uid,
+        email,
+        displayName: displayName || email.split('@')[0],
+        plan: 'free',
+        tokensAllocated: FREE_TOKENS,
+        tokensUsed: 0,
+        tokensRemaining: FREE_TOKENS,
+        isAdmin: false,
+        createdAt: Date.now(),
+        lastActiveAt: Date.now(),
+      });
+    } catch (error) {
+      console.error('[auth] userProfiles create denied — check Firestore rules allow create for own uid', error);
+      return;
+    }
   } else {
     try {
-      const existing = snap.data();
-      const patch = computeMissingDefaults<UserProfile>(existing as Partial<UserProfile>, {
+      const existing = snap.data() as Partial<UserProfile>;
+      const patch = computeMissingDefaults<UserProfile>(existing, {
         uid,
-        email: email || (existing.email as string),
-        displayName: displayName || (existing.displayName as string) || email.split('@')[0],
+        email: email || (existing.email ?? ''),
+        displayName: displayName || existing.displayName || email.split('@')[0],
         plan: 'free',
         tokensAllocated: FREE_TOKENS,
         tokensUsed: 0,
@@ -362,4 +367,82 @@ export const adminUpdateUserTokens = async (
     plan,
     isAdmin: plan === 'admin',
   });
+};
+
+// --- Token Requests ---
+
+export interface TokenRequest {
+  id?: string;
+  uid: string;
+  email: string;
+  displayName: string;
+  requestedTokens: number;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: number;
+  resolvedAt?: number;
+  resolvedBy?: string;
+}
+
+export const createTokenRequest = async (
+  uid: string,
+  email: string,
+  displayName: string,
+  requestedTokens: number,
+  reason: string
+): Promise<void> => {
+  await addDoc(collection(db, 'tokenRequests'), {
+    uid,
+    email,
+    displayName,
+    requestedTokens,
+    reason,
+    status: 'pending',
+    createdAt: Date.now(),
+  } satisfies Omit<TokenRequest, 'id'>);
+};
+
+export const getTokenRequests = async (statusFilter?: 'pending' | 'approved' | 'rejected'): Promise<TokenRequest[]> => {
+  const col = collection(db, 'tokenRequests');
+  const q = statusFilter
+    ? query(col, where('status', '==', statusFilter), orderBy('createdAt', 'desc'))
+    : query(col, orderBy('createdAt', 'desc'));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as TokenRequest));
+};
+
+export const resolveTokenRequest = async (
+  requestId: string,
+  approved: boolean,
+  tokensToAdd: number,
+  resolvedByEmail: string
+): Promise<void> => {
+  const reqRef = doc(db, 'tokenRequests', requestId);
+  const reqSnap = await getDoc(reqRef);
+  if (!reqSnap.exists()) return;
+  const req = reqSnap.data() as TokenRequest;
+
+  await updateDoc(reqRef, {
+    status: approved ? 'approved' : 'rejected',
+    resolvedAt: Date.now(),
+    resolvedBy: resolvedByEmail,
+  });
+
+  if (approved && tokensToAdd > 0) {
+    const profileRef = doc(db, 'userProfiles', req.uid);
+    await updateDoc(profileRef, {
+      tokensAllocated: increment(tokensToAdd),
+      tokensRemaining: increment(tokensToAdd),
+    });
+  }
+};
+
+// --- Profile update (display fields only) ---
+
+export const updateUserDisplayProfile = async (
+  uid: string,
+  fields: { displayName?: string }
+): Promise<void> => {
+  const profileRef = doc(db, 'userProfiles', uid);
+  await updateDoc(profileRef, { ...fields, lastActiveAt: Date.now() });
 };

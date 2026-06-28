@@ -5,7 +5,7 @@ import { Button } from "./ui/button";
 import { ModeToggle } from "./mode-toggle";
 import { useTheme } from "./theme-provider";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutList, ShieldCheck, FileText, Target, BarChart3, LogOut, User } from "lucide-react";
+import { LayoutList, ShieldCheck, FileText, Target, BarChart3, LogOut, User, UserCircle, Zap } from "lucide-react";
 import { TokenBadge } from "./TokenBadge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import {
@@ -16,6 +16,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import { useState } from "react";
+import { RequestTokensDialog } from "./RequestTokensDialog";
 
 const NavIcon = ({ to, icon: Icon, label, active }: {
   to: string;
@@ -41,11 +43,13 @@ const NavIcon = ({ to, icon: Icon, label, active }: {
 
 export const WebHeader = () => {
   const { currentUser, logout } = useAuth();
-  const { isAdmin } = useTokens();
+  const { isAdmin, tokensRemaining } = useTokens();
+  const isAllowed = isAdmin || currentUser?.email === 'srhari615@gmail.com';
   const { hasCompletedOnboarding } = useOnboarding();
   const { theme } = useTheme();
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const [tokenDialogOpen, setTokenDialogOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -57,6 +61,7 @@ export const WebHeader = () => {
   };
 
   return (
+    <>
     <header className="web-header">
       <div className="container flex justify-between items-center">
         <div className="flex gap-0 flex-col">
@@ -89,7 +94,7 @@ export const WebHeader = () => {
                   </>
                 )}
 
-                {isAdmin && (
+                {isAllowed && (
                   <NavIcon to="/admin" icon={ShieldCheck} label="Admin" active={pathname === '/admin'} />
                 )}
 
@@ -106,10 +111,21 @@ export const WebHeader = () => {
                     </TooltipTrigger>
                     <TooltipContent side="bottom">Account</TooltipContent>
                   </Tooltip>
-                  <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuContent align="end" className="w-52">
                     <DropdownMenuLabel className="text-xs font-normal text-muted-foreground truncate">
                       {currentUser.displayName || currentUser.email}
                     </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate('/profile')} className="gap-2">
+                      <UserCircle className="h-3.5 w-3.5" /> Edit Profile
+                    </DropdownMenuItem>
+                    {!isAllowed && (
+                      <DropdownMenuItem onClick={() => setTokenDialogOpen(true)} className="gap-2">
+                        <Zap className="h-3.5 w-3.5 text-yellow-500" />
+                        Request Tokens
+                        {tokensRemaining === 0 && <span className="ml-auto text-xs text-red-500 font-medium">0 left</span>}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout} className="gap-2 text-destructive focus:text-destructive">
                       <LogOut className="h-3.5 w-3.5" /> Log Out
@@ -122,5 +138,7 @@ export const WebHeader = () => {
         </TooltipProvider>
       </div>
     </header>
+    <RequestTokensDialog open={tokenDialogOpen} onOpenChange={setTokenDialogOpen} />
+    </>
   );
 };

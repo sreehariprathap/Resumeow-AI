@@ -10,6 +10,7 @@
  */
 import { useCallback } from 'react';
 import { useAIProvider } from '@/lib/aiProviderContext';
+import { useTokens } from '@/lib/tokenContext';
 import { toast } from 'sonner';
 import { cleanLatexResponse } from '@/lib/latexUtils';
 import { ensureKeySkillsSuggestion } from '@/lib/atsAnalysisUtils';
@@ -58,8 +59,34 @@ export interface JobFitResult {
   summary: string;
 }
 
-export function useAIService() {
+export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTokenCheck?: boolean }) {
   const { makeAICall, makeAICallWithModel, makeAICallWithThinking, deepseekApiKey, openRouterApiKey, geminiApiKey, selectedModel, isUserApiKeyEnabled } = useAIProvider();
+  const { assertSufficientBalance, deductTokens } = useTokens();
+
+  const checkTokens = useCallback(async () => {
+    if (opts?.skipTokenCheck) return;
+    try {
+      await assertSufficientBalance();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg === 'INSUFFICIENT_TOKENS') {
+        toast.error('You have no tokens left. Request more to continue using AI features.', {
+          action: opts?.onInsufficientTokens
+            ? { label: 'Request Tokens', onClick: opts.onInsufficientTokens }
+            : undefined,
+        });
+        throw err;
+      }
+      throw err;
+    }
+  }, [assertSufficientBalance, opts]);
+
+  // Deduct based on output character count: 1 token per 750 chars (min 1)
+  // Fire-and-forget — a deduction failure never blocks the caller
+  const bill = useCallback((outputChars: number) => {
+    if (opts?.skipTokenCheck) return;
+    void deductTokens(outputChars);
+  }, [deductTokens, opts]);
 
   const DEEPSEEK_WRITING_MODEL = 'deepseek-v4-pro';
   const DEEPSEEK_ANALYSIS_MODEL = 'deepseek-v4-flash';
@@ -96,24 +123,28 @@ export function useAIService() {
 
   // Enhanced makeAICall with better error handling
   const makeAICallWithRetry = useCallback(async (prompt: string): Promise<string> => {
+    await checkTokens();
     if (!hasAvailableProviders()) {
       const errorMessage = 'No AI providers available. Please configure API keys in Settings.';
       toast.error(errorMessage);
       throw new Error(errorMessage);
     }
     try {
-      return await makeAICall(prompt);
+      const response = await makeAICall(prompt);
+      bill(response.length);
+      return response;
     } catch (error) {
       handleAIError(error);
       throw error;
     }
-  }, [makeAICall, hasAvailableProviders]);
+  }, [makeAICall, hasAvailableProviders, checkTokens, bill]);
 
   // Writing tasks → deepseek-v4-pro; Analysis tasks → deepseek-v4-flash
   const truncatePrompt = (prompt: string, maxChars = 50000): string =>
     prompt.length > maxChars ? prompt.slice(0, maxChars) + '\n[Content truncated to fit API limits]' : prompt;
 
   const makeWritingCall = useCallback(async (prompt: string): Promise<string> => {
+    await checkTokens();
     prompt = truncatePrompt(prompt);
     if (!hasAvailableProviders()) {
       const errorMessage = 'No AI providers available. Please configure API keys in Settings.';
@@ -121,14 +152,17 @@ export function useAIService() {
       throw new Error(errorMessage);
     }
     try {
-      return await callForWriting(prompt);
+      const response = await callForWriting(prompt);
+      bill(response.length);
+      return response;
     } catch (error) {
       handleAIError(error);
       throw error;
     }
-  }, [callForWriting, hasAvailableProviders]);
+  }, [callForWriting, hasAvailableProviders, checkTokens, bill]);
 
   const makeAnalysisCall = useCallback(async (prompt: string): Promise<string> => {
+    await checkTokens();
     prompt = truncatePrompt(prompt);
     if (!hasAvailableProviders()) {
       const errorMessage = 'No AI providers available. Please configure API keys in Settings.';
@@ -136,15 +170,18 @@ export function useAIService() {
       throw new Error(errorMessage);
     }
     try {
-      return await callForAnalysis(prompt);
+      const response = await callForAnalysis(prompt);
+      bill(response.length);
+      return response;
     } catch (error) {
       handleAIError(error);
       throw error;
     }
-  }, [callForAnalysis, hasAvailableProviders]);
+  }, [callForAnalysis, hasAvailableProviders, checkTokens, bill]);
 
   // Generate LaTeX Resume — uses thinking mode (deepseek-v4-pro) for highest quality output
   const generateResumeLatex = useCallback(async (prompt: string): Promise<string> => {
+    await checkTokens();
     const enhancedPrompt = `
 ${prompt}
 
@@ -154,11 +191,12 @@ Do not include explanations, just return the LaTeX code.
 
     try {
       const response = await makeAICallWithThinking(truncatePrompt(enhancedPrompt));
-      
+
       if (!response) {
         throw new Error('No response received from AI service');
       }
 
+      bill(response.length);
       const cleanedLatex = cleanLatexResponse(response);
       toast.success('LaTeX resume generated successfully!');
       return cleanedLatex;
@@ -166,7 +204,7 @@ Do not include explanations, just return the LaTeX code.
       console.error('Error generating LaTeX resume:', error);
       throw error;
     }
-  }, [makeWritingCall]);
+  }, [makeWritingCall, makeAICallWithThinking, checkTokens, bill]);
 
   // Generate Cover Letter
   const generateCoverLetter = useCallback(async (prompt: string, isLatex: boolean = false): Promise<string> => {

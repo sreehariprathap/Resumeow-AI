@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/authContext';
 import { useTokens } from '@/lib/tokenContext';
-import { getAllUserProfiles, adminUpdateUserTokens, type UserProfile } from '@/lib/firebaseWeb';
+import { getAllUserProfiles, adminUpdateUserTokens, getTokenRequests, resolveTokenRequest, type UserProfile, type TokenRequest } from '@/lib/firebaseWeb';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Users, Zap, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Users, Zap, ArrowLeft, RefreshCw, AlertCircle } from 'lucide-react';
+import { log } from '@/lib/logger';
 
 export function AdminPage() {
   const { currentUser } = useAuth();
@@ -17,7 +18,12 @@ export function AdminPage() {
   const navigate = useNavigate();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ uid: string; tokens: string; plan: string } | null>(null);
+  const [tokenRequests, setTokenRequests] = useState<TokenRequest[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [grantAmounts, setGrantAmounts] = useState<Record<string, string>>({});
 
   const isAllowed = isAdmin || currentUser?.email === 'srhari615@gmail.com';
 
@@ -25,30 +31,74 @@ export function AdminPage() {
     if (!tokensLoading && !isAllowed) navigate('/', { replace: true });
   }, [isAllowed, tokensLoading, navigate]);
 
+  const fetchTokenRequests = async () => {
+    setRequestsLoading(true);
+    try {
+      const reqs = await getTokenRequests('pending');
+      setTokenRequests(reqs);
+      log.info('admin: token requests loaded', { count: reqs.length });
+    } catch (err) {
+      log.error('admin: getTokenRequests failed', { error: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setRequestsLoading(false);
+    }
+  };
+
+  const handleResolve = async (req: TokenRequest, approved: boolean) => {
+    if (!req.id) return;
+    const tokensToGrant = approved ? parseInt(grantAmounts[req.id] ?? String(req.requestedTokens), 10) : 0;
+    setResolvingId(req.id);
+    try {
+      await resolveTokenRequest(req.id, approved, tokensToGrant, currentUser?.email ?? '');
+      log.info('admin: token request resolved', { id: req.id, approved, tokensToGrant });
+      toast.success(approved ? `Granted ${tokensToGrant} tokens to ${req.displayName}` : `Rejected request from ${req.displayName}`);
+      setTokenRequests(prev => prev.filter(r => r.id !== req.id));
+    } catch (err) {
+      log.error('admin: resolve failed', { id: req.id, error: err instanceof Error ? err.message : String(err) });
+      toast.error('Failed to resolve request');
+    } finally {
+      setResolvingId(null);
+    }
+  };
+
   const fetchUsers = async () => {
     setLoading(true);
+    setFetchError(null);
+    log.info('admin: fetching all user profiles', { uid: currentUser?.uid, email: currentUser?.email, isAdmin });
     try {
       const all = await getAllUserProfiles();
+      log.info('admin: loaded users', { count: all.length });
       setUsers(all);
-    } catch {
-      toast.error('Failed to load users');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log.error('admin: getAllUserProfiles failed', { error: msg, uid: currentUser?.uid });
+      setFetchError(msg);
+      toast.error('Failed to load users — see error below');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { if (isAllowed) void fetchUsers(); }, [isAllowed]);
+  useEffect(() => {
+    if (isAllowed) {
+      void fetchUsers();
+      void fetchTokenRequests();
+    }
+  }, [isAllowed]);
 
   const handleSave = async (uid: string) => {
     if (!editing || editing.uid !== uid) return;
     const tokens = parseInt(editing.tokens, 10);
     if (isNaN(tokens) || tokens < 0) { toast.error('Invalid token count'); return; }
+    log.info('admin: updating user tokens', { uid, tokens, plan: editing.plan });
     try {
       await adminUpdateUserTokens(uid, tokens, editing.plan as 'free' | 'pro' | 'admin');
+      log.info('admin: user updated', { uid });
       toast.success('User updated');
       setEditing(null);
       await fetchUsers();
-    } catch {
+    } catch (err) {
+      log.error('admin: update failed', { uid, error: err instanceof Error ? err.message : String(err) });
       toast.error('Update failed');
     }
   };
@@ -78,9 +128,14 @@ export function AdminPage() {
               <p className="text-sm text-muted-foreground">Manage users and token allocations</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={() => void fetchUsers()}>
-            <RefreshCw className="h-4 w-4 mr-2" /> Refresh
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => void fetchTokenRequests()}>
+              <Zap className="h-4 w-4 mr-2" /> Requests
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => { void fetchUsers(); void fetchTokenRequests(); }}>
+              <RefreshCw className="h-4 w-4 mr-2" /> Refresh
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4">
@@ -103,6 +158,85 @@ export function AdminPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Token requests */}
+        {(tokenRequests.length > 0 || requestsLoading) && (
+          <Card className="border-yellow-500/30 bg-yellow-500/5">
+            <CardHeader>
+              <div className="font-semibold flex items-center gap-2">
+                <Zap className="h-4 w-4 text-yellow-500" />
+                Pending Token Requests ({tokenRequests.length})
+              </div>
+            </CardHeader>
+            <CardContent>
+              {requestsLoading ? (
+                <div className="flex justify-center py-4"><RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+              ) : (
+                <div className="space-y-3">
+                  {tokenRequests.map(req => (
+                    <div key={req.id} className="flex items-start justify-between gap-4 p-3 rounded-md bg-background border">
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="font-medium text-sm">{req.displayName}</div>
+                        <div className="text-xs text-muted-foreground">{req.email}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Requested <span className="font-medium text-foreground">{req.requestedTokens} tokens</span> · {new Date(req.createdAt).toLocaleDateString()}
+                        </div>
+                        <div className="text-xs italic text-muted-foreground">"{req.reason}"</div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={1000}
+                          className="h-7 w-20 text-xs font-mono"
+                          value={grantAmounts[req.id!] ?? String(req.requestedTokens)}
+                          onChange={e => setGrantAmounts(prev => ({ ...prev, [req.id!]: e.target.value }))}
+                        />
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={resolvingId === req.id}
+                          onClick={() => void handleResolve(req, true)}
+                        >
+                          {resolvingId === req.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Approve'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs text-destructive hover:text-destructive"
+                          disabled={resolvingId === req.id}
+                          onClick={() => void handleResolve(req, false)}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {fetchError && (
+          <Card className="border-destructive/50 bg-destructive/5">
+            <CardContent className="pt-4 space-y-2">
+              <div className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span className="text-sm font-medium">Failed to load users</span>
+              </div>
+              <p className="text-xs text-muted-foreground font-mono break-all">{fetchError}</p>
+              <p className="text-xs text-muted-foreground">
+                This is likely a Firestore permissions error. To fix: open{' '}
+                <strong>Firebase Console → Firestore → userProfiles → {currentUser?.uid}</strong>{' '}
+                and set <code className="bg-muted px-1 rounded">isAdmin: true</code> on your profile document.
+              </p>
+              <Button size="sm" variant="outline" onClick={() => void fetchUsers()}>
+                <RefreshCw className="h-3 w-3 mr-1" /> Retry
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

@@ -12,6 +12,7 @@ import {
 } from "./firebaseWeb";
 import type { User } from "firebase/auth";
 import { toast } from "sonner";
+import { log } from "./logger";
 
 interface AuthContextType {
   currentUser: User | null;
@@ -83,13 +84,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {  const 
       setCurrentUser(user);
       setIsLoading(false);
       if (user) {
+        log.info('auth: state changed — user signed in', { uid: user.uid, email: user.email, displayName: user.displayName });
         void getUserProfile(user.uid)
           .then((profile) => {
-            console.log('[auth] user logged in', { user, profile });
+            log.info('auth: profile loaded', { uid: user.uid, email: user.email, isAdmin: profile?.isAdmin, plan: profile?.plan, tokensRemaining: profile?.tokensRemaining });
           })
-          .catch((err) => {
-            console.warn('[auth] could not fetch profile on login', err);
+          .catch((err: unknown) => {
+            log.warn('auth: could not fetch profile on login', { uid: user.uid, error: err instanceof Error ? err.message : String(err) });
           });
+      } else {
+        log.info('auth: state changed — user signed out');
       }
     });
 
@@ -115,9 +119,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {  const 
   const resetPassword = async (email: string) => {
     await sendPasswordReset(email);
   };  const logout = async () => {
-    // Only remove non-user-namespaced keys (auth state, theme etc.)
-    // User data stays under user_${uid}_* keys — safe per-user, restored from Firebase on next login
-    // Clearing everything here kills pending Firebase saves and recovery backups
+    log.info('auth: logout initiated', { uid: currentUser?.uid, email: currentUser?.email });
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -128,6 +130,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {  const 
     keysToRemove.forEach(k => localStorage.removeItem(k));
 
     await logOut();
+    log.info('auth: logout complete');
   };
 
   const value = {

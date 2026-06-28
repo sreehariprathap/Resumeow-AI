@@ -20,6 +20,7 @@ import { JDMatcherPage } from './pages/JDMatcherPage.tsx'
 import { ResumeScoringPage } from './pages/ResumeScoringPage.tsx'
 import { LazyModePage } from './pages/LazyModePage.tsx'
 import { LazyModeSettingsModal } from './components/LazyModeSettingsModal.tsx'
+import { ProfilePage } from './pages/ProfilePage.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -40,6 +41,7 @@ createRoot(document.getElementById('root')!).render(
                         <Route path="/jd-matcher" element={<JDMatcherPage />} />
                         <Route path="/resume-score" element={<ResumeScoringPage />} />
                         <Route path="/lazy" element={<LazyModePage />} />
+                        <Route path="/profile" element={<ProfilePage />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
                       </Routes>
                     </AuthWrapper>
