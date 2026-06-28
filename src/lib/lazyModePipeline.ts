@@ -106,7 +106,8 @@ export const runLazyModePipeline = async (
   jobDescription: string,
   resumeProfile: ResumeProfile,
   settings: LazyModeSettings,
-  makeAICall: (prompt: string) => Promise<string>,
+  makeAICallForJD: (prompt: string) => Promise<string>,
+  makeAICallForLatex: (prompt: string) => Promise<string>,
   callbacks: PipelineCallbacks
 ): Promise<PipelineResult> => {
   // Step 1: Analyze JD
@@ -146,7 +147,7 @@ Analyze the match and respond with ONLY valid JSON in this exact structure:
 
   let jdAnalysis: JDMatchResult;
   try {
-    const raw = await makeAICall(analysisPrompt);
+    const raw = await makeAICallForJD(analysisPrompt);
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('Invalid AI response');
     jdAnalysis = JSON.parse(jsonMatch[0]) as JDMatchResult;
@@ -176,7 +177,7 @@ Analyze the match and respond with ONLY valid JSON in this exact structure:
   const enhancedProfile = applyTailoredBullets(resumeProfile, jdAnalysis.tailoredBullets ?? []);
   let latex: string;
   try {
-    latex = await generateLatexResume(enhancedProfile, makeAICall);
+    latex = await generateLatexResume(enhancedProfile, makeAICallForLatex);
   } catch (err) {
     callbacks.onError('generate-latex', err instanceof Error ? err.message : 'Generation failed');
     throw err;

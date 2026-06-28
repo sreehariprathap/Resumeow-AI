@@ -4,7 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { useAIProvider } from '@/lib/aiProviderContext';
+import { useAIService } from '@/hooks/useAIService';
 import { useAuth } from '@/lib/authContext';
 import { useTokens } from '@/lib/tokenContext';
 import { useLazyMode } from '@/lib/lazyModeContext';
@@ -24,7 +24,7 @@ import type { ResumeProfile } from '@/types/resumeProfile';
 type PageState = 'input' | 'running' | 'review' | 'done';
 
 export function LazyModePage() {
-  const { makeAICall } = useAIProvider();
+  const { callForTask } = useAIService();
   const { currentUser } = useAuth();
   const { tokensRemaining } = useTokens();
   const { settings, openSettings } = useLazyMode();
@@ -73,7 +73,8 @@ export function LazyModePage() {
         jdText,
         profile,
         settings,
-        makeAICall,
+        (prompt) => callForTask('lazyPipelineJD', prompt),
+        (prompt) => callForTask('lazyPipelineLatex', prompt),
         {
           onStepStart: (id) => updateStep(id, 'running'),
           onStepComplete: (id) => updateStep(id, 'done'),
