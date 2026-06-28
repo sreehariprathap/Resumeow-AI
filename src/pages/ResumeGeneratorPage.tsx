@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Copy,
   Download,
@@ -10,12 +12,16 @@ import {
   Loader2,
   Pencil,
   FileText,
+  Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAIProvider } from '@/lib/aiProviderContext';
 import { useAuth } from '@/lib/authContext';
-import { getUserData } from '@/lib/firebaseWeb';
+import { getUserData, saveUserData } from '@/lib/firebaseWeb';
 import { generateLatexResume } from '@/lib/resumeGenerator';
+import { extractTextFromFile, parseResumeWithAI, mapParsedToProfile } from '@/lib/resumeParser';
+import { RESUME_TEMPLATES, fetchTemplateTex } from '@/lib/templateRegistry';
+import { ResumeDropzone } from '@/components/ResumeDropzone';
 import type { ResumeProfile } from '@/types/resumeProfile';
 import { useOnboarding } from '@/lib/onboardingContext';
 
@@ -28,6 +34,19 @@ export function ResumeGeneratorPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [profile, setProfile] = useState<ResumeProfile | null>(null);
+
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSummary, setUploadSummary] = useState<{
+    experiences: number;
+    education: number;
+    skills: number;
+  } | null>(null);
+
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
+    () => sessionStorage.getItem('selectedTemplateId') ?? RESUME_TEMPLATES[0].id
+  );
 
   useEffect(() => {
     const stored = sessionStorage.getItem('generatedLatex');
@@ -77,9 +96,12 @@ export function ResumeGeneratorPage() {
     }
     setIsRegenerating(true);
     try {
-      const newLatex = await generateLatexResume(profile, makeAICall);
+      const template = RESUME_TEMPLATES.find((t) => t.id === selectedTemplateId);
+      const templateTex = template ? await fetchTemplateTex(template.texUrl) : undefined;
+      const newLatex = await generateLatexResume(profile, makeAICall, templateTex);
       setLatex(newLatex);
       sessionStorage.setItem('generatedLatex', newLatex);
+      sessionStorage.setItem('selectedTemplateId', selectedTemplateId);
       toast.success('Resume regenerated!');
     } catch {
       toast.error('Regeneration failed. Check your AI settings.');
@@ -88,10 +110,43 @@ export function ResumeGeneratorPage() {
     }
   };
 
+  const handleUploadFile = async (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('File too large. Use a file under 5MB.');
+      return;
+    }
+    setIsUploading(true);
+    setUploadError(null);
+    setUploadSummary(null);
+    try {
+      const text = await extractTextFromFile(file);
+      const parsedData = await parseResumeWithAI(text, makeAICall);
+      const mapped = mapParsedToProfile(parsedData);
+      setUploadSummary({
+        experiences: parsedData.experiences.length,
+        education: parsedData.education.length,
+        skills: parsedData.skills.length,
+      });
+      const updated = { ...(profile ?? {}), ...mapped } as ResumeProfile;
+      setProfile(updated);
+      if (currentUser) {
+        await saveUserData(currentUser.uid, 'resumeProfile', updated as Record<string, unknown>);
+      }
+      toast.success('Resume parsed — click Continue to close, then Regenerate to rebuild.');
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Parsing failed.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleEditProfile = () => {
     startOnboarding();
     window.location.href = '/';
   };
+
+  const selectedTemplateName =
+    RESUME_TEMPLATES.find((t) => t.id === selectedTemplateId)?.label ?? 'Template';
 
   if (isLoading) {
     return (
@@ -134,7 +189,7 @@ export function ResumeGeneratorPage() {
             </p>
           )}
         </div>
-        <Badge variant="secondary" className="text-xs">LaTeX / Jake's Resume Template</Badge>
+        <Badge variant="secondary" className="text-xs">{selectedTemplateName} Template</Badge>
       </div>
 
       {/* Action buttons */}
@@ -152,6 +207,19 @@ export function ResumeGeneratorPage() {
         >
           <ExternalLink className="h-4 w-4" /> Compile on Overleaf
         </Button>
+
+        {/* Template selector */}
+        <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+          <SelectTrigger className="w-36 h-9 text-sm gap-1">
+            <SelectValue placeholder="Template" />
+          </SelectTrigger>
+          <SelectContent>
+            {RESUME_TEMPLATES.map((t) => (
+              <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <Button
           variant="outline"
           onClick={handleRegenerate}
@@ -165,10 +233,38 @@ export function ResumeGeneratorPage() {
           )}
           Regenerate
         </Button>
+
+        {/* Upload resume */}
+        <Button variant="outline" onClick={() => setUploadOpen(true)} className="gap-2">
+          <Upload className="h-4 w-4" /> Upload Resume
+        </Button>
+
         <Button variant="ghost" onClick={handleEditProfile} className="gap-2">
           <Pencil className="h-4 w-4" /> Edit Profile
         </Button>
       </div>
+
+      {/* Upload dialog */}
+      <Dialog open={uploadOpen} onOpenChange={(open) => {
+        setUploadOpen(open);
+        if (!open) {
+          setUploadSummary(null);
+          setUploadError(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Upload Resume</DialogTitle>
+          </DialogHeader>
+          <ResumeDropzone
+            onFile={handleUploadFile}
+            isLoading={isUploading}
+            parsedSummary={uploadSummary}
+            error={uploadError}
+            onContinue={() => setUploadOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Overleaf instructions */}
       <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
