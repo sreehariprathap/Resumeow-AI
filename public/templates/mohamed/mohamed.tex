@@ -1,0 +1,243 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Deedy - One Page Two Column Resume
+% LaTeX Template
+% Version 1.1 (30/4/2014)
+%
+% Original author:
+% Debarghya Das (http://debarghyadas.com)
+%
+% Original repository:
+% https://github.com/deedydas/Deedy-Resume
+%
+% IMPORTANT: THIS TEMPLATE NEEDS TO BE COMPILED WITH XeLaTeX
+%
+% This template uses several fonts not included with Windows/Linux by
+% default. If you get compilation errors saying a font is missing, find the line
+% on which the font is used and either change it to a font included with your
+% operating system or comment the line out to use the default font.
+% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 
+% TODO:
+% 1. Integrate biber/bibtex for article citation under publications.
+% 2. Figure out a smoother way for the document to flow onto the next page.
+% 3. Add styling information for a "Projects/Hacks" section.
+% 4. Add location/address information
+% 5. Merge OpenFont and MacFonts as a single sty with options.
+% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% CHANGELOG:
+% v1.1:
+% 1. Fixed several compilation bugs with \renewcommand
+% 2. Got Open-source fonts (Windows/Linux support)
+% 3. Added Last Updated
+% 4. Move Title styling into .sty
+% 5. Commented .sty file.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Known Issues:
+% 1. Overflows onto second page if any column's contents are more than the
+% vertical limit
+% 2. Hacky space on the first bullet point on the second column.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[]{deedy-resume-openfont}
+
+
+\begin{document}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%     LAST UPDATED DATE
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\lastupdated
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%     TITLE NAME
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\namesection{Mohamed}{Javid}{ \urlstyle{same}\url{http://mohamedjavid.webs.com} \\
+\href{mailto:smj.javid@hotmail.com}{smj.javid@hotmail.com} | +91-9787815969
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%     COLUMN ONE
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{minipage}[t]{0.33\textwidth} 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     OBJECTIVE
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Objective}
+learn the current state of the art in a creative and open environment, then identify the necessary process to expand on current knowledge, and prove the existence of the first cause.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     EDUCATION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Education} 
+
+\subsection{SRM University}
+\descript{M.Tech in Robotics}
+\location{Grad. May 2015 | Chennai, India \\ Cum. GPA: 7.29 / 10.0 }
+\sectionsep
+
+
+\subsection{ANNA University}
+\descript{B.E in Mechanical Engineering}
+\location{Grad. May 2013 | Tamil Nadu, India}
+\location{ Cum. GPA: 6.83 / 10.0}
+\sectionsep
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     LINKS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Links} 
+LinkedIn://  \href{https://www.linkedin.com/in/smj-javid}{\custombold{smj-javid}} \\
+Twitter://  \href{https://twitter.com/SMJ_JAVID}{\custombold{@smj\_javid}} \\
+Facebook://  \href{https://www.facebook.com/smj.javid}{\custombold{smj.javid}}
+\sectionsep
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     COURSEWORK
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Coursework}
+\subsection{PostGraduate}
+Kinematics and Dynamics of Robots \\
+Robot Programming \\
+Artificial Intelligence for Robotics \\
+Robot Vision \\
+Robotic Sensors \\
+\sectionsep
+
+\subsection{Undergraduate}
+Engineering Graphics \\
+Engineering Mechanics \\
+Kinematics and Dynamics of Machinery \\
+Manufacturing Technology \\
+Engineering Thermodynamics \\
+Finite Element Analysis \\
+Automobile and Power plant Engineering \\
+\sectionsep
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     SKILLS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Skills}
+\subsection{Programming}
+PLC \textbullet{} Ladder Diagram \textbullet{} Matlab \\
+FBD \textbullet{} C \textbullet{} C++ \textbullet{} Python \textbullet{} Embedded C
+\sectionsep
+
+\subsection{Software}
+KUKA Sim LAYOUT \textbullet{} Solidworks \textbullet{} DCS \\
+AutoCAD \textbullet{} SCADA \textbullet{} PAC \textbullet{} HMI \textbullet{} VFD
+\sectionsep
+
+\subsection{Language}
+Tamil \textbullet{} Urdu \textbullet{} English \textbullet{} German \\
+Japanese
+\sectionsep
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%     COLUMN TWO
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\end{minipage} 
+\hfill
+\begin{minipage}[t]{0.66\textwidth} 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     EXPERIENCE
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Experience}
+
+\runsubsection{REDD Robotics}
+\descript{| Associate Engineer, Research and Development }
+\location{Nov 2015 – Present | Chennai, India}
+\vspace{\topsep} % Hacky fix for awkward extra vertical space
+\begin{tightemize}
+\item Design, Fabrication, Assembly, and Testing of 3D Printers.
+\end{tightemize}
+\sectionsep
+
+\runsubsection{REDD Robotics}
+\descript{| Engineering Intern }
+\location{Aug 2015 – Oct 2015 | Chennai, India}
+\begin{tightemize}
+\item 3D Printer Designer. 
+\end{tightemize}
+\sectionsep
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     PROJECTS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Projects}
+\subsection{Chocolate 3D Printer }
+\location{Jun 2016 – Jul 2016 | REDD Robotics, Chennai, India}
+Based on the same principals of additive layer manufacturing and plastic printing the chocolate printer is designed to provide the best possible results when printing in chocolate.
+\sectionsep
+
+\subsection{BIO 3D Printer}
+\location{Mar 2016 – May 2016 | REDD Robotics, Chennai, India}
+Utilizes the layer-by-layer method to create tissue-like structures using bio inks.
+\sectionsep
+
+\subsection{DESIGN AND FABRICATION OF AN OUTDOOR QUADCOPTER}
+\location{Jun 2014 – May 2015 | SRM University, Chennai, India}
+An autonomous quadcopter is designed, fabricated and programmed to recognize, track and follow objects/human using vision based techniques. 
+\sectionsep
+
+\subsection{DESIGN AND IMPLEMENTATION OF DEBURRING TOOL AND HOLDER}
+\location{Jan 2013 – May 2013 | Anna University, Tamil Nadu, India}
+A tool is designed in half trapezoidal shape of 35 degree in angle and it is attached to the drilling machine holder to remove the burr’s that are formed during drilling process. 
+\sectionsep
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     TRAINING
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Training}
+\subsection{Post Graduate Diploma in Industrial Automation}
+\location{Technocrat Automation, Chennai, India}
+Hands on practical experience in Industrial Automation Tools specializing in PLC, DCS, SCADA and VFD.
+\sectionsep
+
+\subsection{Advanced Robot Programming in KUKA Robots}
+\location{AKGEC-KUKA Robotics, Ghaziabad, U.P, India}
+Structured programming, Variables and declarations, Subprograms and functions, Data manipulation, Program execution control, Automatic external functions 
+\sectionsep
+
+\subsection{Basic Robot Programming in KUKA Robots}
+\location{AKGEC-KUKA Robotics, Ghaziabad, U.P, India}
+Offline Programming, Online Programming, Robot mastering and Tool calibration
+\sectionsep
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%     PUBLICATION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Publication} 
+\subsection{Design And Fabrication Of An Outdoor Quadcopter}
+International Journal of Applied Engineering Research, ISSN 0973-4562 Volume 10, Number 8 (2015) pp. 20703-20713
+\sectionsep
+
+\end{minipage} 
+\end{document}  \documentclass[]{article}

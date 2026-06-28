@@ -1,0 +1,246 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Welcome to Overleaf --- just edit your LaTeX on the left,
+% and we'll compile it for you on the right. If you open the
+% 'Share' menu, you can invite other users to edit at the same
+% time. See www.overleaf.com/learn for more info. Enjoy!
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%-------------------------
+% Resume in LaTeX (Tailored for Full Stack Engineer)
+% Author : Sreehari Prathap
+% Based off of: https://github.com/sb2nov/resume
+% License : MIT
+%------------------------
+
+\documentclass[letterpaper,10pt]{article}
+
+% allow arbitrary font sizes
+\usepackage{anyfontsize}
+
+% core packages
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=false,
+  pdfborderstyle={/S/U/W 1},
+  pdfborder={0 0 1},
+  linkbordercolor={0 0 0},
+  urlbordercolor={0 0 0},
+  citebordercolor={0 0 0}
+}
+\usepackage{fancyhdr}
+\usepackage{tgtermes} % Times New Roman clone
+\input{glyphtounicode}
+
+% Global list spacing
+\setlist[itemize]{%
+  leftmargin=0pt,
+  label={},
+  topsep=6pt,
+  itemsep=4pt,
+  parsep=0pt
+}
+
+% Page setup
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+\urlstyle{same}
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+% Name / Header: 20pt
+\newcommand{\resumename}[2]{%
+  \begin{center}
+    {\fontsize{20}{24}\bfseries #1} \\[4pt]
+    {\fontsize{12}{14}\bfseries #2}
+  \end{center}
+}
+% Section headings: 14pt
+\titleformat{\section}
+  {\fontsize{14}{16}\bfseries\raggedright}
+  {}{0pt}{}
+  [\color{black}\titlerule \vspace{-5pt}]
+
+% Subheadings (job title/company/dates): 12pt & 11pt
+\newcommand{\resumeSubheading}[4]{%
+  \item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      {\fontsize{12}{14}\bfseries #1} & {\fontsize{11}{13}\itshape #2} \\
+      {\fontsize{11}{13}\bfseries #3} & {\fontsize{11}{13}\itshape #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+% Captions / footnotes: 9pt
+\newcommand{\resumeCaption}[1]{{\fontsize{9}{11}\selectfont #1}}
+
+% Other custom commands
+\newcommand{\resumeItem}[1]{\item #1}
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeEduEntry}[4]{%
+  \item
+    \begin{tabular*}{0.97\textwidth}{@{}l@{\extracolsep{\fill}}r@{}}%
+      {\fontsize{12}{14}\bfseries #1} & {\fontsize{11}{13}\itshape #2} \\
+      {#3}                          & {\fontsize{11}{13}\itshape #4}   \\
+    \end{tabular*}
+  \vspace{-3pt}
+}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}}
+\newcommand{\resumeItemListBulletStart}{\begin{itemize}[leftmargin={1em},label=-]}
+\newcommand{\resumeItemListBulletEnd}{\end{itemize}}
+
+\begin{document}
+
+% Heading
+\resumename{Sreehari Prathap}{Software Development Engineer}
+
+\begin{center}
+  (548) 577-0621 $|$ 
+  \href{mailto:sreehariprathap1996@gmail.com}{sreehariprathap1996@gmail.com} $|$ 
+  Waterloo, ON, Canada \\
+  \href{https://linkedin.com/in/sreehari-prathap}{linkedin.com/in/sreehari-prathap} $|$ 
+  \href{https://github.com/sreehariprathap}{github.com/sreehariprathap} $|$ 
+  \href{https://sreehari.info}{sreehari.info}
+\end{center}
+
+% Professional Summary
+\section{Professional Summary}
+Software Development Engineer with 3+ years of experience in designing, developing, and maintaining applications, seeking a role to build next-generation networking services like PrivateLink and VPC Lattice. Skilled in API integration, containerized frameworks, and cloud services, with a strong focus on service performance, durability, cost, and security. Proven ability to work independently and collaboratively to deliver innovative software solutions within agile methodologies.
+
+% Experience
+\section{Experience}
+\resumeSubHeadingListStart
+  \resumeSubheading
+    {Equitable Life of Canada (Co-op)}{Waterloo, ON}
+    {Technology Specialist}{May 2024 -- Aug. 2024}
+    \vspace{6pt}
+    \resumeItemListBulletStart
+    \resumeItem{Built responsive components for the Advisor Digital Portal using Angular, Redux, .NET, and Material UI, optimizing user experiences for insurance advisors and supporting over \$1B in annual policy sales.}
+    \resumeItem{Streamlined AWS deployments and CI/CD pipelines, reducing release time by 40\% and enabling faster rollout of digital solutions for insurance products and services, ensuring high availability and secure digital account management by configuring multi-region cloud services and monitoring systems.}
+    \resumeItem{Automated batch processes and configured multi-region cloud services to ensure 99.99\% uptime and secure digital account management for 1,000+ insurance advisors.}
+    \resumeItem{Collaborated with cross-functional teams to deliver secure, compliant fintech and insurance solutions, contributing to a 29\% year-over-year increase in premiums and policy deposits.}
+    
+
+    \resumeItemListBulletEnd
+
+
+  \resumeSubheading
+    {Experion Technologies}{Kochi, India}
+    {Software Engineer}{Dec. 2021 -- July 2023}
+    \vspace{6pt}
+    \resumeItemListBulletStart
+   \resumeItem{Led feature delivery across mobility and travel platforms for clients like \textbf{Maserati, Stellantis, and Backroads}, using React JS, Next JS, Angular, React Native, HTML5 and CSS; improved delivery speed by 30\%, resulting in a 15\% reduction in project costs for Maserati through reusable component libraries and implemented cross-platform design patterns to streamline consistency.}
+  
+  \resumeItem{Developed and maintained scalable web-based applications, integrating secure API development and utilization using Node.js, Express.js, .Net, PostgreSQL and MongoDB with token-based auth; reduced client-server integration issues by 40\%.}
+
+  
+  \resumeItem{Integrated \textbf{SSO authentication} for secure access, collaborated cross-functionally with designers and QA to meet business needs, and contributed to agile sprint planning and cross-team reviews, following agile methodologies.}
+  
+\resumeItem{Deployed apps using containerized frameworks (Docker) on Azure Cloud with CI/CD pipelines, integrating static and dynamic code analysis tools\textbf{ }(SonarQube) into DevOps workflows for automated linting and quality checks; achieved 99.9\% uptime and reduced manual deployment efforts by 50\%.}
+
+  
+  \resumeItem{Mentored junior developers and interns on React JS, Angular, Node JS, .Net, API design, and Agile workflows; fostered a high-performance team culture through knowledge sharing and code walkthroughs.}
+    \resumeItemListBulletEnd
+    
+
+  \resumeSubheading
+    {Coderythm Technologies}{Kozhikode, India}
+    {Software Tester}{June 2020 -- Sep. 2021}
+    \vspace{6pt}
+    \resumeItemListBulletStart
+\resumeItem{Executed manual and automated test plans for RESTful APIs and frontend functionalities, ensuring application reliability.}
+\resumeItem{Wrote and verified unit tests for MERN stack applications using Jest and Mocha, improving code quality and test coverage.}
+\resumeItem{Developed, maintained, and tested web pages using WordPress and other CMS platforms, gaining practical experience in content management, site customization, and user-centric web development.}
+
+    \resumeItemListBulletEnd
+
+
+\resumeSubHeadingListEnd
+
+% Education
+\section{Education}
+\resumeSubHeadingListStart
+  \resumeEduEntry
+    {Conestoga College}{Waterloo, ON}
+    {\textbf{Diploma in Applied AI \& Machine Learning}, Distinction (3.68 CGPA)}{Sept. 2024 -- Apr. 2025}
+    \vspace{6pt}
+     \resumeItemListBulletStart
+    \resumeItem{Developed AI solutions using Python, TensorFlow, and PyTorch, focusing on Small Language Models (SLMs), Model Context Protocol (MCP), and Retrieval-Augmented Generation (RAG) techniques.}
+      \resumeItem{Integrated React-based web applications with Large Language Models (LLMs) such as OpenAI and Gemini, enabling real-time AI-powered user interactions and chat features.}
+    \resumeItem{Explored agentic AI systems and applied ethical AI practices, emphasizing fairness, data privacy, and compliance.}
+    \resumeItemListBulletEnd
+    
+  \resumeEduEntry
+    {Conestoga College}{Waterloo, ON}
+    {\textbf{Diploma in Computer Application Development}, High Distinction (3.93 CGPA)}{Sept. 2023 -- Aug. 2024}
+    \vspace{6pt}
+    \resumeItemListBulletStart
+    \resumeItem{Developed Progressive Web Apps (PWAs) and integrated voice search optimization to enhance user accessibility.}
+    \resumeItem{Built full-stack applications using .NET 8, Node.js, React 19, and React Native, emphasizing component-based architecture and state management with Redux Toolkit and Contect API.}
+    \resumeItem{Implemented CI/CD pipelines with GitHub Actions and Docker, ensuring secure and efficient deployments.}
+    \resumeItemListBulletEnd
+  \resumeEduEntry
+    {Dr. APJ Abdul Kalam Technological University}{Thrissur, India}
+    {\textbf{Bachelor of Technology in Electronics \& Communication Engineering }}{Aug. 2015 -- July 2019}
+    \vspace{6pt}
+     \resumeItemListBulletStart
+      \resumeItem{Finalist in Idea Day Hackathon; developed embedded systems using C/C++ and ARM Cortex-M microcontrollers.}
+      \resumeItem{Designed and simulated digital circuits using Verilog and Xilinx Vivado for FPGA-based applications.}
+      \resumeItem{Conducted research on signal processing techniques for wireless communication systems.}
+    \resumeItemListBulletEnd
+\resumeSubHeadingListEnd
+
+% Skills
+\section{Skills}
+\resumeItemListStart
+\resumeItem{\textbf{Frontend}: JavaScript (ES6+), TypeScript, React JS, Next JS, Angular, HTML5 and CSS, Responsive Design, Webpack, Tailwind CSS, Material UI, API integration (REST, GraphQL), Accessibility (WCAG, ARIA), Performance Optimization (lazy loading, memoization, code splitting)}
+\resumeItem{\textbf{Backend}: C\#, ASP.NET Core, Node.js, Express.js, RESTful APIs, Secure Coding, Performance Optimization}
+\resumeItem{\textbf{Cloud and DevOps}: AWS (App Services, Functions, DevOps), Docker, Kubernetes, OpenShift, Terraform, BitBucket, GitHub Actions}
+\resumeItem{\textbf{Testing and Quality}: xUnit, Jest, Selenium, Postman, Swagger, SonarQube}
+\resumeItem{\textbf{CMS}: WordPress, basic familiarity with Agility CMS and SharePoint Development}
+\resumeItem{\textbf{Tools and Platforms}: Visual Studio, VS Code, Git, Jira, Figma}
+\resumeItem{\textbf{Development Practices}: SDLC, Agile/Scrum, OOPS, Clean Code, Code Reviews, TDD, Design Patterns, SSO integration}
+\resumeItem{\textbf{Networking}: TCP/IP, DNS, HTTP, Subnetting, Routing, Firewalls, Wireshark}
+\resumeItem{\textbf{Soft Skills}: Collaboration, Communication, Problem Solving, Adaptability, Continuous Learning, Operational Excellence}
+
+\resumeItemListEnd
+
+
+% Projects
+\section{Projects}
+\resumeItemListStart
+  \resumeItem{\href{https://burnlog-green.vercel.app/}{\textbf{BurnLog}} (2025) -- Developed a fitness PWA with React JS, Next JS, Supabase, and Prisma; implemented reusable components, Authentication, and CI/CD via Vercel, focusing on service performance and durability.}
+  \resumeItem{\href{https://github.com/sreehariprathap/Lanify-AI/tree/develop}{\textbf{Lanify AI}} (2025) -- Built a Flask-based microservice for real-time lane detection using CNN with React JS and google maps API; containerized using Docker and integrated with monitoring tools (Grafana), addressing challenges related to scaling and reliability.}
+  \resumeItem{\href{https://fluffnest-sreehariprathap.vercel.app/}{\textbf{Fluffnest}} (2024) -- Designed and deployed an eCommerce application with Nuxt.js, TypeScript, Tailwind CSS, Stripe and i18; implemented secure checkout, multilingual Support, LLM and API integrations, improving cost efficiency through optimized resource utilization.}
+  \resumeItem{\href{https://resumeow-prompter.netlify.app/}{\textbf{Resumeow}} (2025) -- Developed an ATS-optimized resume builder using React JS, TypeScript, Tailwind CSS, Firebase and Google's Gemini AI; implemented job description analysis, keyword extraction, LaTeX generation, and real-time ATS score tracking, making my job application tailoring speed 5 times faster.}
+
+
+\resumeItemListEnd
+
+
+% Certifications
+\section{Certifications}
+\resumeItemListBulletStart
+  \resumeItem{Introduction to Containers, Kubernetes, and OpenShift, Docker Essentials, and Cloud Computing Certificates, IBM (2025)}
+  \resumeItem{GitHub Foundations Certificate, GitHub (2025)}
+  \resumeItem{Meta React and Front-End Developer Professional Certificate \& React Native Specialization (2024)}
+  \resumeItem{LinkedIn: Angular, Terraform, SQL, React, AI/ML Certifications (2023--2024)}
+  \resumeItem{Google UX Design Professional Certificate (2021)}
+\resumeItemListBulletEnd
+
+
+\end{document}
