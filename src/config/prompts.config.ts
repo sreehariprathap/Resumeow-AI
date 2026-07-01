@@ -180,9 +180,9 @@ ATS optimization, or resume integrity:
 \`\`\`
 `;
 
-export const coverLetterPromptRaw = \`# Good Cover Letter Prompt
+export const coverLetterPromptRaw = `# Good Cover Letter Prompt
 
-\\\`\\\`\\\`
+\`\`\`
 You are an expert career writer with 10+ years of experience crafting compelling, ATS-optimized cover letters that open doors at top employers across banking, financial services, technology, and professional services.
 
 Your task is to write a tailored, professional cover letter for the candidate based on the job description and resume provided.
@@ -480,5 +480,5 @@ OPTIONAL INSTRUCTIONS
 Apply any additional instructions provided below, provided they do not conflict with truthfulness, ATS optimization, or professional integrity:
 
 {OPTIONAL_INSTRUCTIONS}
-\\\`\\\`\\\`
-\`;
+\`\`\`
+`;
