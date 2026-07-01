@@ -6,9 +6,12 @@ import { CheckCircle, Loader2 } from 'lucide-react';
 import { useOnboarding } from '@/lib/onboardingContext';
 import { useAIService } from '@/hooks/useAIService';
 import { useAuth } from '@/lib/authContext';
-import { saveUserData } from '@/lib/firebaseWeb';
+import { saveUserData, getUserData } from '@/lib/firebaseWeb';
 import { toast } from 'sonner';
 import type { ResumeProfile } from '@/types/resumeProfile';
+import resumePromptRaw from '../../../prompts/good_resume_prompt.md?raw';
+import coverLetterPromptRaw from '../../../prompts/good_coverletter_prompt.md?raw';
+import { DOMAINS } from '@/data/domainRoles';
 import { defaultProfile } from '@/lib/onboardingDefaults';
 import { AutofillBadge } from './onboarding/shared';
 import { compileLatexToPdf, downloadPdf, LatexCompileError, getResumePdfFilename } from '@/lib/latexCompiler';
@@ -149,6 +152,63 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     window.scrollTo(0, 0);
   };
 
+  const injectDynamicPrompts = async (finalProfile: ResumeProfile) => {
+    if (!currentUser) return;
+    
+    // Resolve human-readable domain label
+    const domainObj = DOMAINS.find(d => d.id === finalProfile.domain);
+    const domainLabel = domainObj ? domainObj.label : (finalProfile.domain || 'general');
+    const rolesString = finalProfile.targetRoles?.join(', ') || 'various roles';
+    
+    const personalization = `\n\nFocus specifically on highlighting my skills for the ${domainLabel} domain, targeting roles such as: ${rolesString}.`;
+
+    const newResumePrompt = {
+      id: `custom-resume-${Date.now()}`,
+      type: "resume" as const,
+      name: "Tailored Resume Prompt",
+      content: resumePromptRaw + personalization,
+      placeholders: {
+        resumePosition: "{RESUME}",
+        jobDescriptionPosition: "{JOB_DESCRIPTION}",
+      }
+    };
+
+    const newCoverLetterPrompt = {
+      id: `custom-coverletter-${Date.now()}`,
+      type: "coverLetter" as const,
+      name: "Tailored Cover Letter Prompt",
+      content: coverLetterPromptRaw + personalization,
+      placeholders: {
+        resumePosition: "{RESUME}",
+        jobDescriptionPosition: "{JOB_DESCRIPTION}",
+        coverLetterTemplatePosition: "{COVER_LETTER_TEMPLATE}"
+      }
+    };
+
+    // Fetch existing templates and append/replace
+    const existingTemplates = await getUserData(currentUser.uid, 'templates').catch(() => ({})) || {};
+    const customPrompts = existingTemplates.customPrompts || [];
+    
+    // Save back
+    const updatedTemplates = {
+      ...existingTemplates,
+      customPrompts: [...customPrompts, newResumePrompt, newCoverLetterPrompt],
+      updatedAt: new Date().toISOString()
+    };
+    
+    await saveUserData(currentUser.uid, 'templates', updatedTemplates);
+    
+    // Set as active prompts in settings
+    const existingSettings = await getUserData(currentUser.uid, 'settings').catch(() => ({})) || {};
+    const updatedSettings = {
+      ...existingSettings,
+      activePrompt_resume: newResumePrompt.id,
+      activePrompt_coverLetter: newCoverLetterPrompt.id,
+      updatedAt: new Date().toISOString()
+    };
+    await saveUserData(currentUser.uid, 'settings', updatedSettings);
+  };
+
   const handleGenerate = async () => {
     setIsGenerating(true);
     try {
@@ -170,6 +230,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
       if (currentUser) {
         await saveUserData(currentUser.uid, 'resumeProfile', finalProfile as Record<string, unknown>);
+        await injectDynamicPrompts(finalProfile as ResumeProfile);
       }
 
       sessionStorage.setItem('generatedLatex', latex);
@@ -212,6 +273,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       };
       if (currentUser) {
         await saveUserData(currentUser.uid, 'resumeProfile', finalProfile as Record<string, unknown>);
+        await injectDynamicPrompts(finalProfile as ResumeProfile);
         await saveUserData(currentUser.uid, 'onboarding', { completed: true, completedAt: Date.now() });
       }
       completeOnboarding();
