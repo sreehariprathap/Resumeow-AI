@@ -33,11 +33,12 @@ async function extractFromPDF(file: File): Promise<string> {
     const content = await page.getTextContent();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const items = content.items as any[];
+    const items = (content.items || []) as any[];
     let lastY = -1;
     let pageText = '';
 
-    for (const item of items) {
+    for (let j = 0; j < items.length; j++) {
+      const item = items[j];
       if ('str' in item) {
         const y = item.transform[5];
         if (lastY !== -1 && Math.abs(y - lastY) > 5) {
