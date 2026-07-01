@@ -70,7 +70,7 @@ export const WebHeader = () => {
             className="w-32 lg:w-44"
             alt="Resumeow logo"
           />
-          <span className="text-sm font-normal text-foreground">prompter</span>
+          <span className="text-sm font-normal text-foreground">full throttle</span>
         </Link>
 
         <TooltipProvider delayDuration={300}>

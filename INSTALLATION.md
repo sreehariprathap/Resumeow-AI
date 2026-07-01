@@ -18,11 +18,11 @@ npm run build:extension
 
 ### 3. Pin the Extension (Recommended)
 1. Click the **Extensions** icon (puzzle piece) in Chrome toolbar
-2. Find **"Prompter - Resume & Cover Letter Assistant"**
+2. Find **"Resumeow - Resume & Cover Letter Assistant"**
 3. Click the **pin icon** to keep it visible in the toolbar
 
 ### 4. Test the Extension
-1. Click the Prompter icon in your Chrome toolbar
+1. Click the Resumeow icon in your Chrome toolbar
 2. The side panel should open on the right side of the browser showing the application interface
 3. You can now use the extension to generate resume and cover letter prompts
 

@@ -4,7 +4,7 @@
 
 ## 1. Introduction
 
-Prompter ("we," "our," or "us") is committed to protecting your privacy and ensuring the security of your personal information. This Privacy Policy explains how we collect, use, store, and protect your information when you use our Resume & Cover Letter Assistant web application.
+Resumeow ("we," "our," or "us") is committed to protecting your privacy and ensuring the security of your personal information. This Privacy Policy explains how we collect, use, store, and protect your information when you use our Resume & Cover Letter Assistant web application.
 
 By using Prompter, you agree to the collection and use of information in accordance with this policy.
 
