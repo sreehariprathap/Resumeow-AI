@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/authContext';
 import { getUserData, saveUserData } from '@/lib/firebaseWeb';
-import { generateLatexResume } from '@/lib/resumeGenerator';
+
 import { compileLatexToPdf, downloadPdf, getResumePdfFilename, LatexCompileError, PDF_COMPILE_TOKEN_COST } from '@/lib/latexCompiler';
 import { PdfPreviewDialog } from '@/components/PdfPreviewDialog';
 import type { ResumeProfile } from '@/types/resumeProfile';
@@ -78,7 +78,7 @@ export function JDMatcherPage() {
   const { deductTokens, isAdmin, assertSufficientBalance } = useTokens();
   const [tokenDialogOpen, setTokenDialogOpen] = useState(false);
 
-  const { makeAnalysisCall, generateResumeLatex, analyzeJobFit, callForTask } = useAIService({
+  const { makeAnalysisCall, generateResumeLatex, callForTask } = useAIService({
     onInsufficientTokens: () => setTokenDialogOpen(true),
   });
 

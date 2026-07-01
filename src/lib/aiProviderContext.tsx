@@ -45,8 +45,7 @@ function isQuotaError(err: unknown): boolean {
   return msg.includes('429') || msg.includes('quota') || msg.includes('rate limit') || msg.includes('resource_exhausted');
 }
 
-// Legacy single-key constant kept for managed-mode guard checks
-const ENV_GEMINI_KEY: string = ENV_GEMINI_KEYS[0] ?? '';
+// Legacy single-key constant removed
 
 export type AIProvider = 'deepseek' | 'openrouter' | 'gemini';
 

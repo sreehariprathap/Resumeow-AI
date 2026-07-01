@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { toast } from "sonner";
 import { LogIn, LogOut, User, Mail, Lock, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
+import { Link } from "react-router-dom";
 
 export function AuthScreen() {
   const [isLoading, setIsLoading] = useState(false);
@@ -143,8 +144,10 @@ export function AuthScreen() {
   }  return (
     <Card className="auth-screen-card w-full max-w-md mx-auto">
       <CardHeader className="p-4 pb-2">
-        <CardTitle className="flex flex-col gap-5">
-           <img src="/Resumeow-d.png" />
+        <CardTitle className="flex flex-col gap-5 items-center">
+           <Link to="/">
+             <img src="/Resumeow-d.png" alt="Resumeow logo" className="w-48" />
+           </Link>
            <h1 className="text-center">
 
           {authMode === "login" ? "Sign In" : authMode === "register" ? "Create Account" : "Reset Password"}

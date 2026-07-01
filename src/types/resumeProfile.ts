@@ -53,7 +53,7 @@ export interface ResumeProfile {
   location: string;
   linkedin?: string;
   website?: string;
-  domain: 'computer-science' | 'finance-banking' | 'education' | 'medical';
+  domain: string;
   targetRoles: string[];
   experiences: Experience[];
   education: Education[];

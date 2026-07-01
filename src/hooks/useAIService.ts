@@ -164,7 +164,7 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
       throw new Error(errorMessage);
     }
     try {
-      const response = await resolveAndCall('coverLetter', prompt, makeAICallWithModel, makeAICallWithThinking);
+      const response = await resolveAndCall('coverLetter', prompt, plan, makeAICallWithModel, makeAICallWithThinking);
       bill(response.length, 'writing');
       return response;
     } catch (error) {
@@ -182,7 +182,7 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
       throw new Error(errorMessage);
     }
     try {
-      const response = await resolveAndCall('atsAnalysis', prompt, makeAICallWithModel, makeAICallWithThinking);
+      const response = await resolveAndCall('atsAnalysis', prompt, plan, makeAICallWithModel, makeAICallWithThinking);
       bill(response.length, 'analysis');
       return response;
     } catch (error) {

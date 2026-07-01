@@ -362,7 +362,7 @@ export const updateResumeLatex = async (
   name?: string
 ): Promise<void> => {
   const ref = doc(db, 'users', uid, 'resumes', resumeId);
-  const patch: Record<string, unknown> = { latex, updatedAt: Date.now() };
+  const patch: Record<string, any> = { latex, updatedAt: Date.now() };
   if (name !== undefined) patch.name = name;
   await updateDoc(ref, patch);
 };
@@ -431,7 +431,7 @@ export const adminUpdateUserProfile = async (
   const snap = await getDoc(profileRef);
   if (!snap.exists()) return;
 
-  const patch: Record<string, unknown> = {};
+  const patch: Record<string, any> = {};
 
   if (updates.displayName !== undefined) {
     patch.displayName = updates.displayName;

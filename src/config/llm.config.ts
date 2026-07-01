@@ -112,7 +112,7 @@ export type LLMTaskKey =
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 export const llmConfig: {
-  defaults: Required<LLMTaskConfig>;
+  defaults: Omit<Required<LLMTaskConfig>, 'tierOverrides'> & { tierOverrides?: LLMTaskConfig['tierOverrides'] };
   tasks: Partial<Record<LLMTaskKey, Partial<LLMTaskConfig>>>;
 } = {
 

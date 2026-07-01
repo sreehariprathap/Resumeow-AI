@@ -318,7 +318,7 @@ export function ResumeGeneratorPage() {
       setUploadSummary({ experiences: parsed.experiences.length, education: parsed.education.length, skills: parsed.skills.length });
       const updated = { ...(profile ?? {}), ...mapped } as ResumeProfile;
       setProfile(updated);
-      if (currentUser) await saveUserData(currentUser.uid, 'resumeProfile', updated as Record<string, unknown>);
+      if (currentUser) await saveUserData(currentUser.uid, 'resumeProfile', updated as unknown as Record<string, unknown>);
       toast.success('Profile updated from uploaded resume');
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Parsing failed');

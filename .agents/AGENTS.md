@@ -37,6 +37,16 @@ Whenever you modify, add, or remove any of the following, update the correspondi
 
 ---
 
+## PDF Compilation Rule
+
+**Always use `latex.ytotech.com` for LaTeX → PDF compilation. No other compile service is permitted.**
+
+- The only allowed compile function is `compileLatexToPdf(latex)` from `src/lib/latexCompiler.ts`.
+- Never import or reference `latexonline.cc`, `pdflatex` endpoints, or any other third-party compile URL in source code.
+- Do not add new compile services without updating `src/lib/latexCompiler.ts` and `docs/latex-to-pdf-pipeline.md`.
+
+---
+
 ## LLM / AI Rules
 
 - All LLM task configs live exclusively in `src/config/llm.config.ts`.

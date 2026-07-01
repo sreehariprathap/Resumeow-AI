@@ -181,7 +181,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
     // Fetch existing templates and append/replace
     const existingTemplates = await getUserData(currentUser.uid, 'templates').catch(() => ({})) || {};
-    const customPrompts = existingTemplates.customPrompts || [];
+    const customPrompts = (existingTemplates as any).customPrompts || [];
     
     // Save back
     const updatedTemplates = {
@@ -229,7 +229,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           name: `${profile.firstName || 'My'} ${profile.lastName || 'Resume'} - ${new Date().getFullYear()}`,
           latex,
           templateId: selectedTemplate.id,
-          templateLabel: selectedTemplate.name,
+          templateLabel: selectedTemplate.label,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
         });
 
         toast.success("Resume generated successfully!");

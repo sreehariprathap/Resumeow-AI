@@ -7,11 +7,13 @@ This document describes every method used in Resumeow-AI to convert a LaTeX sour
 ## Summary
 
 | Method | Where used | How it works | Output | Token cost |
-|---|---|---|---|---|
-| **latex.ytotech.com** (server compile) | `ResumeLaTeXGenerator`, `OnboardingWizard`, `JDMatcherPage` | POST to remote `pdflatex` server, receives PDF blob | Real PDF binary — embeds in iframe or triggers download | 750 tokens flat |
-| **latexonline.cc** (iframe compile) | `PDFPreviewModal` (resume library) | Passes URL-encoded LaTeX as a query param; iframe loads the compiled PDF | Rendered in browser iframe | 0 tokens (external) |
+|---|---|---|---|
+|---|
+| **latex.ytotech.com** (server compile) | `ResumeLaTeXGenerator`, `OnboardingWizard`, `JDMatcherPage`, `PDFPreviewModal` | POST to remote `pdflatex` server, receives PDF blob | Real PDF binary — embeds in iframe or triggers download | 750 tokens flat |
 | **Overleaf** (manual export) | `ResumeLaTeXGenerator`, `PDFPreviewModal`, `TemplateDialog` | Hidden `<form>` POST to `overleaf.com/docs` with LaTeX as `snip` field | Opens Overleaf editor in new tab | 0 tokens |
 | **Download .tex only** | `ResumeGeneratorPage`, `ResumeEditorModal` | `Blob` + `<a download>` — no compilation, user compiles manually | `.tex` file download | 0 tokens |
+
+> **Rule:** `latex.ytotech.com` is the **only** permitted compile service. `latexonline.cc` has been removed from all source files. See `.agents/AGENTS.md` → PDF Compilation Rule.
 
 ---
 
@@ -50,24 +52,11 @@ Response: application/pdf blob
 
 ---
 
-## Method 2 — latexonline.cc (Iframe Embed, No Install)
+## Method 2 — ~~latexonline.cc~~ (Removed)
 
-**File:** [`src/components/PDFPreviewModal.tsx`](../src/components/PDFPreviewModal.tsx)
+`latexonline.cc` was previously used in `PDFPreviewModal` for iframe-based compilation. It has been **fully removed** from the codebase.
 
-```
-GET https://latexonline.cc/compile?text=<url-encoded-latex>
-```
-
-The modal builds the URL with `encodeURIComponent(latex)` and sets it as the iframe `src`. The browser streams the compiled PDF directly into the iframe.
-
-**Trade-offs vs Method 1:**
-- ✅ Zero token cost, zero backend involvement
-- ✅ Works for resumes up to ~10KB of LaTeX
-- ❌ Compile time is 10–30 s (vs ~5 s for ytotech)
-- ❌ No error log returned — if LaTeX is invalid, iframe just shows nothing
-- ❌ URL length limit (~8000 chars) can truncate very long resumes
-
-**When to use:** The resume library grid (new feature). Chosen because the resume library doesn't charge tokens per preview — it's a library browser.
+All PDF compilation now goes through **Method 1 (latex.ytotech.com)** regardless of context. The project rule in `.agents/AGENTS.md` enforces this permanently.
 
 ---
 

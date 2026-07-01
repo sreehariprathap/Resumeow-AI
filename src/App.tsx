@@ -21,7 +21,7 @@ import { OnboardingWizard } from "./components/OnboardingWizard";
 import { SyncStatusIndicator } from "./components/SyncStatus";
 import { useTemplates } from "./hooks/useTemplates";
 import { usePromptGenerator } from "./hooks/usePromptGenerator";
-import { useAIProvider } from "./lib/aiProviderContext";
+
 import { useAuth } from "./lib/authContext";
 import { useTokens } from "./lib/tokenContext";
 import { useOnboarding } from "./lib/onboardingContext";
@@ -60,7 +60,7 @@ function App() {
     coverLetterTemplates,
     getActivePrompt,
   });
-  const { selectedModel } = useAIProvider();
+
   const { showOnboarding, completeOnboarding, startOnboarding, hasCompletedOnboarding } = useOnboarding();
   const [searchParams, setSearchParams] = useSearchParams();
 
