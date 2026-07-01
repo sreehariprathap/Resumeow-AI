@@ -12,12 +12,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     previewUrl: '/templates/sreehari/sreehari.jpg',
     texUrl: '/templates/sreehari/sreehari.tex',
   },
-  {
-    id: 'akshay',
-    label: 'Akshay',
-    previewUrl: '/templates/akshay/akshay.jpg',
-    texUrl: '/templates/akshay/akshay.tex',
-  },
+
   {
     id: 'mohamed',
     label: 'Mohamed',
@@ -35,6 +30,36 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     label: 'MBZUAI',
     previewUrl: '/templates/mbzuai/mbzuai.jpg',
     texUrl: '/templates/mbzuai/mbzuai.tex',
+  },
+  {
+    id: 'iiit_vadodara',
+    label: 'IIIT Vadodara',
+    previewUrl: '/templates/iiit_vadodara/iiit_vadodara.jpg',
+    texUrl: '/templates/iiit_vadodara/iiit_vadodara.tex',
+  },
+  {
+    id: 'jing_wang',
+    label: 'Jing Wang',
+    previewUrl: '/templates/jing_wang/jing_wang.jpg',
+    texUrl: '/templates/jing_wang/jing_wang.tex',
+  },
+  {
+    id: 'northeastern',
+    label: 'Northeastern',
+    previewUrl: '/templates/northeastern/northeastern.jpg',
+    texUrl: '/templates/northeastern/northeastern.tex',
+  },
+  {
+    id: 'sakshi',
+    label: 'Sakshi',
+    previewUrl: '/templates/sakshi/sakshi.jpg',
+    texUrl: '/templates/sakshi/sakshi.tex',
+  },
+  {
+    id: 'kieren',
+    label: 'Kieren',
+    previewUrl: '/templates/kieren/kieren.jpg',
+    texUrl: '/templates/kieren/kieren.tex',
   },
 ];
 
