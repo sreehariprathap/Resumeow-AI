@@ -475,6 +475,7 @@ export function ResumeGeneratorPage() {
       <PDFPreviewModal
         resume={previewResume}
         onClose={() => setPreviewResume(null)}
+        onDelete={handleDelete}
       />
 
       <DuplicateModal
