@@ -2,6 +2,27 @@ import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import mammoth from 'mammoth';
 import type { ResumeProfile } from '@/types/resumeProfile';
 
+// Safari/WebKit (all browsers on iOS) never implemented ReadableStream[Symbol.asyncIterator].
+// pdf.js's PDFPageProxy.getTextContent() does `for await (const chunk of stream)` internally,
+// which throws "undefined is not a function" there. Polyfill it before pdf.js runs.
+if (typeof ReadableStream !== 'undefined') {
+  const proto = ReadableStream.prototype as unknown as Record<typeof Symbol.asyncIterator, unknown>;
+  if (!proto[Symbol.asyncIterator]) {
+    proto[Symbol.asyncIterator] = async function* <T>(this: ReadableStream<T>) {
+      const reader = this.getReader();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) return;
+          yield value;
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    };
+  }
+}
+
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
   import.meta.url
