@@ -14,7 +14,7 @@ import {
   sendPasswordResetEmail
 } from "firebase/auth";
 import type { User } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, collection, getDocs, updateDoc, increment, query, orderBy, addDoc, where } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, updateDoc, increment, query, orderBy, addDoc, where, writeBatch } from "firebase/firestore";
 import type { ResumeProfile } from "@/types/resumeProfile";
 import { computeMissingDefaults, RESUME_PROFILE_DEFAULTS } from "./profileSeeding";
 
@@ -530,4 +530,57 @@ export const updateUserDisplayProfile = async (
 ): Promise<void> => {
   const profileRef = doc(db, 'userProfiles', uid);
   await updateDoc(profileRef, { ...fields, lastActiveAt: Date.now() });
+};
+
+// --- Data Export / Import Utilities ---
+
+export const exportUserData = async (uid: string) => {
+  if (!uid) throw new Error("No user ID provided");
+  
+  const data: Record<string, any> = {
+    profile: await getUserData(uid, 'resumeProfile').catch(() => null),
+    settings: await getUserData(uid, 'settings').catch(() => null),
+    templates: await getUserData(uid, 'templates').catch(() => null),
+    saved_resumes: await getSavedResumes(uid).catch(() => []),
+  };
+  
+  return data;
+};
+
+export const importUserData = async (uid: string, importData: any) => {
+  if (!uid) throw new Error("No user ID provided");
+  
+  // Basic validation
+  if (!importData || typeof importData !== 'object') {
+    throw new Error("Invalid import data format");
+  }
+
+  const batch = writeBatch(db);
+  const userDocRef = doc(db, 'users', uid);
+
+  // Overwrite specific documents if they exist in the import
+  if (importData.profile) {
+    batch.set(doc(collection(userDocRef, 'resumeProfile'), 'data'), importData.profile);
+  }
+  if (importData.settings) {
+    batch.set(doc(collection(userDocRef, 'settings'), 'data'), importData.settings);
+  }
+  if (importData.templates) {
+    batch.set(doc(collection(userDocRef, 'templates'), 'data'), importData.templates);
+  }
+
+  // Write imported resumes
+  if (Array.isArray(importData.saved_resumes)) {
+    const resumesRef = collection(userDocRef, 'resumes');
+    importData.saved_resumes.forEach((resume: any) => {
+      if (resume.id) {
+        // Copy the resume data without modifying the ID field directly on the ref, 
+        // but we'll use the id as the doc name to preserve it.
+        const { id, ...resumeData } = resume;
+        batch.set(doc(resumesRef, id), resumeData);
+      }
+    });
+  }
+
+  await batch.commit();
 };
