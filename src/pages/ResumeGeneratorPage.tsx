@@ -310,6 +310,39 @@ export function ResumeGeneratorPage() {
   // File upload handler (same as before)
   const handleUploadFile = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) { setUploadError('File too large (max 5MB)'); return; }
+
+    // If it's a .tex file, save it directly to the library
+    if (file.name.toLowerCase().endsWith('.tex')) {
+      if (!currentUser) { setUploadError('Must be logged in'); return; }
+      try {
+        const text = await file.text();
+        const now = Date.now();
+        const name = file.name.replace(/\.tex$/i, '');
+        const id = await saveResume(currentUser.uid, {
+          name,
+          latex: text,
+          templateId: 'custom',
+          templateLabel: 'Custom Upload',
+          createdAt: now,
+          updatedAt: now,
+        });
+        setResumes(prev => [{
+          id,
+          name,
+          latex: text,
+          templateId: 'custom',
+          templateLabel: 'Custom Upload',
+          createdAt: now,
+          updatedAt: now,
+        }, ...prev]);
+        toast.success(`"${name}" added to your resumes!`);
+        setUploadOpen(false);
+      } catch (err) {
+        setUploadError('Failed to read .tex file');
+      }
+      return;
+    }
+
     setIsUploading(true); setUploadError(null); setUploadSummary(null);
     try {
       const text = await extractTextFromFile(file);

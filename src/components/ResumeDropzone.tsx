@@ -119,7 +119,7 @@ export function ResumeDropzone({
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,.docx,.txt"
+          accept=".pdf,.docx,.txt,.tex"
           className="hidden"
           onChange={handleInputChange}
         />
@@ -150,12 +150,12 @@ export function ResumeDropzone({
         <p className="font-medium text-sm">
           {isDragging ? 'Drop it here!' : 'Drag & drop your resume or click to browse'}
         </p>
-        <p className="text-xs text-muted-foreground">PDF, DOCX, or TXT · Max 5MB</p>
+        <p className="text-xs text-muted-foreground">PDF, DOCX, TXT, or TEX · Max 5MB</p>
       </div>
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,.docx,.txt"
+        accept=".pdf,.docx,.txt,.tex"
         className="hidden"
         onChange={handleInputChange}
       />
