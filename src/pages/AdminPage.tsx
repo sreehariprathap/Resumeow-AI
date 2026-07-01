@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/authContext';
 import { useTokens } from '@/lib/tokenContext';
-import { getAllUserProfiles, adminUpdateUserTokens, getTokenRequests, resolveTokenRequest, type UserProfile, type TokenRequest } from '@/lib/firebaseWeb';
+import { getAllUserProfiles, adminUpdateUserProfile, getTokenRequests, resolveTokenRequest, type UserProfile, type TokenRequest } from '@/lib/firebaseWeb';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AdminEditModal } from '@/components/AdminEditModal';
 import { toast } from 'sonner';
 import { Users, Zap, ArrowLeft, RefreshCw, AlertCircle } from 'lucide-react';
 import { log } from '@/lib/logger';
@@ -19,7 +19,7 @@ export function AdminPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [editing, setEditing] = useState<{ uid: string; tokens: string; plan: string } | null>(null);
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [tokenRequests, setTokenRequests] = useState<TokenRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
@@ -86,20 +86,15 @@ export function AdminPage() {
     }
   }, [isAllowed]);
 
-  const handleSave = async (uid: string) => {
-    if (!editing || editing.uid !== uid) return;
-    const tokens = parseInt(editing.tokens, 10);
-    if (isNaN(tokens) || tokens < 0) { toast.error('Invalid token count'); return; }
-    log.info('admin: updating user tokens', { uid, tokens, plan: editing.plan });
+  const handleQuickPlanChange = async (uid: string, newPlan: 'free' | 'pro') => {
+    log.info('admin: quick plan change', { uid, newPlan });
     try {
-      await adminUpdateUserTokens(uid, tokens, editing.plan as 'free' | 'pro' | 'admin');
-      log.info('admin: user updated', { uid });
-      toast.success('User updated');
-      setEditing(null);
+      await adminUpdateUserProfile(uid, { plan: newPlan });
+      toast.success(newPlan === 'pro' ? 'User promoted to Pro' : 'User moved to Free');
       await fetchUsers();
     } catch (err) {
-      log.error('admin: update failed', { uid, error: err instanceof Error ? err.message : String(err) });
-      toast.error('Update failed');
+      log.error('admin: quick plan change failed', { uid, error: err instanceof Error ? err.message : String(err) });
+      toast.error('Plan update failed');
     }
   };
 
@@ -129,9 +124,6 @@ export function AdminPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => void fetchTokenRequests()}>
-              <Zap className="h-4 w-4 mr-2" /> Requests
-            </Button>
             <Button variant="outline" size="sm" onClick={() => { void fetchUsers(); void fetchTokenRequests(); }}>
               <RefreshCw className="h-4 w-4 mr-2" /> Refresh
             </Button>
@@ -159,64 +151,72 @@ export function AdminPage() {
           </Card>
         </div>
 
-        {/* Token requests */}
-        {(tokenRequests.length > 0 || requestsLoading) && (
-          <Card className="border-yellow-500/30 bg-yellow-500/5">
-            <CardHeader>
-              <div className="font-semibold flex items-center gap-2">
-                <Zap className="h-4 w-4 text-yellow-500" />
-                Pending Token Requests ({tokenRequests.length})
+        {/* Token requests — always visible */}
+        <Card className="border-yellow-500/30 bg-yellow-500/5">
+          <CardHeader>
+            <div className="font-semibold flex items-center gap-2">
+              <Zap className="h-4 w-4 text-yellow-500" />
+              Pending Token Requests
+              <span className="ml-1 inline-flex items-center justify-center rounded-full bg-yellow-500/20 text-yellow-600 text-xs font-bold px-2 py-0.5 min-w-[1.5rem]">
+                {tokenRequests.length}
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {requestsLoading ? (
+              <div className="flex justify-center py-4">
+                <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
               </div>
-            </CardHeader>
-            <CardContent>
-              {requestsLoading ? (
-                <div className="flex justify-center py-4"><RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" /></div>
-              ) : (
-                <div className="space-y-3">
-                  {tokenRequests.map(req => (
-                    <div key={req.id} className="flex items-start justify-between gap-4 p-3 rounded-md bg-background border">
-                      <div className="space-y-0.5 min-w-0">
-                        <div className="font-medium text-sm">{req.displayName}</div>
-                        <div className="text-xs text-muted-foreground">{req.email}</div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          Requested <span className="font-medium text-foreground">{req.requestedTokens} tokens</span> · {new Date(req.createdAt).toLocaleDateString()}
-                        </div>
-                        <div className="text-xs italic text-muted-foreground">"{req.reason}"</div>
+            ) : tokenRequests.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+                <Zap className="h-8 w-8 opacity-30" />
+                <span className="text-sm">No pending requests. You&apos;re all caught up ✓</span>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {tokenRequests.map(req => (
+                  <div key={req.id} className="flex items-start justify-between gap-4 p-3 rounded-md bg-background border">
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="font-medium text-sm">{req.displayName}</div>
+                      <div className="text-xs text-muted-foreground">{req.email}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Requested <span className="font-medium text-foreground">{req.requestedTokens} tokens</span> · {new Date(req.createdAt).toLocaleDateString()}
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Input
-                          type="number"
-                          min={1}
-                          max={1000}
-                          className="h-7 w-20 text-xs font-mono"
-                          value={grantAmounts[req.id!] ?? String(req.requestedTokens)}
-                          onChange={e => setGrantAmounts(prev => ({ ...prev, [req.id!]: e.target.value }))}
-                        />
-                        <Button
-                          size="sm"
-                          className="h-7 text-xs"
-                          disabled={resolvingId === req.id}
-                          onClick={() => void handleResolve(req, true)}
-                        >
-                          {resolvingId === req.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Approve'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 text-xs text-destructive hover:text-destructive"
-                          disabled={resolvingId === req.id}
-                          onClick={() => void handleResolve(req, false)}
-                        >
-                          Reject
-                        </Button>
-                      </div>
+                      <div className="text-xs italic text-muted-foreground">"{req.reason}"</div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={1000}
+                        className="h-7 w-20 text-xs font-mono"
+                        value={grantAmounts[req.id!] ?? String(req.requestedTokens)}
+                        onChange={e => setGrantAmounts(prev => ({ ...prev, [req.id!]: e.target.value }))}
+                      />
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs"
+                        disabled={resolvingId === req.id || parseInt(grantAmounts[req.id!] ?? String(req.requestedTokens), 10) < 1}
+                        onClick={() => void handleResolve(req, true)}
+                      >
+                        {resolvingId === req.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Approve'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs text-destructive hover:text-destructive"
+                        disabled={resolvingId === req.id}
+                        onClick={() => void handleResolve(req, false)}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {fetchError && (
           <Card className="border-destructive/50 bg-destructive/5">
@@ -260,7 +260,6 @@ export function AdminPage() {
                   {users.map(u => {
                     const pct = u.tokensAllocated > 0 ? u.tokensRemaining / u.tokensAllocated : 0;
                     const tokenColor = pct > 0.4 ? 'text-green-500' : pct > 0.15 ? 'text-yellow-500' : 'text-red-500';
-                    const isEditingThis = editing?.uid === u.uid;
                     return (
                       <tr key={u.uid} className="py-3">
                         <td className="py-3 pr-4">
@@ -268,38 +267,12 @@ export function AdminPage() {
                           <div className="text-xs text-muted-foreground">{u.email}</div>
                         </td>
                         <td className="py-3 pr-4">
-                          {isEditingThis ? (
-                            <Select
-                              value={editing.plan}
-                              onValueChange={v => setEditing(e => e ? { ...e, plan: v } : e)}
-                            >
-                              <SelectTrigger className="h-8 w-24">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="free">Free</SelectItem>
-                                <SelectItem value="pro">Pro</SelectItem>
-                                <SelectItem value="admin">Admin</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <Badge variant={u.plan === 'admin' ? 'destructive' : u.plan === 'pro' ? 'default' : 'secondary'}>
-                              {u.plan}
-                            </Badge>
-                          )}
+                          <Badge variant={u.plan === 'admin' ? 'destructive' : u.plan === 'pro' ? 'default' : 'secondary'}>
+                            {u.plan}
+                          </Badge>
                         </td>
                         <td className="py-3 pr-4 font-mono">
-                          {isEditingThis ? (
-                            <Input
-                              className="h-8 w-24 font-mono text-sm"
-                              value={editing.tokens}
-                              onChange={e => setEditing(ed => ed ? { ...ed, tokens: e.target.value } : ed)}
-                              type="number"
-                              min={0}
-                            />
-                          ) : (
-                            u.tokensAllocated.toLocaleString()
-                          )}
+                          {u.tokensAllocated.toLocaleString()}
                         </td>
                         <td className="py-3 pr-4 font-mono text-muted-foreground">
                           {u.tokensUsed.toLocaleString()}
@@ -311,21 +284,37 @@ export function AdminPage() {
                           {new Date(u.createdAt).toLocaleDateString()}
                         </td>
                         <td className="py-3">
-                          <div className="flex gap-2">
-                            {isEditingThis ? (
-                              <>
-                                <Button size="sm" onClick={() => void handleSave(u.uid)}>Save</Button>
-                                <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
-                              </>
-                            ) : (
+                          <div className="flex gap-1 flex-wrap">
+                            {/* Quick promote / demote — not shown for admin accounts */}
+                            {u.plan === 'free' && (
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => setEditing({ uid: u.uid, tokens: String(u.tokensAllocated), plan: u.plan })}
+                                className="h-7 text-xs"
+                                onClick={() => void handleQuickPlanChange(u.uid, 'pro')}
                               >
-                                <Zap className="h-3 w-3 mr-1" /> Edit
+                                → Pro
                               </Button>
                             )}
+                            {u.plan === 'pro' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => void handleQuickPlanChange(u.uid, 'free')}
+                              >
+                                → Free
+                              </Button>
+                            )}
+                            {/* Edit button — opens modal */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              onClick={() => setEditingUser(u)}
+                            >
+                              Edit
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -344,6 +333,13 @@ export function AdminPage() {
           Logged in as {currentUser?.email} · Admin view
         </p>
       </div>
+
+      {/* Edit user modal */}
+      <AdminEditModal
+        user={editingUser}
+        onClose={() => setEditingUser(null)}
+        onSaved={() => void fetchUsers()}
+      />
     </div>
   );
 }
