@@ -1,9 +1,18 @@
+declare global {
+  interface Window {
+    resumeow?: {
+      debug?: boolean;
+    };
+  }
+}
+
 const isDev = import.meta.env.DEV;
 
-type LogData = Record<string, unknown>;
+type LogData = any;
 
 function fmt(level: string, message: string, data?: LogData): void {
-  if (!isDev) return;
+  const isDebugEnabled = isDev || window.resumeow?.debug === true;
+  if (!isDebugEnabled) return;
   const ts = new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
   const prefix = `[${ts}] [${level}]`;
   if (data !== undefined) {

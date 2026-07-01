@@ -6,6 +6,7 @@ import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
 import { toast } from 'sonner';
 import { MODELS } from '@/config/llm.config';
+import { log } from '@/lib/logger';
 
 // When false, app uses the server-side key (DeepSeek or Gemini) and hides API settings from users.
 // Which provider/model each task uses is now controlled entirely by llm.config.ts.
@@ -124,7 +125,7 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
         }
       }
     } catch (error) {
-      console.error("Error reading from localStorage:", error);
+      log.error("Error reading from localStorage:", error);
     }
     return AVAILABLE_MODELS[0];
   };
@@ -154,7 +155,7 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
           }
         }
       } catch (error) {
-        console.error("Error loading user's preferred model:", error);
+        log.error("Error loading user's preferred model:", error);
       }
     }
   }, [currentUser]);
@@ -168,20 +169,20 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
     const loadSettings = async () => {
       try {
         if (currentUser) {
-          console.log("Loading settings for user:", currentUser.uid);
+          log.info("Loading settings for user:", currentUser.uid);
           
           try {
             const userData = await getUserData(currentUser.uid, "settings");
-            console.log("User data from Firebase:", userData);
+            log.info("User data from Firebase:", userData);
             
             if (userData) {
               // Check for both userPreferredModel and selectedAIModel for backward compatibility
               const preferredModelId = userData.userPreferredModel || userData.selectedAIModel;
-              console.log("Preferred model ID from Firebase:", preferredModelId);
+              log.info("Preferred model ID from Firebase:", preferredModelId);
                 if (preferredModelId) {
                 const model = AVAILABLE_MODELS.find(m => m.id === preferredModelId);
                 if (model) {
-                  console.log("Setting model from Firebase:", model);
+                  log.info("Setting model from Firebase:", model);
                   setSelectedModelState(model);                // Also update localStorage to keep it in sync
                   try {
                     if (currentUser) {
@@ -189,10 +190,10 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
                       localStorage.setItem(`${userKey}_userPreferredModel`, model.id);
                     }
                   } catch (error) {
-                    console.error("Error updating localStorage:", error);
+                    log.error("Error updating localStorage:", error);
                   }
                 } else {
-                  console.warn("Model not found in AVAILABLE_MODELS:", preferredModelId);
+                  log.warn("Model not found in AVAILABLE_MODELS:", preferredModelId);
                 }
               }
               
@@ -209,10 +210,10 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
                 }
               }
             } else {
-              console.log("No user data found in Firebase");
+              log.info("No user data found in Firebase");
             }
           } catch (firebaseError) {
-            console.error("Error loading from Firebase:", firebaseError);
+            log.error("Error loading from Firebase:", firebaseError);
             // Firebase failed, try to load from localStorage
             if (currentUser) {
               const userKey = `user_${currentUser.uid}`;
@@ -225,17 +226,17 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
                   }
                 }
               } catch (error) {
-                console.error("Error loading from localStorage:", error);
+                log.error("Error loading from localStorage:", error);
               }
             }
           }
         } else {
-          console.log("No current user, using default model");
+          log.info("No current user, using default model");
           // Only reset to default if we haven't loaded any user preferences yet
           // This preserves the model selection during authentication state changes
         }
       } catch (error) {
-        console.error("Error loading AI provider settings:", error);
+        log.error("Error loading AI provider settings:", error);
       } finally {
         // Only set loading to false when we have a stable auth state
         if (currentUser !== undefined) {
@@ -283,31 +284,31 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
         }
       }
 
-      console.log("Saving settings to Firebase:", { 
+      log.info("Saving settings to Firebase:", { 
         updates, 
         finalSettings: Object.keys(updatedSettings),
         hasUndefinedValues: Object.values(updatedSettings).some(v => v === undefined)
       });
       
       await saveUserData(currentUser.uid, "settings", updatedSettings);
-      console.log("Settings successfully saved to Firebase");
+      log.info("Settings successfully saved to Firebase");
     } catch (error) {
-      console.error("Error saving AI provider settings:", error);
+      log.error("Error saving AI provider settings:", error);
       
       // Retry up to 3 times with exponential backoff
       if (retryCount < 3) {
         const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
-        console.log(`Retrying saveSettings in ${delay}ms (attempt ${retryCount + 1}/3)`);
+        log.info(`Retrying saveSettings in ${delay}ms (attempt ${retryCount + 1}/3)`);
         setTimeout(() => {
           saveSettings(updates, retryCount + 1);
         }, delay);
       } else {
-        console.error("Failed to save settings after 3 retries");
+        log.error("Failed to save settings after 3 retries");
         toast.error("Failed to sync settings to cloud. Your settings are saved locally.");
       }
     }
   };const setSelectedModel = async (model: AIModel) => {
-    console.log("Setting selected model:", model);
+    log.info("Setting selected model:", model);
     setSelectedModelState(model);
       // Save to localStorage for immediate persistence
     try {
@@ -316,7 +317,7 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
         localStorage.setItem(`${userKey}_userPreferredModel`, model.id);
       }
     } catch (error) {
-      console.error("Error saving to localStorage:", error);
+      log.error("Error saving to localStorage:", error);
     }
     
     // Save to Firebase if user is logged in with retry logic
@@ -337,7 +338,7 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
         const userKey = `user_${currentUser.uid}`;
         localStorage.setItem(`${userKey}_deepseekApiKey`, key);
       } catch (error) {
-        console.error("Error saving to localStorage:", error);
+        log.error("Error saving to localStorage:", error);
       }
     }
 
@@ -352,7 +353,7 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
         const userKey = `user_${currentUser.uid}`;
         localStorage.setItem(`${userKey}_openRouterApiKey`, key);
       } catch (error) {
-        console.error("Error saving to localStorage:", error);
+        log.error("Error saving to localStorage:", error);
       }
     }
 
@@ -368,7 +369,7 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
         const userKey = `user_${currentUser.uid}`;
         localStorage.setItem(`${userKey}_geminiApiKey`, key);
       } catch (error) {
-        console.error("Error saving to localStorage:", error);
+        log.error("Error saving to localStorage:", error);
       }
     }
     
@@ -402,7 +403,7 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
       void deductTokens(prompt.length + result.length);
       return result;
     } catch (error) {
-      console.error(`Primary AI call failed with ${primaryModel.name}:`, error);
+      log.error(`Primary AI call failed with ${primaryModel.name}:`, error);
 
       if (fallbackModel) {
         try {
@@ -412,7 +413,7 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
           void deductTokens(prompt.length + result.length);
           return result;
         } catch (fallbackError) {
-          console.error(`Fallback AI call failed with ${fallbackModel.name}:`, fallbackError);
+          log.error(`Fallback AI call failed with ${fallbackModel.name}:`, fallbackError);
           throw new Error(`Both AI providers failed. Primary: ${error instanceof Error ? error.message : 'Unknown error'}, Fallback: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`);
         }
       } else {
@@ -457,7 +458,7 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
       } catch (err) {
         const fallbackKey = alternateGeminiKey();
         if (isQuotaError(err) && fallbackKey && fallbackKey !== primaryKey) {
-          console.warn('[gemini-rotation] quota hit on key slot, retrying with alternate key');
+          log.warn('[gemini-rotation] quota hit on key slot, retrying with alternate key');
           const ai = new GoogleGenAI({ apiKey: fallbackKey });
           const response = await ai.models.generateContent({ model: model.id, contents: prompt });
           return response.text || 'No response received';
@@ -540,7 +541,7 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
       } catch (err) {
         const fallbackKey = alternateGeminiKey();
         if (isQuotaError(err) && fallbackKey && fallbackKey !== primaryKey) {
-          console.warn('[gemini-rotation] quota hit on key slot (thinking), retrying with alternate key');
+          log.warn('[gemini-rotation] quota hit on key slot (thinking), retrying with alternate key');
           const ai = new GoogleGenAI({ apiKey: fallbackKey });
           const response = await ai.models.generateContent({ model: MODELS.gemini.pro, contents: prompt });
           result = response.text || 'No response received';

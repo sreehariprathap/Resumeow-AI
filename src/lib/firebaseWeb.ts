@@ -14,9 +14,10 @@ import {
   sendPasswordResetEmail
 } from "firebase/auth";
 import type { User } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc, collection, getDocs, updateDoc, increment, query, orderBy, addDoc, where, writeBatch } from "firebase/firestore";
+import { getFirestore, initializeFirestore, doc, setDoc, getDoc, collection, getDocs, updateDoc, increment, query, orderBy, addDoc, where, writeBatch } from "firebase/firestore";
 import type { ResumeProfile } from "@/types/resumeProfile";
 import { computeMissingDefaults, RESUME_PROFILE_DEFAULTS } from "./profileSeeding";
+import { log } from "./logger";
 
 // Your Firebase configuration
 const firebaseConfig = {
@@ -31,12 +32,12 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 const googleProvider = new GoogleAuthProvider();
 
 // Set persistence to local to keep the user logged in
 setPersistence(auth, browserLocalPersistence).catch((error) => {
-  console.error("Error setting persistence:", error);
+  log.error("Error setting persistence:", error);
 });
 
 // Simple function that always returns false since we're no longer in extension context
@@ -48,12 +49,12 @@ export const isExtensionContext = (): boolean => {
  * Authenticate with Google using Firebase popup for web apps
  */
 export const signInWithGoogle = async (): Promise<User | null> => {
-  console.log("Starting Google sign-in process with popup");
+  log.info("Starting Google sign-in process with popup");
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error) {
-    console.error("Authentication failed:", error);
+    log.error("Authentication failed:", error);
     throw error;
   }
 };
@@ -98,7 +99,7 @@ export const saveUserData = async (
     await setDoc(doc(db, "users", userId, dataType, "data"), data);
     return true;
   } catch (error) {
-    console.error(`Error saving ${dataType}:`, error);
+    log.error(`Error saving ${dataType}:`, error);
     throw error;
   }
 };
@@ -120,7 +121,7 @@ export const getUserData = async (
       return null;
     }
   } catch (error) {
-    console.error(`Error getting ${dataType}:`, error);
+    log.error(`Error getting ${dataType}:`, error);
     throw error;
   }
 };
@@ -136,7 +137,7 @@ export const signInWithEmailAndPassword = async (
     const userCredential = await firebaseSignInWithEmailAndPassword(auth, email, password);
     return userCredential.user;
   } catch (error) {
-    console.error("Error signing in with email and password:", error);
+    log.error("Error signing in with email and password:", error);
     throw error;
   }
 };
@@ -168,7 +169,7 @@ export const registerWithEmailAndPassword = async (
     
     return user;
   } catch (error) {
-    console.error("Error registering with email and password:", error);
+    log.error("Error registering with email and password:", error);
     throw error;
   }
 };
@@ -180,7 +181,7 @@ export const sendPasswordReset = async (email: string): Promise<void> => {
   try {
     await sendPasswordResetEmail(auth, email);
   } catch (error) {
-    console.error("Error sending password reset email:", error);
+    log.error("Error sending password reset email:", error);
     throw error;
   }
 };
@@ -232,7 +233,7 @@ export const initUserProfile = async (
   try {
     snap = await getDoc(profileRef);
   } catch (error) {
-    console.warn('[auth] userProfiles read denied (token not ready?)', error);
+    log.warn('[auth] userProfiles read denied (token not ready?)', error);
     return;
   }
   if (!snap.exists()) {
@@ -250,7 +251,7 @@ export const initUserProfile = async (
         lastActiveAt: Date.now(),
       });
     } catch (error) {
-      console.error('[auth] userProfiles create denied — check Firestore rules allow create for own uid', error);
+      log.error('[auth] userProfiles create denied — check Firestore rules allow create for own uid', error);
       return;
     }
   } else {
@@ -269,7 +270,7 @@ export const initUserProfile = async (
       });
       await updateDoc(profileRef, { ...patch, lastActiveAt: Date.now() });
     } catch (error) {
-      console.error('Token profile backfill skipped:', error);
+      log.error('Token profile backfill skipped:', error);
     }
   }
 
@@ -292,7 +293,7 @@ export const backfillResumeProfile = async (uid: string): Promise<void> => {
     if (Object.keys(patch).length === 0) return;
     await saveUserData(uid, 'resumeProfile', { ...existing, ...patch });
   } catch (error) {
-    console.error('Resume profile backfill skipped:', error);
+    log.error('Resume profile backfill skipped:', error);
   }
 };
 
@@ -389,7 +390,7 @@ export const getLazyModeSettings = async (uid: string): Promise<LazyModeSettings
     const snap = await getDoc(docRef);
     return snap.exists() ? (snap.data() as LazyModeSettings) : null;
   } catch (error) {
-    console.error('Error getting lazy mode settings:', error);
+    log.error('Error getting lazy mode settings:', error);
     return null;
   }
 };
@@ -476,15 +477,22 @@ export const createTokenRequest = async (
   requestedTokens: number,
   reason: string
 ): Promise<void> => {
-  await addDoc(collection(db, 'tokenRequests'), {
-    uid,
-    email,
-    displayName,
-    requestedTokens,
-    reason,
-    status: 'pending',
-    createdAt: Date.now(),
-  } satisfies Omit<TokenRequest, 'id'>);
+  log.info('firebaseWeb: Creating token request', { uid, requestedTokens });
+  try {
+    await addDoc(collection(db, 'tokenRequests'), {
+      uid,
+      email,
+      displayName,
+      requestedTokens,
+      reason,
+      status: 'pending',
+      createdAt: Date.now(),
+    } satisfies Omit<TokenRequest, 'id'>);
+    log.info('firebaseWeb: Token request created successfully');
+  } catch (error) {
+    log.error('firebaseWeb: Error creating token request', { error });
+    throw error;
+  }
 };
 
 export const getTokenRequests = async (statusFilter?: 'pending' | 'approved' | 'rejected'): Promise<TokenRequest[]> => {

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useAuth } from './authContext';
 import { getUserProfile, deductTokens as fbDeductTokens, type UserProfile } from './firebaseWeb';
+import { log } from '@/lib/logger';
 
 interface TokenContextType {
   profile: UserProfile | null;
@@ -28,7 +29,7 @@ export function TokenProvider({ children }: { children: ReactNode }) {
       const p = await getUserProfile(currentUser.uid);
       setProfile(p);
     } catch (e) {
-      console.error('Token fetch error:', e);
+      log.error('Token fetch error:', e);
     } finally {
       setIsLoading(false);
     }
@@ -65,7 +66,7 @@ export function TokenProvider({ children }: { children: ReactNode }) {
       fresh = await getUserProfile(currentUser.uid);
     } catch {
       // Offline or Firestore rules blocked read — fail open, don't block the call
-      console.warn('[tokens] Balance check skipped (offline or permission error)');
+      log.warn('[tokens] Balance check skipped (offline or permission error)');
       return;
     }
     if (fresh && !fresh.isAdmin && fresh.tokensRemaining <= 0) {

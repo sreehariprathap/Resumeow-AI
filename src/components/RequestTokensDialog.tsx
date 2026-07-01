@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Zap } from 'lucide-react';
 import { useAuth } from '@/lib/authContext';
 import { createTokenRequest } from '@/lib/firebaseWeb';
+import { log } from '@/lib/logger';
 
 interface RequestTokensDialogProps {
   open: boolean;
@@ -33,6 +34,7 @@ export function RequestTokensDialog({ open, onOpenChange }: RequestTokensDialogP
     if (!currentUser) return;
 
     setIsSubmitting(true);
+    log.info('RequestTokensDialog: Submitting token request');
     try {
       await createTokenRequest(
         currentUser.uid,
@@ -46,6 +48,7 @@ export function RequestTokensDialog({ open, onOpenChange }: RequestTokensDialogP
       setReason('');
       setRequestedTokens('50');
     } catch (err) {
+      log.error('RequestTokensDialog: Failed to submit token request', { error: err });
       toast.error('Failed to submit request. Please try again.');
       console.error(err);
     } finally {

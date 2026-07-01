@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/authContext';
 import { useTokens } from '@/lib/tokenContext';
-import { getAllUserProfiles, adminUpdateUserProfile, getTokenRequests, resolveTokenRequest, type UserProfile, type TokenRequest } from '@/lib/firebaseWeb';
+import { getAllUserProfiles, adminUpdateUserProfile, getTokenRequests, resolveTokenRequest, createTokenRequest, type UserProfile, type TokenRequest } from '@/lib/firebaseWeb';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,25 @@ export function AdminPage() {
   useEffect(() => {
     if (!tokensLoading && !isAllowed) navigate('/', { replace: true });
   }, [isAllowed, tokensLoading, navigate]);
+
+  const handleTestTokenRequest = async () => {
+    if (!currentUser) return;
+    try {
+      log.info('admin: creating test token request');
+      await createTokenRequest(
+        currentUser.uid,
+        currentUser.email ?? 'admin-test@example.com',
+        currentUser.displayName ?? 'Admin Test',
+        50,
+        'Admin testing token requests'
+      );
+      toast.success('Test token request created successfully');
+      void fetchTokenRequests();
+    } catch (err) {
+      log.error('admin: test token request failed', { error: err });
+      toast.error('Failed to create test token request');
+    }
+  };
 
   const fetchTokenRequests = async () => {
     setRequestsLoading(true);
@@ -136,6 +155,14 @@ export function AdminPage() {
             </Button>
             <Button variant="outline" size="sm" onClick={() => { void fetchUsers(); void fetchTokenRequests(); }}>
               <RefreshCw className="h-4 w-4 mr-2" /> Refresh
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => void handleTestTokenRequest()}
+              className="gap-1.5"
+            >
+              <Zap className="h-4 w-4" /> Test Token Request
             </Button>
           </div>
         </div>

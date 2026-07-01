@@ -52,7 +52,7 @@ const cleanupOldLocalStorageData = () => {
   
   oldKeys.forEach(key => {
     if (localStorage.getItem(key)) {
-      console.log(`Cleaning up old localStorage key: ${key}`);
+      log.info(`Cleaning up old localStorage key: ${key}`);
       localStorage.removeItem(key);
     }
   });
@@ -75,7 +75,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {  const 
           toast.success("Successfully signed in!");
         }
       } catch (error) {
-        console.error("Error checking redirect result:", error);
+        log.error("Error checking redirect result:", error);
       }
     };
 

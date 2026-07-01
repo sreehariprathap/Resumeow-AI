@@ -12,6 +12,7 @@ import { useCallback } from 'react';
 import { useAIProvider } from '@/lib/aiProviderContext';
 import { useTokens } from '@/lib/tokenContext';
 import { toast } from 'sonner';
+import { log } from '@/lib/logger';
 import { cleanLatexResponse } from '@/lib/latexUtils';
 import { ensureKeySkillsSuggestion } from '@/lib/atsAnalysisUtils';
 import { callForTask as resolveAndCall } from '@/lib/llmConfigResolver';
@@ -88,11 +89,11 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
   const bill = useCallback((outputChars: number, label = 'ai_call') => {
     if (opts?.skipTokenCheck) return;
     const tokensCharged = Math.max(1, Math.ceil(outputChars / 750));
-    console.log(`[tokens] ${label} — ${outputChars} chars → ${tokensCharged} token${tokensCharged !== 1 ? 's' : ''}`);
+    log.info(`[tokens] ${label} — ${outputChars} chars → ${tokensCharged} token${tokensCharged !== 1 ? 's' : ''}`);
     deductTokens(outputChars).then(ok => {
-      if (!ok) console.warn(`[tokens] deduction failed after ${label} (${outputChars} chars, ${tokensCharged} tokens)`);
+      if (!ok) log.warn(`[tokens] deduction failed after ${label}`, { outputChars, tokensCharged });
     }).catch(err => {
-      console.error(`[tokens] deduction error after ${label}`, err);
+      log.error(`[tokens] deduction error after ${label}`, { error: err });
     });
   }, [deductTokens, opts]);
 
@@ -104,7 +105,7 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
 
   const handleAIError = (error: unknown) => {
     const msg = error instanceof Error ? error.message : 'Unknown AI service error';
-    console.error('AI Service Error:', msg);
+    log.error('AI Service Error', { error: msg });
     if (msg.includes('API key')) {
       toast.error('API key issue. Please check your settings and try again.');
     } else if (msg.includes('Both AI providers failed')) {
@@ -213,7 +214,7 @@ Do not include explanations, just return the LaTeX code.
       toast.success('LaTeX resume generated successfully!');
       return cleanedLatex;
     } catch (error) {
-      console.error('Error generating LaTeX resume:', error);
+      log.error('Error generating LaTeX resume', { error });
       throw error;
     }
   }, [callForTaskBound, checkTokens, bill]);
@@ -236,7 +237,7 @@ Do not include explanations, just return the LaTeX code.
       toast.success(`Cover letter ${isLatex ? 'LaTeX' : ''} generated successfully!`);
       return cleanedContent;
     } catch (error) {
-      console.error('Error generating cover letter:', error);
+      log.error('Error generating cover letter', { error });
       throw error;
     }
   }, [makeWritingCall]);
@@ -290,7 +291,7 @@ Provide specific, actionable feedback. Return only valid JSON.
         throw new Error('Invalid JSON response from AI service');
       }
     } catch (error) {
-      console.error('Error analyzing ATS score:', error);
+      log.error('Error analyzing ATS score', { error });
       throw error;
     }
   }, [callForTaskBound]);
@@ -387,7 +388,7 @@ Provide 5-10 actionable suggestions. Each suggestion should be specific and impl
         throw new Error('Invalid JSON response from AI service');
       }
     } catch (error) {
-      console.error('Error performing combined ATS analysis:', error);
+      log.error('Error performing combined ATS analysis', { error });
       throw error;
     }
   }, [callForTaskBound]);
