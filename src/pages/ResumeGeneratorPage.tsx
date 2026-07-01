@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -142,14 +143,15 @@ export function ResumeGeneratorPage() {
   const { callForTask } = useAIService();
   const { currentUser } = useAuth();
   const { startOnboarding } = useOnboarding();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [resumes, setResumes]         = useState<SavedResume[]>([]);
   const [profile, setProfile]         = useState<ResumeProfile | null>(null);
   const [isLoading, setIsLoading]     = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Modal states
-  const [editingResume, setEditingResume]       = useState<SavedResume | null>(null);
+  // Dialogs
+  const [editingResume, setEditingResume] = useState<SavedResume | null>(null);
   const [previewResume, setPreviewResume]       = useState<SavedResume | null>(null);
   const [duplicatingResume, setDuplicatingResume] = useState<SavedResume | null>(null);
 
@@ -166,51 +168,76 @@ export function ResumeGeneratorPage() {
 
   // Load resumes and profile
   useEffect(() => {
+    let isMounted = true;
     if (!currentUser) { setIsLoading(false); return; }
 
-    const load = async () => {
-      const [savedList, profileData] = await Promise.all([
-        getSavedResumes(currentUser.uid).catch(() => []),
-        getUserData(currentUser.uid, 'resumeProfile').catch(() => null),
-      ]);
-
-      // Migrate any legacy sessionStorage resume into Firestore
-      const legacyLatex = sessionStorage.getItem('generatedLatex');
-      const legacyTplId = sessionStorage.getItem('selectedTemplateId') ?? RESUME_TEMPLATES[0].id;
-      if (legacyLatex && savedList.length === 0) {
-        const tpl = RESUME_TEMPLATES.find(t => t.id === legacyTplId);
-        const now = Date.now();
-        const newId = await saveResume(currentUser.uid, {
-          name: 'My Resume',
-          latex: legacyLatex,
-          templateId: legacyTplId,
-          templateLabel: tpl?.label ?? legacyTplId,
-          createdAt: now,
-          updatedAt: now,
-        }).catch(() => null);
-        if (newId) {
-          sessionStorage.removeItem('generatedLatex');
-          const migrated: SavedResume = {
-            id: newId,
+    const fetchData = async () => {
+      try {
+        const [savedList, prof] = await Promise.all([
+          getSavedResumes(currentUser.uid).catch(() => []),
+          getUserData(currentUser.uid, 'resumeProfile').catch(() => null),
+        ]);
+        const sortedResumes = savedList.sort((a, b) => b.updatedAt - a.updatedAt);
+        
+        // Migrate any legacy sessionStorage resume into Firestore
+        const legacyLatex = sessionStorage.getItem('generatedLatex');
+        const legacyTplId = sessionStorage.getItem('selectedTemplateId') ?? RESUME_TEMPLATES[0].id;
+        if (legacyLatex && savedList.length === 0) {
+          const tpl = RESUME_TEMPLATES.find(t => t.id === legacyTplId);
+          const now = Date.now();
+          const newId = await saveResume(currentUser.uid, {
             name: 'My Resume',
             latex: legacyLatex,
             templateId: legacyTplId,
             templateLabel: tpl?.label ?? legacyTplId,
             createdAt: now,
             updatedAt: now,
-          };
-          setResumes([migrated]);
+          }).catch(() => null);
+          if (newId) {
+            sessionStorage.removeItem('generatedLatex');
+            const migrated: SavedResume = {
+              id: newId,
+              name: 'My Resume',
+              latex: legacyLatex,
+              templateId: legacyTplId,
+              templateLabel: tpl?.label ?? legacyTplId,
+              createdAt: now,
+              updatedAt: now,
+            };
+            if (isMounted) {
+              setResumes([migrated]);
+              setProfile(prof as ResumeProfile);
+              setIsLoading(false);
+            }
+            return;
+          }
         }
-      } else {
-        setResumes(savedList);
+        if (isMounted) {
+          setProfile(prof as ResumeProfile);
+          setResumes(sortedResumes);
+          setIsLoading(false);
+        }
+      } catch (err) {
+        if (isMounted) {
+          toast.error('Failed to load data');
+          setIsLoading(false);
+        }
       }
-
-      if (profileData) setProfile(profileData as ResumeProfile);
-      setIsLoading(false);
     };
-
-    void load();
+    fetchData();
+    return () => { isMounted = false; };
   }, [currentUser]);
+
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId && resumes.length > 0) {
+      const target = resumes.find(r => r.id === editId);
+      if (target && !editingResume) {
+        setEditingResume(target);
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [searchParams, resumes, editingResume, setSearchParams]);
 
   // Generate a brand-new resume
   const handleGenerate = async () => {
