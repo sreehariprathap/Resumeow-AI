@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FileText } from 'lucide-react';
-import { useAIProvider } from '@/lib/aiProviderContext';
+import { useAIService } from '@/hooks/useAIService';
 import { extractTextFromFile, parseResumeWithAI, mapParsedToProfile } from '@/lib/resumeParser';
 import { ResumeDropzone } from '@/components/ResumeDropzone';
 import type { ResumeProfile } from '@/types/resumeProfile';
@@ -11,7 +11,7 @@ interface ResumeUploadStepProps {
 }
 
 export const ResumeUploadStep = ({ onParsed, onSkip }: ResumeUploadStepProps) => {
-  const { makeAICall } = useAIProvider();
+  const { callForTask } = useAIService();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [parsedSummary, setParsedSummary] = useState<{
@@ -33,7 +33,7 @@ export const ResumeUploadStep = ({ onParsed, onSkip }: ResumeUploadStepProps) =>
 
     try {
       const text = await extractTextFromFile(file);
-      const parsedData = await parseResumeWithAI(text, makeAICall);
+      const parsedData = await parseResumeWithAI(text, (prompt) => callForTask('resumeParse', prompt));
       const mapped = mapParsedToProfile(parsedData);
       setParsed(mapped);
       setParsedSummary({
