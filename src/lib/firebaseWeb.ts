@@ -369,6 +369,42 @@ export const adminUpdateUserTokens = async (
   });
 };
 
+/** Admin: update a user's display name, token allocation, and/or plan */
+export const adminUpdateUserProfile = async (
+  uid: string,
+  updates: {
+    displayName?: string;
+    tokensAllocated?: number;
+    plan?: 'free' | 'pro' | 'admin';
+  }
+): Promise<void> => {
+  const profileRef = doc(db, 'userProfiles', uid);
+  const snap = await getDoc(profileRef);
+  if (!snap.exists()) return;
+
+  const patch: Record<string, unknown> = {};
+
+  if (updates.displayName !== undefined) {
+    patch.displayName = updates.displayName;
+  }
+
+  if (updates.tokensAllocated !== undefined) {
+    const profile = snap.data() as UserProfile;
+    const newRemaining = Math.max(0, updates.tokensAllocated - profile.tokensUsed);
+    patch.tokensAllocated = updates.tokensAllocated;
+    patch.tokensRemaining = newRemaining;
+  }
+
+  if (updates.plan !== undefined) {
+    patch.plan = updates.plan;
+    patch.isAdmin = updates.plan === 'admin';
+  }
+
+  if (Object.keys(patch).length === 0) return;
+  await updateDoc(profileRef, patch);
+};
+
+
 // --- Token Requests ---
 
 export interface TokenRequest {
