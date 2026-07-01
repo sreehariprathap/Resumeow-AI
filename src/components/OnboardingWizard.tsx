@@ -5,16 +5,15 @@ import { Button } from './ui/button';
 import { CheckCircle, Loader2 } from 'lucide-react';
 import { useOnboarding } from '@/lib/onboardingContext';
 import { useAIService } from '@/hooks/useAIService';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/authContext';
-import { saveUserData, getUserData } from '@/lib/firebaseWeb';
+import { saveUserData, getUserData, saveResume } from '@/lib/firebaseWeb';
 import { toast } from 'sonner';
 import type { ResumeProfile } from '@/types/resumeProfile';
 import { resumePromptRaw, coverLetterPromptRaw } from '@/config/prompts.config';
 import { DOMAINS } from '@/data/domainRoles';
 import { defaultProfile } from '@/lib/onboardingDefaults';
 import { AutofillBadge } from './onboarding/shared';
-import { compileLatexToPdf, downloadPdf, LatexCompileError, getResumePdfFilename } from '@/lib/latexCompiler';
-import { PdfPreviewDialog } from './PdfPreviewDialog';
 import { ResumeUploadStep } from './onboarding/steps/ResumeUploadStep';
 import { WelcomeStep } from './onboarding/steps/WelcomeStep';
 import { PersonalInfoStep } from './onboarding/steps/PersonalInfoStep';
@@ -56,6 +55,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const { showOnboarding, completeOnboarding, resumeProfile: savedProfile, initialStep } = useOnboarding();
   const { callForTask } = useAIService();
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
 
   const [step, setStep] = useState(() => ((initialStep ?? 0) > 0 ? initialStep : -1));
   const [profile, setProfile] = useState<Partial<ResumeProfile>>(
@@ -63,13 +63,8 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   );
   const [skippedSteps, setSkippedSteps] = useState<Set<number>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
-  const [_generatedLatex, setGeneratedLatex] = useState<string | null>(null);
   const [wasAutofilled, setWasAutofilled] = useState(false);
   const [reviewJump, setReviewJump] = useState(false);
-  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
-  const [isPdfOpen, setIsPdfOpen] = useState(false);
-  const [isCompiling, setIsCompiling] = useState(false);
-  const [compileError, setCompileError] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<ResumeTemplate>(RESUME_TEMPLATES[0]);
 
   useEffect(() => {
@@ -217,7 +212,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         (prompt) => callForTask('resumeLatex', prompt),
         templateTex
       );
-      setGeneratedLatex(latex);
 
       const finalProfile = {
         ...profile,
@@ -230,27 +224,22 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       if (currentUser) {
         await saveUserData(currentUser.uid, 'resumeProfile', finalProfile as Record<string, unknown>);
         await injectDynamicPrompts(finalProfile as ResumeProfile);
-      }
+        
+        const resumeId = await saveResume(currentUser.uid, {
+          name: `${profile.firstName || 'My'} ${profile.lastName || 'Resume'} - ${new Date().getFullYear()}`,
+          latex,
+          templateId: selectedTemplate.id,
+          templateLabel: selectedTemplate.name,
+        });
 
-      sessionStorage.setItem('generatedLatex', latex);
-      sessionStorage.setItem('selectedTemplateId', selectedTemplate.id);
-      completeOnboarding();
-      onComplete?.();
-
-      // Compile to PDF and show preview; fall back to redirect on failure
-      setPdfBlob(null);
-      setCompileError(null);
-      setIsCompiling(true);
-      setIsPdfOpen(true);
-      try {
-        const blob = await compileLatexToPdf(latex);
-        setPdfBlob(blob);
-      } catch (compileErr) {
-        const log = compileErr instanceof LatexCompileError ? compileErr.log : String(compileErr);
-        setCompileError(log);
-        toast.error('PDF preview unavailable — you can still download the .tex file on the resume page.');
-      } finally {
-        setIsCompiling(false);
+        toast.success("Resume generated successfully!");
+        completeOnboarding();
+        onComplete?.();
+        navigate(`/resume?edit=${resumeId}`);
+      } else {
+        completeOnboarding();
+        onComplete?.();
+        navigate('/resume');
       }
     } catch (err) {
       console.error(err);
@@ -466,24 +455,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           </div>
         )}
       </div>
-
-      <PdfPreviewDialog
-        open={isPdfOpen}
-        onOpenChange={(open) => {
-          setIsPdfOpen(open);
-          if (!open) window.location.href = '/resume';
-        }}
-        pdfBlob={pdfBlob}
-        isCompiling={isCompiling}
-        compileError={compileError}
-        onDownload={() => {
-          if (pdfBlob) downloadPdf(pdfBlob, getResumePdfFilename({
-            firstName: profile.firstName,
-            lastName: profile.lastName,
-            position: profile.targetRoles?.[0],
-          }));
-        }}
-      />
     </div>
   );
 }
