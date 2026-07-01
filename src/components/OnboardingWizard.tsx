@@ -52,7 +52,7 @@ interface OnboardingWizardProps {
 }
 
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
-  const { showOnboarding, completeOnboarding, resumeProfile: savedProfile, initialStep } = useOnboarding();
+  const { showOnboarding, completeOnboarding, skipOnboarding, resumeProfile: savedProfile, initialStep } = useOnboarding();
   const { callForTask } = useAIService();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
@@ -353,7 +353,7 @@ Return ONLY valid, compilable LaTeX code, nothing else. Do not use markdown form
           <WelcomeStep
             onNext={() => setStep(1)}
             onUpload={() => setStep(-1)}
-            onSkip={() => handleSkip(0)}
+            onSkip={skipOnboarding}
           />
         )}
 
