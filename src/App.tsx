@@ -37,6 +37,7 @@ import type { PromptType, Template, CustomPrompt } from "./types";
 import { CombinedATSAnalysis } from "./components/CombinedATSAnalysis";
 import { useAIService, type ATSScore } from "./hooks/useAIService";
 import { useApplicationTracker } from "./hooks/useApplicationTracker";
+import { getSavedResumes } from "./lib/firebaseWeb";
 
 function App() {
   const { currentUser } = useAuth();
@@ -60,6 +61,33 @@ function App() {
   const { selectedModel } = useAIProvider();
   const { showOnboarding, completeOnboarding, startOnboarding, hasCompletedOnboarding } = useOnboarding();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Load saved resumes to act as the single source of truth for "Saved Resume:"
+  const [savedResumesAsTemplates, setSavedResumesAsTemplates] = useState<Template[]>([]);
+  useEffect(() => {
+    if (currentUser) {
+      getSavedResumes(currentUser.uid)
+        .then(resumes => {
+          setSavedResumesAsTemplates(resumes.map(r => ({
+            id: r.id,
+            name: r.name,
+            resumeLatex: r.latex
+          })));
+        })
+        .catch(console.error);
+    } else {
+      setSavedResumesAsTemplates([]);
+    }
+  }, [currentUser]);
+
+  const effectiveResumeTemplates = savedResumesAsTemplates.length > 0 ? savedResumesAsTemplates : resumeTemplates;
+
+  // We need to re-initialize prompt generator with effectiveResumeTemplates
+  const { generateResumePrompt: generateResumePromptEffective } = usePromptGenerator({
+    resumeTemplates: effectiveResumeTemplates,
+    coverLetterTemplates,
+    getActivePrompt,
+  });
 
   useEffect(() => {
     if (searchParams.get('onboarding') === 'true') {
@@ -165,9 +193,10 @@ function App() {
 
     // Fast Compile logic for resume
     if (fastCompile && promptType === 'resume') {
-      // Use last used template or default
-      const templateIdToUse = selectedTemplateId !== "no-selection" ? selectedTemplateId :
-        (resumeTemplates.length > 0 ? resumeTemplates[0].id : "");
+      // Use first valid template if no selection exists
+      const templateIdToUse = (selectedTemplateId && selectedTemplateId !== 'no-selection') ? 
+          selectedTemplateId : 
+          (effectiveResumeTemplates.length > 0 ? effectiveResumeTemplates[0].id : "");
 
       if (!templateIdToUse) {
         toast.error("No resume template available. Please add a template first.");
@@ -182,7 +211,7 @@ function App() {
       }
 
       // Use template's LaTeX content as resume
-      const resumeTemplate = resumeTemplates.find(t => t.id === templateIdToUse);
+      const resumeTemplate = effectiveResumeTemplates.find(t => t.id === templateIdToUse);
       const resumeToUse = resumeTemplate?.resumeLatex || "";
 
       // Fold in the ATS job-scan insights (missing keywords + suggestions) so the
@@ -191,7 +220,7 @@ function App() {
         ? `${optionalInstructions}\n\n`
         : "";
 
-      const prompt = generateResumePrompt({
+      const prompt = generateResumePromptEffective({
         jobDescription,
         resumeContent: resumeToUse,
         templateId: templateIdToUse,
@@ -211,7 +240,7 @@ function App() {
 
     // Normal flow continues...
     // Get the selected resume template (shared for both resume and cover letter types)
-    const resumeTemplate = resumeTemplates.find(t => t.id === selectedTemplateId);
+    const resumeTemplate = effectiveResumeTemplates.find(t => t.id === selectedTemplateId);
     // Use the temporary resume text if selected, otherwise use the LaTeX template from the selected resume
     const resumeToUse = useTemporaryResume ? resumeContent : (resumeTemplate?.resumeLatex || resumeContent);
 
@@ -292,7 +321,7 @@ function App() {
     setSelectedTemplateId(templateId || "no-selection");
 
     // Load resume content if available in the template
-    const template = resumeTemplates.find(t => t.id === templateId);
+    const template = effectiveResumeTemplates.find(t => t.id === templateId);
     if (template?.resumeLatex) {
       // Store original content for ATS comparison
       if (!originalResumeContent) {
@@ -508,7 +537,7 @@ function App() {
 
             {/* Fast Compile job scan — ATS analysis + insights before compiling */}
             {fastCompile && promptType === 'resume' && fastCompileATS && jobDescription && (() => {
-              const fastTemplate = resumeTemplates.find(t => t.id === selectedTemplateId && selectedTemplateId !== 'no-selection') ?? resumeTemplates[0];
+              const fastTemplate = effectiveResumeTemplates.find(t => t.id === selectedTemplateId && selectedTemplateId !== 'no-selection') ?? effectiveResumeTemplates[0];
               const fastResume = fastTemplate?.resumeLatex || "";
               if (!fastResume) {
                 return (
@@ -542,7 +571,7 @@ function App() {
 
                 {/* Shared resume selector for both resume and cover letter types */}
                 <TemplateSelector
-                  templates={resumeTemplates}
+                  templates={effectiveResumeTemplates}
                   selectedTemplateId={selectedTemplateId}
                   onSelectTemplate={handleTemplateChange}
                   onAddTemplate={handleAddTemplate}
@@ -688,7 +717,7 @@ function App() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         customPrompts={customPrompts}
-        resumeTemplates={resumeTemplates}
+        resumeTemplates={effectiveResumeTemplates}
         coverLetterTemplates={coverLetterTemplates}
         activePrompts={activePrompts}
         onAddCustomPrompt={handleAddCustomPrompt}
@@ -701,7 +730,7 @@ function App() {
       <TemplateManagementDialog
         isOpen={isTemplateManagementOpen}
         onClose={() => setIsTemplateManagementOpen(false)}
-        resumeTemplates={resumeTemplates}
+        resumeTemplates={effectiveResumeTemplates}
         coverLetterTemplates={coverLetterTemplates}
         onUpdateTemplate={updateTemplate}
         onDeleteTemplate={deleteTemplate}
