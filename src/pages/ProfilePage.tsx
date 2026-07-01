@@ -15,6 +15,31 @@ import { RequestTokensDialog } from '@/components/RequestTokensDialog';
 import { useOnboarding } from '@/lib/onboardingContext';
 import { useRef } from 'react';
 import type { ResumeProfile } from '@/types/resumeProfile';
+import { Trash2 } from 'lucide-react';
+
+function ProfileDataList({ title, items, onUpdate }: { title: string, items: any[], onUpdate: (newItems: any[]) => void }) {
+  return (
+    <div className="space-y-4 mt-6">
+      <h3 className="text-lg font-semibold">{title}</h3>
+      {items.length === 0 ? <p className="text-sm text-muted-foreground">No data added.</p> : null}
+      <div className="space-y-3">
+        {items.map((item, idx) => (
+          <div key={idx} className="p-4 border rounded-md relative bg-card">
+            <Button size="icon" variant="ghost" className="absolute top-2 right-2 text-destructive" onClick={() => {
+              const newItems = [...items];
+              newItems.splice(idx, 1);
+              onUpdate(newItems);
+            }}>
+               <Trash2 className="h-4 w-4" />
+            </Button>
+            <pre className="text-xs overflow-auto">{JSON.stringify(item, null, 2)}</pre>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 
 export function ProfilePage() {
   const { currentUser } = useAuth();
@@ -81,6 +106,14 @@ export function ProfilePage() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleUpdateArray = async (key: keyof ResumeProfile, newArray: any[]) => {
+    if (!currentUser || !resumeProfile) return;
+    const updated = { ...resumeProfile, [key]: newArray };
+    setResumeProfile(updated);
+    await saveUserData(currentUser.uid, 'resumeProfile', updated as Record<string, unknown>);
+    toast.success(`${key} updated`);
   };
 
   const handleRestartOnboarding = () => {
@@ -245,9 +278,24 @@ export function ProfilePage() {
                 ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Saving…</>
                 : <><Save className="h-4 w-4 mr-2" /> Save Profile</>
               }
-            </Button>
-          </CardContent>
-        </Card>
+              </Button>
+            </CardContent>
+          </Card>
+
+          {resumeProfile && (
+            <Card className="border-border/60 bg-card/50">
+              <CardHeader>
+                <CardTitle>Resume Data</CardTitle>
+                <CardDescription>Advanced editing of your resume data arrays.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ProfileDataList title="Experience" items={resumeProfile.experiences || []} onUpdate={(val) => handleUpdateArray('experiences', val)} />
+                <ProfileDataList title="Education" items={resumeProfile.education || []} onUpdate={(val) => handleUpdateArray('education', val)} />
+                <ProfileDataList title="Projects" items={resumeProfile.projects || []} onUpdate={(val) => handleUpdateArray('projects', val)} />
+                <ProfileDataList title="Skills" items={resumeProfile.skills || []} onUpdate={(val) => handleUpdateArray('skills', val)} />
+              </CardContent>
+            </Card>
+          )}
 
         {/* Token request at bottom if many tokens remain — less urgent */}
         {!isAdmin && tokensRemaining > 10 && (
