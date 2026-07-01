@@ -78,7 +78,7 @@ export function JDMatcherPage() {
   const { deductTokens, isAdmin, assertSufficientBalance } = useTokens();
   const [tokenDialogOpen, setTokenDialogOpen] = useState(false);
 
-  const { makeAnalysisCall, generateResumeLatex } = useAIService({
+  const { makeAnalysisCall, generateResumeLatex, analyzeJobFit, callForTask } = useAIService({
     onInsufficientTokens: () => setTokenDialogOpen(true),
   });
 
@@ -88,6 +88,12 @@ export function JDMatcherPage() {
 
   // Tailored resume generation + PDF state
   const [isGeneratingResume, setIsGeneratingResume] = useState(false);
+  // 0=idle, 1=job-fit running, 2=keyword-analysis running, 3=latex running, 4=compiling, 5=done
+  const [generationStep, setGenerationStep] = useState<0|1|2|3|4|5>(0);
+  const [stepResults, setStepResults] = useState<{
+    jobFit: { score: number; label: string } | null;
+    keywords: { matched: number; missing: number } | null;
+  }>({ jobFit: null, keywords: null });
   const [isPdfOpen, setIsPdfOpen] = useState(false);
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [isCompiling, setIsCompiling] = useState(false);
@@ -164,11 +170,59 @@ Analyze the match and respond with ONLY valid JSON in this exact structure:
   const handleGenerateTailored = async () => {
     if (!result || !currentUser) return;
     setIsGeneratingResume(true);
+    setStepResults({ jobFit: null, keywords: null });
+
     try {
       const profileData = await getUserData(currentUser.uid, 'resumeProfile');
       if (!profileData) throw new Error('No profile');
       const profile = profileData as ResumeProfile;
 
+      // ── Step 1: Job Fit ────────────────────────────────────────────────────
+      setGenerationStep(1);
+      const jobFitPrompt = `You are a strict hiring gatekeeper. Analyze this job description for MANDATORY requirements and check the resume against each one.
+
+JOB DESCRIPTION:
+${jdText}
+
+RESUME PROFILE:
+${JSON.stringify(profile, null, 2)}
+
+Return ONLY valid JSON: { "fitScore": <0-100>, "label": "<Great Match|Decent Match|Tough Match|Not a Fit>", "mandatoryRequirements": [], "summary": "<2 sentence verdict>" }`;
+
+      const jobFitRaw = await callForTask('jobFit', jobFitPrompt);
+      const jobFitMatch = jobFitRaw.match(/\{[\s\S]*\}/);
+      if (jobFitMatch) {
+        const jf = JSON.parse(jobFitMatch[0]);
+        setStepResults(prev => ({ ...prev, jobFit: { score: jf.fitScore, label: jf.label } }));
+      }
+
+      // ── Step 2: Keyword Analysis ───────────────────────────────────────────
+      setGenerationStep(2);
+      const keywordPrompt = `Analyze this resume against the job description for keyword and ATS compatibility.
+
+JOB DESCRIPTION:
+${jdText}
+
+RESUME PROFILE:
+${JSON.stringify(profile, null, 2)}
+
+Return ONLY valid JSON: { "overall": <0-100>, "keywordMatch": <0-100>, "missingKeywords": ["..."], "matchedKeywords": ["..."], "recommendations": ["..."] }`;
+
+      const keywordRaw = await callForTask('combinedATS', keywordPrompt);
+      const keywordMatch = keywordRaw.match(/\{[\s\S]*\}/);
+      if (keywordMatch) {
+        const kw = JSON.parse(keywordMatch[0]);
+        setStepResults(prev => ({
+          ...prev,
+          keywords: {
+            matched: (kw.matchedKeywords ?? []).length,
+            missing: (kw.missingKeywords ?? []).length,
+          },
+        }));
+      }
+
+      // ── Step 3: LaTeX Resume ───────────────────────────────────────────────
+      setGenerationStep(3);
       const improvedProfile: ResumeProfile = {
         ...profile,
         experiences: profile.experiences.map(exp => ({
@@ -188,18 +242,12 @@ Analyze the match and respond with ONLY valid JSON in this exact structure:
       );
       sessionStorage.setItem('generatedLatex', latex);
 
-      // Check tokens before PDF compilation (external API cost)
+      // ── Step 4: PDF Compile ────────────────────────────────────────────────
       if (!isAdmin) {
-        try {
-          await assertSufficientBalance();
-        } catch {
-          setTokenDialogOpen(true);
-          toast.error('No tokens left. Request more to compile the PDF.');
-          return;
-        }
+        try { await assertSufficientBalance(); }
+        catch { setTokenDialogOpen(true); toast.error('No tokens left.'); return; }
       }
-
-      // Compile to PDF and show preview
+      setGenerationStep(4);
       setPdfBlob(null);
       setCompileError(null);
       setIsCompiling(true);
@@ -207,10 +255,8 @@ Analyze the match and respond with ONLY valid JSON in this exact structure:
       try {
         const blob = await compileLatexToPdf(latex);
         setPdfBlob(blob);
-        if (!isAdmin) {
-          console.log(`[tokens] pdf_compile — ${PDF_COMPILE_TOKEN_COST} chars → 1 token`);
-          void deductTokens(PDF_COMPILE_TOKEN_COST);
-        }
+        setGenerationStep(5);
+        if (!isAdmin) { void deductTokens(PDF_COMPILE_TOKEN_COST); }
       } catch (compileErr) {
         const log = compileErr instanceof LatexCompileError ? compileErr.log : String(compileErr);
         setCompileError(log);
@@ -221,12 +267,13 @@ Analyze the match and respond with ONLY valid JSON in this exact structure:
       }
     } catch (err) {
       if (err instanceof Error && err.message === 'INSUFFICIENT_TOKENS') {
-        setTokenDialogOpen(true);
-        return;
+        setTokenDialogOpen(true); return;
       }
       toast.error('Failed to generate tailored resume.');
+      console.error(err);
     } finally {
       setIsGeneratingResume(false);
+      setGenerationStep(0);
     }
   };
 
@@ -454,13 +501,47 @@ Analyze the match and respond with ONLY valid JSON in this exact structure:
                 </CardContent>
               </Card>
 
-              {/* CTA */}
-              <Button className="w-full" onClick={handleGenerateTailored} disabled={isGeneratingResume}>
-                {isGeneratingResume
-                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating Tailored Resume…</>
-                  : <><FileText className="h-4 w-4 mr-2" /> Generate Tailored Resume as PDF</>
-                }
-              </Button>
+              {/* CTA + Step Progress */}
+              {isGeneratingResume ? (
+                <div className="rounded-xl border bg-card p-5 space-y-4">
+                  <p className="text-sm font-semibold text-center">Generating your tailored resume…</p>
+                  <div className="space-y-3">
+                    {([
+                      { step: 1, label: 'Is this job right for you?', detail: stepResults.jobFit ? `${stepResults.jobFit.label} · ${stepResults.jobFit.score}/100` : null },
+                      { step: 2, label: 'Keyword & ATS analysis', detail: stepResults.keywords ? `${stepResults.keywords.matched} matched · ${stepResults.keywords.missing} missing` : null },
+                      { step: 3, label: 'Generating tailored LaTeX resume', detail: null },
+                      { step: 4, label: 'Compiling PDF', detail: null },
+                    ] as const).map(({ step, label, detail }) => {
+                      const isDone = generationStep > step;
+                      const isActive = generationStep === step;
+                      return (
+                        <div key={step} className={`flex items-center gap-3 rounded-lg px-4 py-2.5 transition-colors ${
+                          isDone ? 'bg-green-50 dark:bg-green-900/20' :
+                          isActive ? 'bg-primary/10 border border-primary/25' :
+                          'opacity-40'
+                        }`}>
+                          <div className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                            isDone ? 'bg-green-500 text-white' :
+                            isActive ? 'bg-primary text-primary-foreground' :
+                            'bg-muted text-muted-foreground'
+                          }`}>
+                            {isDone ? '✓' : step}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-medium ${isActive ? 'text-primary' : ''}`}>{label}</p>
+                            {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
+                          </div>
+                          {isActive && <Loader2 className="h-4 w-4 animate-spin text-primary flex-shrink-0" />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <Button className="w-full" onClick={handleGenerateTailored}>
+                  <FileText className="h-4 w-4 mr-2" /> Generate Tailored Resume as PDF
+                </Button>
+              )}
             </div>
           )}
         </div>

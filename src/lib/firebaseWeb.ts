@@ -324,7 +324,56 @@ export const getAllUserProfiles = async (): Promise<UserProfile[]> => {
   return snap.docs.map(d => d.data() as UserProfile);
 };
 
-// --- Lazy Mode ---
+// --- Saved Resumes ---
+
+export interface SavedResume {
+  id: string;          // Firestore doc ID
+  name: string;        // User-given name (e.g. "Google SWE", "Meta PM")
+  latex: string;       // Full LaTeX source
+  templateId: string;  // e.g. 'johnsnow', 'sreehari', 'custom'
+  templateLabel: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Fetch all saved resumes for a user, newest first */
+export const getSavedResumes = async (uid: string): Promise<SavedResume[]> => {
+  const col = collection(db, 'users', uid, 'resumes');
+  const q = query(col, orderBy('updatedAt', 'desc'));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as SavedResume));
+};
+
+/** Save a new resume, returns the new Firestore doc ID */
+export const saveResume = async (
+  uid: string,
+  resume: Omit<SavedResume, 'id'>
+): Promise<string> => {
+  const col = collection(db, 'users', uid, 'resumes');
+  const ref = await addDoc(col, resume);
+  return ref.id;
+};
+
+/** Update the LaTeX source (and updatedAt) of an existing resume */
+export const updateResumeLatex = async (
+  uid: string,
+  resumeId: string,
+  latex: string,
+  name?: string
+): Promise<void> => {
+  const ref = doc(db, 'users', uid, 'resumes', resumeId);
+  const patch: Record<string, unknown> = { latex, updatedAt: Date.now() };
+  if (name !== undefined) patch.name = name;
+  await updateDoc(ref, patch);
+};
+
+/** Delete a saved resume */
+export const deleteResume = async (uid: string, resumeId: string): Promise<void> => {
+  const { deleteDoc } = await import('firebase/firestore');
+  await deleteDoc(doc(db, 'users', uid, 'resumes', resumeId));
+};
+
+
 
 export interface LazyModeSettings {
   enabled: boolean;
