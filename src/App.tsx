@@ -23,6 +23,7 @@ import { useTemplates } from "./hooks/useTemplates";
 import { usePromptGenerator } from "./hooks/usePromptGenerator";
 import { useAIProvider } from "./lib/aiProviderContext";
 import { useAuth } from "./lib/authContext";
+import { useTokens } from "./lib/tokenContext";
 import { useOnboarding } from "./lib/onboardingContext";
 import { Card, CardContent, CardHeader, CardAction } from "./components/ui/card";
 import { Button } from "./components/ui/button";
@@ -41,6 +42,7 @@ import { getSavedResumes } from "./lib/firebaseWeb";
 
 function App() {
   const { currentUser } = useAuth();
+  const { profile: tokenProfile } = useTokens();
   const { resumeTemplates,
     coverLetterTemplates,
     customPrompts,
@@ -429,7 +431,9 @@ function App() {
           <Badge variant="outline" className="flex items-center gap-1 w-fit">
             <Bot className="h-3 w-3" />
             <span className="text-xs">AI Model:</span>
-            <span className="text-xs font-medium">{selectedModel.name}</span>
+            <span className="text-xs font-medium">
+              {tokenProfile?.plan === 'pro' || tokenProfile?.plan === 'admin' ? 'DeepSeek' : 'Gemini'}
+            </span>
             <Sparkles className="h-3 w-3" />
           </Badge>
           <SyncStatusIndicator />
