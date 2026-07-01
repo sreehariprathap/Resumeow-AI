@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { AdminEditModal } from '@/components/AdminEditModal';
+import { LLMHealthCheckModal } from '@/components/LLMHealthCheckModal';
 import { toast } from 'sonner';
-import { Users, Zap, ArrowLeft, RefreshCw, AlertCircle } from 'lucide-react';
+import { Users, Zap, ArrowLeft, RefreshCw, AlertCircle, FlaskConical } from 'lucide-react';
 import { log } from '@/lib/logger';
 
 export function AdminPage() {
@@ -20,6 +21,7 @@ export function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [llmHealthOpen, setLlmHealthOpen] = useState(false);
   const [tokenRequests, setTokenRequests] = useState<TokenRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
@@ -124,6 +126,14 @@ export function AdminPage() {
             </div>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setLlmHealthOpen(true)}
+              className="gap-1.5"
+            >
+              <FlaskConical className="h-4 w-4" /> Test LLM
+            </Button>
             <Button variant="outline" size="sm" onClick={() => { void fetchUsers(); void fetchTokenRequests(); }}>
               <RefreshCw className="h-4 w-4 mr-2" /> Refresh
             </Button>
@@ -339,6 +349,12 @@ export function AdminPage() {
         user={editingUser}
         onClose={() => setEditingUser(null)}
         onSaved={() => void fetchUsers()}
+      />
+
+      {/* LLM health check modal */}
+      <LLMHealthCheckModal
+        open={llmHealthOpen}
+        onClose={() => setLlmHealthOpen(false)}
       />
     </div>
   );
