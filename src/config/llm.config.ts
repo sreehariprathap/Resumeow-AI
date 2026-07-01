@@ -129,38 +129,55 @@ export const llmConfig: {
 
   tasks: {
     // ── Heavy generation ────────────────────────────────────────────────────
-    // LaTeX resume — full document, highest quality + thinking enabled.
+    // LaTeX resume — full document.
+    // Pro: DeepSeek Pro + thinking for maximum quality.
     resumeLatex: {
       model:     MODELS.gemini.flash,
       provider:  'gemini',
       thinking:  false,
       maxTokens: 16384,
+      tierOverrides: {
+        pro: { model: MODELS.deepseek.pro, provider: 'deepseek', thinking: true },
+      },
     },
 
     // Cover letter — fluent prose, higher temperature for natural tone.
+    // Pro: DeepSeek Pro for richer, more nuanced writing.
     coverLetter: {
       model:       MODELS.gemini.flash,
       provider:    'gemini',
       temperature: 0.7,
       maxTokens:   4096,
+      tierOverrides: {
+        pro: { model: MODELS.deepseek.pro, provider: 'deepseek' },
+      },
     },
 
     // ── Structured JSON extraction ───────────────────────────────────────────
     // ATS score — JSON output, temperature 0 for deterministic parsing.
+    // Pro: DeepSeek Flash — faster/cheaper, same JSON accuracy.
     atsAnalysis: {
       model:       MODELS.gemini.flash,
       provider:    'gemini',
       temperature: 0,
+      tierOverrides: {
+        pro: { model: MODELS.deepseek.flash, provider: 'deepseek' },
+      },
     },
 
     // Combined ATS score + suggestions in one call.
+    // Pro: DeepSeek Flash.
     combinedATS: {
       model:       MODELS.gemini.flash,
       provider:    'gemini',
       temperature: 0,
+      tierOverrides: {
+        pro: { model: MODELS.deepseek.flash, provider: 'deepseek' },
+      },
     },
 
     // Lightweight JD extraction — minimal tokens needed.
+    // Pro: stays on Gemini Flash (no benefit from a heavier model here).
     extractJobDetails: {
       model:       MODELS.gemini.flash,
       provider:    'gemini',
@@ -169,13 +186,18 @@ export const llmConfig: {
     },
 
     // Job fit scoring — JSON, strict structured output.
+    // Pro: DeepSeek Flash.
     jobFit: {
       model:       MODELS.gemini.flash,
       provider:    'gemini',
       temperature: 0,
+      tierOverrides: {
+        pro: { model: MODELS.deepseek.flash, provider: 'deepseek' },
+      },
     },
 
     // Resume text → profile JSON.
+    // Pro: stays on Gemini Flash (extraction task, no quality gain from heavier model).
     resumeParse: {
       model:       MODELS.gemini.flash,
       provider:    'gemini',
@@ -185,28 +207,41 @@ export const llmConfig: {
 
     // ── Lazy pipeline ────────────────────────────────────────────────────────
     // JD analysis step — structured, long context.
+    // Pro: DeepSeek Pro for deeper analysis.
     lazyPipelineJD: {
       model:       MODELS.gemini.flash,
       provider:    'gemini',
       temperature: 0,
       maxTokens:   8192,
+      tierOverrides: {
+        pro: { model: MODELS.deepseek.pro, provider: 'deepseek' },
+      },
     },
 
     // LaTeX generation step inside the lazy pipeline.
+    // Pro: DeepSeek Pro + thinking (full document generation, highest stakes).
     lazyPipelineLatex: {
       model:     MODELS.gemini.flash,
       provider:  'gemini',
-      thinking:  true,
+      thinking:  false,
       maxTokens: 16384,
+      tierOverrides: {
+        pro: { model: MODELS.deepseek.pro, provider: 'deepseek', thinking: true },
+      },
     },
 
     // ── Analysis ─────────────────────────────────────────────────────────────
+    // Pro: DeepSeek Flash for faster scoring.
     resumeScore: {
       model:       MODELS.gemini.flash,
       provider:    'gemini',
       temperature: 0,
+      tierOverrides: {
+        pro: { model: MODELS.deepseek.flash, provider: 'deepseek' },
+      },
     },
 
+    // Pro: stays on Gemini Flash (lightweight matching task).
     jdMatcher: {
       model:       MODELS.gemini.flash,
       provider:    'gemini',
@@ -214,6 +249,7 @@ export const llmConfig: {
     },
 
     // ── Short output ─────────────────────────────────────────────────────────
+    // Pro: stays on Gemini Flash (short output, no quality delta from heavier model).
     bioSummary: {
       model:     MODELS.gemini.flash,
       provider:  'gemini',
