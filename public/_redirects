@@ -1,0 +1,5 @@
+# Proxy Firebase Auth to bypass Intelligent Tracking Prevention (ITP) on iOS/Safari
+/__/auth/* https://resumeow-ai.firebaseapp.com/__/auth/:splat 200
+
+# React Router catch-all
+/* /index.html 200
