@@ -14,7 +14,7 @@ import {
   sendPasswordResetEmail
 } from "firebase/auth";
 import type { User } from "firebase/auth";
-import { getFirestore, initializeFirestore, doc, setDoc, getDoc, collection, getDocs, updateDoc, increment, query, orderBy, addDoc, where, writeBatch } from "firebase/firestore";
+import { initializeFirestore, doc, setDoc, getDoc, collection, getDocs, updateDoc, increment, query, orderBy, addDoc, where, writeBatch } from "firebase/firestore";
 import type { ResumeProfile } from "@/types/resumeProfile";
 import { computeMissingDefaults, RESUME_PROFILE_DEFAULTS } from "./profileSeeding";
 import { log } from "./logger";

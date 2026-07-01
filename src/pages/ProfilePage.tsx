@@ -10,9 +10,12 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, RefreshCw, Zap, Download, Upload, RotateCcw, Settings } from 'lucide-react';
+import { ArrowLeft, Save, RefreshCw, Zap, Download, Upload, RotateCcw, Settings, Sparkles, FileText } from 'lucide-react';
 import { RequestTokensDialog } from '@/components/RequestTokensDialog';
 import { useOnboarding } from '@/lib/onboardingContext';
+import { useAIService } from '@/hooks/useAIService';
+import { compileLatexToPdf, downloadPdf, getResumePdfFilename } from '@/lib/latexCompiler';
+import { Textarea } from '@/components/ui/textarea';
 import { useRef } from 'react';
 import type { ResumeProfile } from '@/types/resumeProfile';
 import { Trash2 } from 'lucide-react';
@@ -22,17 +25,30 @@ function ProfileDataList({ title, items, onUpdate }: { title: string, items: any
     <div className="space-y-4 mt-6">
       <h3 className="text-lg font-semibold">{title}</h3>
       {items.length === 0 ? <p className="text-sm text-muted-foreground">No data added.</p> : null}
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {items.map((item, idx) => (
-          <div key={idx} className="p-4 border rounded-md relative bg-card">
-            <Button size="icon" variant="ghost" className="absolute top-2 right-2 text-destructive" onClick={() => {
+          <div key={idx} className="p-4 border rounded-md relative bg-card shadow-sm flex flex-col group">
+            <Button size="icon" variant="ghost" className="absolute top-2 right-2 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {
               const newItems = [...items];
               newItems.splice(idx, 1);
               onUpdate(newItems);
             }}>
                <Trash2 className="h-4 w-4" />
             </Button>
-            <pre className="text-xs overflow-auto">{JSON.stringify(item, null, 2)}</pre>
+            <div className="text-sm space-y-1.5 pr-8">
+              {Object.entries(item).map(([key, value]) => {
+                if (value === undefined || value === null || value === '') return null;
+                if (key === 'id') return null;
+                return (
+                  <div key={key} className="break-words">
+                    <span className="font-semibold text-foreground/80 capitalize">{key.replace(/([A-Z])/g, ' $1')}: </span>
+                    <span className="text-muted-foreground">
+                      {Array.isArray(value) ? value.join(', ') : String(value)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         ))}
       </div>
@@ -45,6 +61,7 @@ export function ProfilePage() {
   const { currentUser } = useAuth();
   const { profile: tokenProfile, tokensRemaining, tokensAllocated, tokensUsed, isAdmin, refetch } = useTokens();
   const { startOnboarding } = useOnboarding();
+  const { makeWritingCall, generateResumeLatex } = useAIService();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -60,6 +77,9 @@ export function ProfilePage() {
   const [location, setLocation] = useState('');
   const [linkedin, setLinkedin] = useState('');
   const [website, setWebsite] = useState('');
+  const [summary, setSummary] = useState('');
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -74,6 +94,7 @@ export function ProfilePage() {
           setLocation(p.location ?? '');
           setLinkedin(p.linkedin ?? '');
           setWebsite(p.website ?? '');
+          setSummary(p.summary ?? '');
         }
       })
       .finally(() => setIsLoading(false));
@@ -91,6 +112,7 @@ export function ProfilePage() {
         location,
         linkedin,
         website,
+        summary,
         email: currentUser.email ?? resumeProfile.email ?? '',
         lastUpdated: Date.now(),
       };
@@ -165,6 +187,64 @@ export function ProfilePage() {
     reader.readAsText(file);
     // Reset input
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleGenerateSummary = async () => {
+    setIsGeneratingSummary(true);
+    try {
+      const prompt = `Based on the following profile information, write a highly professional, engaging, and concise Professional Summary (max 4-5 sentences) for a resume. Do not include any explanations, just the summary text itself.
+      
+      First Name: ${firstName}
+      Last Name: ${lastName}
+      Location: ${location}
+      Experience: ${JSON.stringify(resumeProfile.experiences)}
+      Education: ${JSON.stringify(resumeProfile.education)}
+      Skills: ${JSON.stringify(resumeProfile.skills)}
+      Projects: ${JSON.stringify(resumeProfile.projects)}
+      `;
+      const generated = await makeWritingCall(prompt);
+      setSummary(generated.trim());
+      toast.success('Summary generated successfully!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to generate summary');
+    } finally {
+      setIsGeneratingSummary(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    setIsDownloadingPdf(true);
+    try {
+      const templateRes = await fetch('/templates/sreehari/sreehari.tex');
+      if (!templateRes.ok) throw new Error('Could not fetch LaTeX template');
+      const templateTex = await templateRes.text();
+
+      const prompt = `You are an expert LaTeX resume formatter.
+I have a LaTeX template and some user JSON data. 
+I need you to fill out the LaTeX template with the user's data perfectly.
+DO NOT change the overall structure or design of the template. 
+Replace the dummy data in the template with the provided user data.
+Return ONLY the raw, compilable LaTeX code, nothing else. No markdown blocks.
+
+TEMPLATE:
+${templateTex}
+
+USER DATA:
+${JSON.stringify({ ...resumeProfile, firstName, lastName, phone, location, linkedin, website, summary })}
+`;
+      const finalLatex = await generateResumeLatex(prompt);
+      const pdfBlob = await compileLatexToPdf(finalLatex);
+      
+      const filename = getResumePdfFilename({ firstName, lastName });
+      downloadPdf(pdfBlob, filename);
+      toast.success('Resume PDF downloaded successfully!');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to generate PDF. Make sure you have tokens available.');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   if (isLoading) {
@@ -273,29 +353,62 @@ export function ProfilePage() {
               <Input value={website} onChange={e => setWebsite(e.target.value)} placeholder="yoursite.com" />
             </div>
 
+            <div className="space-y-2 col-span-2 mt-2">
+              <div className="flex items-center justify-between">
+                <Label>Professional Summary</Label>
+                <Button 
+                  type="button" 
+                  variant="secondary" 
+                  size="sm" 
+                  onClick={handleGenerateSummary} 
+                  disabled={isGeneratingSummary}
+                  className="h-7 text-xs gap-1.5"
+                >
+                  <Sparkles className="h-3 w-3 text-yellow-500" />
+                  {isGeneratingSummary ? 'Generating…' : 'Generate with AI'}
+                </Button>
+              </div>
+              <Textarea 
+                value={summary} 
+                onChange={e => setSummary(e.target.value)} 
+                placeholder="Write a brief professional summary..." 
+                rows={5}
+                className="resize-none"
+              />
+            </div>
+
             <Button onClick={handleSave} disabled={isSaving} className="w-full">
               {isSaving
                 ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Saving…</>
                 : <><Save className="h-4 w-4 mr-2" /> Save Profile</>
               }
-              </Button>
-            </CardContent>
-          </Card>
+            </Button>
+          </CardContent>
+        </Card>
 
-          {resumeProfile && (
-            <Card className="border-border/60 bg-card/50">
-              <CardHeader>
-                <CardTitle>Resume Data</CardTitle>
-                <CardDescription>Advanced editing of your resume data arrays.</CardDescription>
-              </CardHeader>
-              <CardContent>
+        <Card className="border-border/60 bg-card/50">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Resume Data</CardTitle>
+              <CardDescription>Advanced editing of your resume data arrays.</CardDescription>
+            </div>
+            <Button 
+              variant="default" 
+              onClick={handleDownloadPdf} 
+              disabled={isDownloadingPdf}
+              className="gap-2"
+            >
+              {isDownloadingPdf ? <RefreshCw className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+              {isDownloadingPdf ? 'Generating PDF…' : 'Download as PDF'}
+            </Button>
+          </CardHeader>
+          <CardContent>
                 <ProfileDataList title="Experience" items={resumeProfile.experiences || []} onUpdate={(val) => handleUpdateArray('experiences', val)} />
                 <ProfileDataList title="Education" items={resumeProfile.education || []} onUpdate={(val) => handleUpdateArray('education', val)} />
                 <ProfileDataList title="Projects" items={resumeProfile.projects || []} onUpdate={(val) => handleUpdateArray('projects', val)} />
                 <ProfileDataList title="Skills" items={resumeProfile.skills || []} onUpdate={(val) => handleUpdateArray('skills', val)} />
               </CardContent>
             </Card>
-          )}
 
         {/* Token request at bottom if many tokens remain — less urgent */}
         {!isAdmin && tokensRemaining > 10 && (

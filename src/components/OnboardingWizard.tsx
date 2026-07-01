@@ -146,7 +146,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     window.scrollTo(0, 0);
   };
 
-  const injectDynamicPrompts = async (finalProfile: ResumeProfile) => {
+  const injectDynamicPrompts = async (finalProfile: ResumeProfile, coverLetterLatex?: string) => {
     if (!currentUser) return;
     
     // Resolve human-readable domain label
@@ -182,11 +182,24 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     // Fetch existing templates and append/replace
     const existingTemplates = await getUserData(currentUser.uid, 'templates').catch(() => ({})) || {};
     const customPrompts = (existingTemplates as any).customPrompts || [];
+    const coverLetterTemplates = (existingTemplates as any).coverLetterTemplates || [];
+    
+    let updatedCoverLetterTemplates = coverLetterTemplates;
+    if (coverLetterLatex) {
+      const newCoverLetterTemplate = {
+        id: `cl-template-${Date.now()}`,
+        name: `${finalProfile.firstName || 'My'} Cover Letter - ${selectedTemplate.label} Style`,
+        content: "Based on the following job description:\n\n{JOB_DESCRIPTION}\n\nPlease write a cover letter that matches my resume:\n\n{RESUME}\n\nUse this template as a reference:\n\n{COVER_LETTER_TEMPLATE}",
+        coverLetterTemplate: coverLetterLatex,
+      };
+      updatedCoverLetterTemplates = [...coverLetterTemplates, newCoverLetterTemplate];
+    }
     
     // Save back
     const updatedTemplates = {
       ...existingTemplates,
       customPrompts: [...customPrompts, newResumePrompt, newCoverLetterPrompt],
+      coverLetterTemplates: updatedCoverLetterTemplates,
       updatedAt: new Date().toISOString()
     };
     
@@ -213,6 +226,24 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
         templateTex
       );
 
+      const coverLetterPrompt = `You are an expert cover letter writer. Using the following resume profile, write a generic professional cover letter in pure LaTeX format that matches the stylistic elements (colors, fonts, structure) of the provided LaTeX template.
+
+Resume Profile:
+${JSON.stringify(profile, null, 2)}
+
+Template to match style from:
+${templateTex}
+
+Return ONLY valid, compilable LaTeX code, nothing else. Do not use markdown formatting block.`;
+
+      let coverLetterLatex = "";
+      try {
+        coverLetterLatex = await callForTask('resumeLatex', coverLetterPrompt);
+        coverLetterLatex = coverLetterLatex.replace(/^```(latex)?\s*/i, '').replace(/```\s*$/i, '');
+      } catch (e) {
+        console.error("Cover letter generation failed, continuing...", e);
+      }
+
       const finalProfile = {
         ...profile,
         completedAt: Date.now(),
@@ -223,7 +254,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
       if (currentUser) {
         await saveUserData(currentUser.uid, 'resumeProfile', finalProfile as Record<string, unknown>);
-        await injectDynamicPrompts(finalProfile as ResumeProfile);
+        await injectDynamicPrompts(finalProfile as ResumeProfile, coverLetterLatex);
         
         const resumeId = await saveResume(currentUser.uid, {
           name: `${profile.firstName || 'My'} ${profile.lastName || 'Resume'} - ${new Date().getFullYear()}`,
@@ -263,7 +294,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       };
       if (currentUser) {
         await saveUserData(currentUser.uid, 'resumeProfile', finalProfile as Record<string, unknown>);
-        await injectDynamicPrompts(finalProfile as ResumeProfile);
+        await injectDynamicPrompts(finalProfile as ResumeProfile); // No cover letter generated for skip
         await saveUserData(currentUser.uid, 'onboarding', { completed: true, completedAt: Date.now() });
       }
       completeOnboarding();

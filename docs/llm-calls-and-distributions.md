@@ -13,7 +13,7 @@ where in the codebase it's triggered, and what model each user tier uses.
 | Feature | Task Key | Triggered From | Free Tier LLM | Pro Tier LLM | Notes |
 |---|---|---|---|---|---|
 | Resume LaTeX generation | `resumeLatex` | `ResumeGeneratorPage`, `OnboardingWizard` | `gemini-3.5-flash` | `deepseek-v4-pro` + thinking | Heavy — full LaTeX doc |
-| Cover letter generation | `coverLetter` | `useAIService.makeWritingCall` | `gemini-3.5-flash` | `deepseek-v4-pro` | Creative prose, temp 0.7 |
+| Cover letter generation | `coverLetter` | `useAIService.makeWritingCall`, `ProfilePage` | `gemini-3.5-flash` | `deepseek-v4-pro` | Creative prose, temp 0.7 |
 | ATS analysis | `atsAnalysis` | `useAIService.analyzeATS` | `gemini-3.5-flash` | `deepseek-v4-flash` | JSON output, temp 0 |
 | Combined ATS + suggestions | `combinedATS` | `useAIService.analyzeCombinedATS`, `JDMatcherPage` | `gemini-3.5-flash` | `deepseek-v4-flash` | JSON output, temp 0 |
 | Job details extraction | `extractJobDetails` | `useAIService.extractJobDetails` | `gemini-3.5-flash` | `gemini-3.5-flash` | Lightweight, max 1024 tokens |

@@ -15,10 +15,8 @@ import {
 } from 'lucide-react';
 import { useAIService } from '@/hooks/useAIService';
 import { useAuth } from '@/lib/authContext';
-import { getUserData } from '@/lib/firebaseWeb';
-import { useOnboarding } from '@/lib/onboardingContext';
-import { useProfileGate } from '@/hooks/useProfileGate';
-import { ProfileGateBanner } from '@/components/ProfileGateBanner';
+import { getSavedResumes, type SavedResume } from '@/lib/firebaseWeb';
+import { FileText, ArrowLeft } from 'lucide-react';
 
 interface ScoringCategory {
   name: string;
@@ -124,30 +122,44 @@ function CategoryCard({ cat }: { cat: ScoringCategory }) {
 export function ResumeScoringPage() {
   const { callForTask } = useAIService();
   const { currentUser } = useAuth();
-  const { startOnboarding } = useOnboarding();
-  const { status, loading: gateLoading } = useProfileGate();
 
   const [isLoading, setIsLoading] = useState(true);
+  const [resumes, setResumes] = useState<SavedResume[]>([]);
+  const [selectedResume, setSelectedResume] = useState<SavedResume | null>(null);
   const [result, setResult] = useState<ScoringResult | null>(null);
-  const [hasProfile, setHasProfile] = useState(true);
+  const [isScoring, setIsScoring] = useState(false);
 
-  const runScoring = useCallback(async () => {
+  useEffect(() => {
+    let isMounted = true;
     if (!currentUser) return;
-    setIsLoading(true);
+    getSavedResumes(currentUser.uid)
+      .then((savedList) => {
+        if (isMounted) {
+          setResumes(savedList.sort((a, b) => b.updatedAt - a.updatedAt));
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          console.error(err);
+          toast.error('Failed to load resumes');
+          setIsLoading(false);
+        }
+      });
+    return () => { isMounted = false; };
+  }, [currentUser]);
+
+  const runScoring = useCallback(async (targetResume?: SavedResume) => {
+    const target = targetResume || selectedResume;
+    if (!currentUser || !target) return;
+    setIsScoring(true);
     setResult(null);
 
     try {
-      const profileData = await getUserData(currentUser.uid, 'resumeProfile');
-      if (!profileData) {
-        setHasProfile(false);
-        setIsLoading(false);
-        return;
-      }
-
       const prompt = `You are a professional resume reviewer with 15 years of experience at top recruiting firms.
 
-Analyze this resume profile and return ONLY valid JSON:
-${JSON.stringify(profileData, null, 2)}
+Analyze this resume LaTeX source code and return ONLY valid JSON:
+${target.latex}
 
 {
   "overallScore": 74,
@@ -204,48 +216,76 @@ ${JSON.stringify(profileData, null, 2)}
       toast.error('Scoring failed. Please try again.');
       console.error(err);
     } finally {
-      setIsLoading(false);
+      setIsScoring(false);
     }
-  }, [currentUser, callForTask]);
+  }, [currentUser, selectedResume, callForTask]);
 
-  useEffect(() => {
-    if (gateLoading) return;
-    if (!status?.hasMinimumData) {
-      setIsLoading(false);
-      return;
-    }
-    runScoring();
-  }, [runScoring, status, gateLoading]);
-
-  const handleFixResume = () => {
-    startOnboarding();
-    window.location.href = '/';
-  };
-
-  if (isLoading || gateLoading) {
+  if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Scoring your resume…</p>
+        <p className="text-sm text-muted-foreground">Loading resumes…</p>
       </div>
     );
   }
 
-  if (!hasProfile) {
+  if (resumes.length === 0) {
     return (
       <div className="max-w-lg mx-auto py-16 text-center space-y-5">
         <div className="mx-auto w-20 h-20 bg-muted rounded-full flex items-center justify-center">
-          <BarChart3 className="h-10 w-10 text-muted-foreground" />
+          <FileText className="h-10 w-10 text-muted-foreground" />
         </div>
         <div>
-          <h2 className="text-xl font-bold">No resume profile found</h2>
+          <h2 className="text-xl font-bold">No resumes found</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Complete the onboarding wizard to build your profile, then come back for a score.
+            Generate a resume first in the "My Resumes" section to analyze it.
           </p>
         </div>
-        <Button onClick={handleFixResume}>
-          <Pencil className="h-4 w-4 mr-2" /> Build My Profile
+        <Button onClick={() => window.location.href = '/resume'}>
+          <Pencil className="h-4 w-4 mr-2" /> Go to My Resumes
         </Button>
+      </div>
+    );
+  }
+
+  if (!selectedResume) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <BarChart3 className="h-6 w-6 text-primary" />
+            Select a Resume to Score
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Choose one of your generated resumes below to get an AI-powered ATS analysis.
+          </p>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {resumes.map(r => (
+            <div key={r.id} className="rounded-2xl border border-border/60 bg-card hover:border-primary/40 hover:shadow-lg transition-all duration-300 p-5 flex flex-col">
+              <div className="flex-1 space-y-4">
+                <h3 className="font-semibold text-base leading-tight">{r.name}</h3>
+                <div className="rounded-lg bg-muted/40 border border-border/30 px-3 py-2 overflow-hidden max-h-24">
+                  <pre className="text-[10px] font-mono text-muted-foreground leading-relaxed whitespace-pre-wrap break-all line-clamp-5">
+                    {r.latex.slice(0, 300)}
+                  </pre>
+                </div>
+              </div>
+              <Button 
+                className="w-full mt-4 gap-2" 
+                variant="default"
+                onClick={() => {
+                  setSelectedResume(r);
+                  void runScoring(r);
+                }}
+              >
+                <BarChart3 className="h-4 w-4" />
+                Analyze This Resume
+              </Button>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -255,27 +295,33 @@ ${JSON.stringify(profileData, null, 2)}
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
+          <Button variant="ghost" size="sm" className="mb-2 -ml-2 text-muted-foreground" onClick={() => { setSelectedResume(null); setResult(null); }}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Resumes
+          </Button>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <BarChart3 className="h-6 w-6 text-primary" />
-            Resume Score
+            Resume Score: {selectedResume.name}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             AI-powered analysis of your resume's strength across 5 key dimensions.
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={runScoring} className="gap-1.5">
-            <RefreshCw className="h-3.5 w-3.5" />
-            Recalculate
-          </Button>
-          <Button size="sm" onClick={handleFixResume} className="gap-1.5">
-            <Pencil className="h-3.5 w-3.5" />
-            Fix My Resume
-          </Button>
+          {result && (
+            <Button variant="outline" size="sm" onClick={() => void runScoring()} disabled={isScoring} className="gap-1.5">
+              <RefreshCw className={`h-3.5 w-3.5 ${isScoring ? 'animate-spin' : ''}`} />
+              {isScoring ? 'Recalculating…' : 'Recalculate'}
+            </Button>
+          )}
         </div>
       </div>
 
-      {status && <ProfileGateBanner status={status} featureName="Resume Score" />}
+      {isScoring && !result && (
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Scoring your resume "{selectedResume.name}"…</p>
+        </div>
+      )}
 
       {result && (
         <>
@@ -343,9 +389,9 @@ ${JSON.stringify(profileData, null, 2)}
           </Card>
 
           {/* Fix CTA */}
-          <Button className="w-full" onClick={handleFixResume}>
+          <Button className="w-full" onClick={() => window.location.href = `/resume?edit=${selectedResume.id}`}>
             <Pencil className="h-4 w-4 mr-2" />
-            Fix My Resume Now
+            Edit This Resume
           </Button>
         </>
       )}
