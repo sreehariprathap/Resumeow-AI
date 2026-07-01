@@ -64,14 +64,14 @@ export const WebHeader = () => {
     <>
     <header className="web-header">
       <div className="container flex justify-between items-center">
-        <div className="flex gap-0 flex-col">
+        <Link to="/" className="flex gap-0 flex-col items-start transition-opacity hover:opacity-80">
           <img
             src={theme === 'dark' ? "/Resumeow..png" : "/Resumeow-d.png"}
             className="w-32 lg:w-44"
             alt="Resumeow logo"
           />
           <span className="text-sm font-normal text-foreground">prompter</span>
-        </div>
+        </Link>
 
         <TooltipProvider delayDuration={300}>
           <div className="flex items-center gap-1">
