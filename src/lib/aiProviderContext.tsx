@@ -5,10 +5,48 @@ import { useTokens } from './tokenContext';
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
 import { toast } from 'sonner';
+import { MODELS } from '@/config/llm.config';
 
-// When false, app uses the server-side DeepSeek key and hides API settings from users
+// When false, app uses the server-side key (DeepSeek or Gemini) and hides API settings from users.
+// Which provider/model each task uses is now controlled entirely by llm.config.ts.
 const USE_USER_API_KEY = import.meta.env.VITE_USE_USER_API_KEY !== 'false';
 const ENV_DEEPSEEK_KEY: string = import.meta.env.VITE_DEEPSEEK_API_KEY ?? '';
+
+// ── Gemini key rotation ───────────────────────────────────────────────────────
+// Supports up to two server-side Gemini keys (VITE_GEMINI_API_KEY + VITE_GEMINI_API_KEY_2).
+// Calls rotate round-robin across all configured keys. On a quota / 429 error the
+// rotator automatically retries once with the next key before propagating the error.
+// Only active in managed mode (USE_USER_API_KEY=false); user-supplied keys are untouched.
+const ENV_GEMINI_KEYS: string[] = [
+  import.meta.env.VITE_GEMINI_API_KEY  ?? '',
+  import.meta.env.VITE_GEMINI_API_KEY_2 ?? '',
+].filter(Boolean);
+
+let _geminiKeyIndex = 0;
+
+/** Returns the next Gemini key in rotation (round-robin). */
+function nextGeminiKey(): string {
+  if (ENV_GEMINI_KEYS.length === 0) return '';
+  const key = ENV_GEMINI_KEYS[_geminiKeyIndex % ENV_GEMINI_KEYS.length];
+  _geminiKeyIndex = (_geminiKeyIndex + 1) % ENV_GEMINI_KEYS.length;
+  return key;
+}
+
+/** Returns the other Gemini key (the one NOT just used). Used for quota-error retry. */
+function alternateGeminiKey(): string {
+  if (ENV_GEMINI_KEYS.length < 2) return '';
+  // _geminiKeyIndex was already incremented by nextGeminiKey, so current index is the alternate
+  return ENV_GEMINI_KEYS[_geminiKeyIndex % ENV_GEMINI_KEYS.length];
+}
+
+/** True if an error looks like a Gemini quota / rate-limit failure. */
+function isQuotaError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+  return msg.includes('429') || msg.includes('quota') || msg.includes('rate limit') || msg.includes('resource_exhausted');
+}
+
+// Legacy single-key constant kept for managed-mode guard checks
+const ENV_GEMINI_KEY: string = ENV_GEMINI_KEYS[0] ?? '';
 
 export type AIProvider = 'deepseek' | 'openrouter' | 'gemini';
 
@@ -20,25 +58,30 @@ export interface AIModel {
 
 export const AVAILABLE_MODELS: AIModel[] = [
   {
-    id: 'deepseek-v4-pro',
+    id: MODELS.deepseek.pro,
     name: 'DeepSeek V4 Pro',
     provider: 'deepseek'
   },
   {
-    id: 'deepseek-v4-flash',
+    id: MODELS.deepseek.flash,
     name: 'DeepSeek V4 Flash',
     provider: 'deepseek'
   },
   {
-    id: 'deepseek/deepseek-r1:free',
+    id: MODELS.openrouter.deepseekR1Free,
     name: 'DeepSeek R1 via OpenRouter (Free)',
     provider: 'openrouter'
   },
   {
-    id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash',
+    id: MODELS.gemini.flash,
+    name: 'Gemini Flash',
     provider: 'gemini'
-  }
+  },
+  {
+    id: MODELS.gemini.pro,
+    name: 'Gemini Pro',
+    provider: 'gemini'
+  },
 ];
 
 interface AIProviderContextType {
@@ -55,8 +98,10 @@ interface AIProviderContextType {
   isLoading: boolean;
   isUserApiKeyEnabled: boolean;
   makeAICall: (prompt: string) => Promise<string>;
-  makeAICallWithModel: (prompt: string, modelId: string) => Promise<string>;
-  makeAICallWithThinking: (prompt: string) => Promise<string>;
+  /** Call a specific model+provider directly. Provider must be explicit — no guessing. */
+  makeAICallWithModel: (prompt: string, modelId: string, provider: AIProvider) => Promise<string>;
+  /** Call in extended thinking/reasoning mode for the given provider. */
+  makeAICallWithThinking: (prompt: string, provider: AIProvider) => Promise<string>;
 }
 
 const AIProviderContext = createContext<AIProviderContextType | null>(null);
@@ -377,31 +422,54 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
     }
   };
 
-  // Individual AI call function
+  // Individual AI call — provider comes directly from the AIModel, no overrides.
   const callAI = async (prompt: string, model: AIModel): Promise<string> => {
     if (model.provider === 'deepseek') {
       const effectiveKey = USE_USER_API_KEY ? deepseekApiKey : ENV_DEEPSEEK_KEY;
       if (!effectiveKey) {
-        throw new Error('DeepSeek API key not configured. Add it in Settings.');
+        throw new Error('DeepSeek API key not configured. Add VITE_DEEPSEEK_API_KEY or set it in Settings.');
       }
-
       const client = new OpenAI({
         baseURL: 'https://api.deepseek.com/v1',
         apiKey: effectiveKey,
         dangerouslyAllowBrowser: true,
       });
-
       const completion = await client.chat.completions.create({
         model: model.id,
         messages: [{ role: 'user', content: prompt }],
       });
-
       return completion.choices[0]?.message?.content || 'No response received';
-    } else if (model.provider === 'openrouter') {
-      if (!openRouterApiKey) {
-        throw new Error('OpenRouter API key not found');
+
+    } else if (model.provider === 'gemini') {
+      if (USE_USER_API_KEY) {
+        // User-supplied key — no rotation
+        if (!geminiApiKey) throw new Error('Gemini API key not configured. Add it in Settings.');
+        const ai = new GoogleGenAI({ apiKey: geminiApiKey });
+        const response = await ai.models.generateContent({ model: model.id, contents: prompt });
+        return response.text || 'No response received';
+      }
+      // Managed mode — round-robin across server keys with quota-error retry
+      const primaryKey = nextGeminiKey();
+      if (!primaryKey) throw new Error('Gemini API key not configured. Add VITE_GEMINI_API_KEY to your .env.');
+      try {
+        const ai = new GoogleGenAI({ apiKey: primaryKey });
+        const response = await ai.models.generateContent({ model: model.id, contents: prompt });
+        return response.text || 'No response received';
+      } catch (err) {
+        const fallbackKey = alternateGeminiKey();
+        if (isQuotaError(err) && fallbackKey && fallbackKey !== primaryKey) {
+          console.warn('[gemini-rotation] quota hit on key slot, retrying with alternate key');
+          const ai = new GoogleGenAI({ apiKey: fallbackKey });
+          const response = await ai.models.generateContent({ model: model.id, contents: prompt });
+          return response.text || 'No response received';
+        }
+        throw err;
       }
 
+    } else if (model.provider === 'openrouter') {
+      if (!openRouterApiKey) {
+        throw new Error('OpenRouter API key not found. Add it in Settings.');
+      }
       const openai = new OpenAI({
         baseURL: 'https://openrouter.ai/api/v1',
         apiKey: openRouterApiKey,
@@ -411,35 +479,18 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
         },
         dangerouslyAllowBrowser: true,
       });
-
       const completion = await openai.chat.completions.create({
         model: model.id,
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
+        messages: [{ role: 'user', content: prompt }],
       });
-
       return completion.choices[0]?.message?.content || 'No response received';
-    } else if (model.provider === 'gemini') {
-      if (!geminiApiKey) {
-        throw new Error('Gemini API key not found');
-      }      const ai = new GoogleGenAI({ apiKey: geminiApiKey });
-      
-      const response = await ai.models.generateContent({
-        model: model.id,
-        contents: prompt
-      });
-      
-      return response.text || 'No response received';
+
     } else {
       throw new Error(`Unsupported AI provider: ${model.provider}`);
     }
   };
-  // Call any model by ID — resolves provider from AVAILABLE_MODELS or defaults to deepseek
-  const makeAICallWithModel = async (prompt: string, modelId: string): Promise<string> => {
+  // Call a specific model + provider — both must be explicit, no inference.
+  const makeAICallWithModel = async (prompt: string, modelId: string, provider: AIProvider): Promise<string> => {
     try {
       await assertSufficientBalance();
     } catch (error) {
@@ -449,17 +500,17 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
       }
       throw error;
     }
-    const knownModel = AVAILABLE_MODELS.find(m => m.id === modelId);
-    const model: AIModel = knownModel ?? { id: modelId, name: modelId, provider: 'deepseek' };
+    const model: AIModel = { id: modelId, name: modelId, provider };
     const result = await callAI(prompt, model);
     void deductTokens(prompt.length + result.length);
     return result;
   };
 
-  // Thinking mode call — uses deepseek-v4-pro with chain-of-thought enabled.
-  // Returns only the final content, not the reasoning trace.
-  // Note: temperature/top_p/penalties must be omitted — they have no effect in thinking mode.
-  const makeAICallWithThinking = async (prompt: string): Promise<string> => {
+  // Extended thinking/reasoning mode.
+  // DeepSeek: uses chain-of-thought (extra_body: thinking enabled) on deepseek-v4-pro.
+  // Gemini:   uses the pro model — Gemini 2.5 Pro has built-in reasoning.
+  // The task config provider is passed in explicitly — no guessing.
+  const makeAICallWithThinking = async (prompt: string, provider: AIProvider): Promise<string> => {
     try {
       await assertSufficientBalance();
     } catch (error) {
@@ -470,25 +521,56 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
       throw error;
     }
 
-    const effectiveKey = USE_USER_API_KEY ? deepseekApiKey : ENV_DEEPSEEK_KEY;
-    if (!effectiveKey) {
-      throw new Error('DeepSeek API key not configured. Add it in Settings.');
+    if (provider === 'gemini') {
+      if (USE_USER_API_KEY) {
+        if (!geminiApiKey) throw new Error('Gemini API key not configured. Add it in Settings.');
+        const ai = new GoogleGenAI({ apiKey: geminiApiKey });
+        const response = await ai.models.generateContent({ model: MODELS.gemini.pro, contents: prompt });
+        const result = response.text || 'No response received';
+        void deductTokens(prompt.length + result.length);
+        return result;
+      }
+      // Managed mode — round-robin with quota-error retry
+      const primaryKey = nextGeminiKey();
+      if (!primaryKey) throw new Error('Gemini API key not configured. Add VITE_GEMINI_API_KEY to your .env.');
+      let result: string;
+      try {
+        const ai = new GoogleGenAI({ apiKey: primaryKey });
+        const response = await ai.models.generateContent({ model: MODELS.gemini.pro, contents: prompt });
+        result = response.text || 'No response received';
+      } catch (err) {
+        const fallbackKey = alternateGeminiKey();
+        if (isQuotaError(err) && fallbackKey && fallbackKey !== primaryKey) {
+          console.warn('[gemini-rotation] quota hit on key slot (thinking), retrying with alternate key');
+          const ai = new GoogleGenAI({ apiKey: fallbackKey });
+          const response = await ai.models.generateContent({ model: MODELS.gemini.pro, contents: prompt });
+          result = response.text || 'No response received';
+        } else {
+          throw err;
+        }
+      }
+      void deductTokens(prompt.length + result.length);
+      return result;
     }
 
+    // DeepSeek thinking mode — chain-of-thought via extra_body.
+    // Note: temperature/top_p must be omitted in thinking mode.
+    const effectiveKey = USE_USER_API_KEY ? deepseekApiKey : ENV_DEEPSEEK_KEY;
+    if (!effectiveKey) {
+      throw new Error('DeepSeek API key not configured. Add VITE_DEEPSEEK_API_KEY or set it in Settings.');
+    }
     const client = new OpenAI({
       baseURL: 'https://api.deepseek.com/v1',
       apiKey: effectiveKey,
       dangerouslyAllowBrowser: true,
     });
-
     // extra_body is a valid OpenAI SDK param but not in the TS types
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const completion = await (client.chat.completions.create as any)({
-      model: 'deepseek-v4-pro',
+      model: MODELS.deepseek.pro,
       messages: [{ role: 'user', content: prompt }],
       extra_body: { thinking: { type: 'enabled' } },
     });
-
     const result = completion.choices[0]?.message?.content || 'No response received';
     void deductTokens(prompt.length + result.length);
     return result;
