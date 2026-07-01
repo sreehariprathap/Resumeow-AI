@@ -8,6 +8,7 @@ interface TokenContextType {
   tokensUsed: number;
   tokensAllocated: number;
   isAdmin: boolean;
+  plan: 'free' | 'pro' | 'admin';
   isLoading: boolean;
   deductTokens: (chars: number) => Promise<boolean>;
   refetch: () => Promise<void>;
@@ -79,6 +80,7 @@ export function TokenProvider({ children }: { children: ReactNode }) {
       tokensUsed: profile?.tokensUsed ?? 0,
       tokensAllocated: profile?.tokensAllocated ?? 0,
       isAdmin: profile?.isAdmin ?? false,
+      plan: profile?.plan ?? 'free',
       isLoading,
       deductTokens,
       refetch,

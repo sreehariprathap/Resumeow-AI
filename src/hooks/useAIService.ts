@@ -63,7 +63,7 @@ export interface JobFitResult {
 
 export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTokenCheck?: boolean }) {
   const { makeAICall, makeAICallWithModel, makeAICallWithThinking, deepseekApiKey, openRouterApiKey, geminiApiKey, selectedModel, isUserApiKeyEnabled } = useAIProvider();
-  const { assertSufficientBalance, deductTokens } = useTokens();
+  const { assertSufficientBalance, deductTokens, plan } = useTokens();
 
   const checkTokens = useCallback(async () => {
     if (opts?.skipTokenCheck) return;
@@ -146,14 +146,14 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
       throw new Error(errorMessage);
     }
     try {
-      const response = await resolveAndCall(task, prompt, makeAICallWithModel, makeAICallWithThinking);
+      const response = await resolveAndCall(task, prompt, plan, makeAICallWithModel, makeAICallWithThinking);
       bill(response.length, task);
       return response;
     } catch (error) {
       handleAIError(error);
       throw error;
     }
-  }, [makeAICallWithModel, makeAICallWithThinking, hasAvailableProviders, checkTokens, bill]);
+  }, [plan, makeAICallWithModel, makeAICallWithThinking, hasAvailableProviders, checkTokens, bill]);
 
   const makeWritingCall = useCallback(async (prompt: string): Promise<string> => {
     await checkTokens();
