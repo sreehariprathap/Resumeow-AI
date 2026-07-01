@@ -1,23 +1,27 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/authContext';
 import { useTokens } from '@/lib/tokenContext';
-import { getUserData, saveUserData, updateUserDisplayProfile } from '@/lib/firebaseWeb';
+import { getUserData, saveUserData, updateUserDisplayProfile, exportUserData, importUserData } from '@/lib/firebaseWeb';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, RefreshCw, Zap } from 'lucide-react';
+import { ArrowLeft, Save, RefreshCw, Zap, Download, Upload, RotateCcw, Settings } from 'lucide-react';
 import { RequestTokensDialog } from '@/components/RequestTokensDialog';
+import { useOnboarding } from '@/lib/onboardingContext';
+import { useRef } from 'react';
 import type { ResumeProfile } from '@/types/resumeProfile';
 
 export function ProfilePage() {
   const { currentUser } = useAuth();
   const { profile: tokenProfile, tokensRemaining, tokensAllocated, tokensUsed, isAdmin, refetch } = useTokens();
+  const { startOnboarding } = useOnboarding();
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [resumeProfile, setResumeProfile] = useState<Partial<ResumeProfile>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -77,6 +81,57 @@ export function ProfilePage() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleRestartOnboarding = () => {
+    startOnboarding();
+    navigate('/');
+  };
+
+  const handleExportData = async () => {
+    if (!currentUser) return;
+    try {
+      const data = await exportUserData(currentUser.uid);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `resumeow-data-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Data exported successfully');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to export data');
+    }
+  };
+
+  const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!currentUser) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const content = evt.target?.result as string;
+        const parsedData = JSON.parse(content);
+        
+        if (window.confirm("This will overwrite your existing data. Are you sure?")) {
+          await importUserData(currentUser.uid, parsedData);
+          toast.success("Data imported successfully! Please refresh the page.");
+          setTimeout(() => window.location.reload(), 1500);
+        }
+      } catch (error) {
+        console.error(error);
+        toast.error('Invalid JSON file or import failed');
+      }
+    };
+    reader.readAsText(file);
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   if (isLoading) {
@@ -202,6 +257,46 @@ export function ProfilePage() {
             </Button>
           </div>
         )}
+
+        {/* Data & Account Management */}
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Settings className="w-5 h-5 text-primary" />
+              Data & Account Management
+            </CardTitle>
+            <CardDescription>
+              Manage your onboarding state and application data.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button variant="outline" onClick={handleRestartOnboarding} className="w-full sm:w-auto">
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Restart Onboarding
+              </Button>
+              
+              <Button variant="outline" onClick={handleExportData} className="w-full sm:w-auto">
+                <Download className="w-4 h-4 mr-2" />
+                Export Data
+              </Button>
+              
+              <div>
+                <input 
+                  type="file" 
+                  accept=".json" 
+                  className="hidden" 
+                  ref={fileInputRef} 
+                  onChange={handleImportData} 
+                />
+                <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full sm:w-auto">
+                  <Upload className="w-4 h-4 mr-2" />
+                  Import Data
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <RequestTokensDialog open={tokenDialogOpen} onOpenChange={setTokenDialogOpen} />
