@@ -181,3 +181,14 @@ Both mount the same `TokenInfoDialog`, each owning its own `open` state locally 
 - Unit test `estimateTokensForTask` for a few task/prompt-length combinations, including the `undefined` task key fallback.
 - Unit test `assertSufficientBalance`'s three branches (zero balance / partial shortfall / sufficient), mocking `getUserProfile`.
 - Manual verification: force `tokensRemaining` to 0 for a test account and confirm the banner appears on every route and the dialog buttons work; force a small positive remaining balance and trigger a high-multiplier task (e.g. `resumeLatex`) to confirm the per-action toast path fires instead of the banner.
+
+---
+
+## 8. Documentation Updates
+
+Existing living docs (not spec/plan history) reference the token system and need to stay accurate:
+
+- **`docs/web/overview.md`** (line 35, currently *"AI actions use tokens. You can see your balance in the top bar."*) — expand to mention the Profile → Usage section and the info dialog as the places to see full balance detail and per-feature cost info, and note that AI actions are disabled with a banner when tokens run out.
+- **`src/config/llm.config.md`** — add a short section documenting the new `TASK_TOKEN_MULTIPLIERS` / `DEFAULT_TOKEN_MULTIPLIER` exports (what they're for, how they're used by `assertSufficientBalance`, and that they're gating estimates, not the actual billing formula — billing stays `750 output chars = 1 token` as already documented).
+- **`docs/llm-calls-and-distributions.md`** — add one sentence to the intro noting that pre-flight cost estimates now exist per task key, pointing to `TASK_TOKEN_MULTIPLIERS` in `llm.config.ts` rather than duplicating the numbers into this table (keeps a single source of truth, consistent with how tier routing is already documented here by reference rather than by value).
+- **`docs/web/admin.md`** (line 8, *"Shows account and token info"*) — checked; this refers to the admin's own header view and doesn't need a content change, just confirm it still reads correctly once the banner/dialog ship.
