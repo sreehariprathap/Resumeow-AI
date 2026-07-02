@@ -28,6 +28,7 @@ import { ProfileGateBanner } from '@/components/ProfileGateBanner';
 import { useAIService } from '@/hooks/useAIService';
 import { useTokens } from '@/lib/tokenContext';
 import { RequestTokensDialog } from '@/components/RequestTokensDialog';
+import { shouldPauseForLowFit } from './jdMatcherFitGate';
 
 interface StrengthArea { area: string; reason: string }
 interface GapArea { area: string; reason: string }
@@ -99,6 +100,9 @@ export function JDMatcherPage() {
   const [isCompiling, setIsCompiling] = useState(false);
   const [compileError, setCompileError] = useState<string | null>(null);
   const [generatedProfile, setGeneratedProfile] = useState<ResumeProfile | null>(null);
+  const [pendingLowFitConfirm, setPendingLowFitConfirm] = useState<{
+    score: number; label: string; profile: ResumeProfile;
+  } | null>(null);
 
   const handleAnalyze = async () => {
     if (!jdText.trim()) { toast.error('Please paste a job description first.'); return; }
@@ -172,10 +176,11 @@ Analyze the match and respond with ONLY valid JSON in this exact structure:
     setIsGeneratingResume(true);
     setStepResults({ jobFit: null, keywords: null });
 
+    let profile: ResumeProfile;
     try {
       const profileData = await getUserData(currentUser.uid, 'resumeProfile');
       if (!profileData) throw new Error('No profile');
-      const profile = profileData as ResumeProfile;
+      profile = profileData as ResumeProfile;
 
       // ── Step 1: Job Fit ────────────────────────────────────────────────────
       setGenerationStep(1);
@@ -194,8 +199,36 @@ Return ONLY valid JSON: { "fitScore": <0-100>, "label": "<Great Match|Decent Mat
       if (jobFitMatch) {
         const jf = JSON.parse(jobFitMatch[0]);
         setStepResults(prev => ({ ...prev, jobFit: { score: jf.fitScore, label: jf.label } }));
-      }
 
+        if (shouldPauseForLowFit(jf.fitScore)) {
+          setPendingLowFitConfirm({ score: jf.fitScore, label: jf.label, profile });
+          // isGeneratingResume and generationStep stay as-is (true / 1) — the render
+          // logic shows the confirm card instead of the step-progress card while
+          // pendingLowFitConfirm is set. Not reset here; only the error path below
+          // and continueTailoring's own finally reset them.
+          return;
+        }
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message === 'INSUFFICIENT_TOKENS') {
+        setTokenDialogOpen(true);
+      } else {
+        toast.error('Failed to generate tailored resume.');
+        console.error(err);
+      }
+      setIsGeneratingResume(false);
+      setGenerationStep(0);
+      return;
+    }
+
+    await continueTailoring(profile);
+  };
+
+  // Steps 2–4, extracted so both the automatic path (score >= 50) and the
+  // "Continue Anyway" handler can run them without re-invoking Step 1's AI call.
+  const continueTailoring = async (profile: ResumeProfile) => {
+    if (!result) { setIsGeneratingResume(false); setGenerationStep(0); return; }
+    try {
       // ── Step 2: Keyword Analysis ───────────────────────────────────────────
       setGenerationStep(2);
       const keywordPrompt = `Analyze this resume against the job description for keyword and ATS compatibility.
@@ -228,7 +261,7 @@ Return ONLY valid JSON: { "overall": <0-100>, "keywordMatch": <0-100>, "missingK
         experiences: profile.experiences.map(exp => ({
           ...exp,
           bullets: exp.bullets.map(bullet => {
-            const match = result.tailoredBullets.find(
+            const match = result!.tailoredBullets.find(
               tb => bullet.toLowerCase().includes(tb.original.toLowerCase().slice(0, 30))
             );
             return match ? match.improved : bullet;
@@ -275,6 +308,19 @@ Return ONLY valid JSON: { "overall": <0-100>, "keywordMatch": <0-100>, "missingK
       setIsGeneratingResume(false);
       setGenerationStep(0);
     }
+  };
+
+  const handleContinueLowFit = () => {
+    if (!pendingLowFitConfirm) return;
+    const { profile } = pendingLowFitConfirm;
+    setPendingLowFitConfirm(null);
+    void continueTailoring(profile);
+  };
+
+  const handleCancelLowFit = () => {
+    setPendingLowFitConfirm(null);
+    setIsGeneratingResume(false);
+    setGenerationStep(0);
   };
 
   const pdfFilename = getResumePdfFilename({
@@ -502,7 +548,20 @@ Return ONLY valid JSON: { "overall": <0-100>, "keywordMatch": <0-100>, "missingK
               </Card>
 
               {/* CTA + Step Progress */}
-              {isGeneratingResume ? (
+              {pendingLowFitConfirm ? (
+                <div className="rounded-xl border bg-card p-5 space-y-4 text-center">
+                  <p className="text-sm font-semibold">
+                    This job scored {pendingLowFitConfirm.score}/100 ({pendingLowFitConfirm.label}) — not a great match.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Do you want to continue with ATS analysis and tailoring anyway?
+                  </p>
+                  <div className="flex items-center justify-center gap-2">
+                    <Button variant="outline" onClick={handleCancelLowFit}>Cancel</Button>
+                    <Button onClick={handleContinueLowFit}>Continue Anyway</Button>
+                  </div>
+                </div>
+              ) : isGeneratingResume ? (
                 <div className="rounded-xl border bg-card p-5 space-y-4">
                   <p className="text-sm font-semibold text-center">Generating your tailored resume…</p>
                   <div className="space-y-3">
