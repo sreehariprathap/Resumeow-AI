@@ -55,7 +55,7 @@ function App() {
     setActivePrompt,
     clearAllData
   } = useTemplates();
-  const { generateResumePrompt, generateCoverLetterPrompt } = usePromptGenerator({
+  const { generateCoverLetterPrompt } = usePromptGenerator({
     resumeTemplates,
     coverLetterTemplates,
     getActivePrompt,
@@ -248,7 +248,7 @@ function App() {
 
     if (promptType === 'resume') {
       if (selectedTemplateId && selectedTemplateId !== "no-selection" && activePrompts.resume && activePrompts.resume !== "placeholder") {
-        const prompt = generateResumePrompt({
+        const prompt = generateResumePromptEffective({
           jobDescription,
           resumeContent: resumeToUse,
           templateId: selectedTemplateId,
