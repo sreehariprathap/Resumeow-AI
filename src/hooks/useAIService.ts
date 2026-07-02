@@ -16,7 +16,8 @@ import { log } from '@/lib/logger';
 import { cleanLatexResponse } from '@/lib/latexUtils';
 import { ensureKeySkillsSuggestion } from '@/lib/atsAnalysisUtils';
 import { callForTask as resolveAndCall } from '@/lib/llmConfigResolver';
-import type { LLMTaskKey } from '@/config/llm.config';
+import { estimateTokensForTask, type LLMTaskKey } from '@/config/llm.config';
+import { InsufficientTokensForCallError } from '@/lib/tokenContext';
 
 export interface ATSScore {
   overall: number;
@@ -66,11 +67,19 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
   const { makeAICall, makeAICallWithModel, makeAICallWithThinking, deepseekApiKey, openRouterApiKey, geminiApiKey, selectedModel, isUserApiKeyEnabled } = useAIProvider();
   const { assertSufficientBalance, deductTokens, plan } = useTokens();
 
-  const checkTokens = useCallback(async () => {
+  const checkTokens = useCallback(async (estimatedTokens: number) => {
     if (opts?.skipTokenCheck) return;
     try {
-      await assertSufficientBalance();
+      await assertSufficientBalance(estimatedTokens);
     } catch (err) {
+      if (err instanceof InsufficientTokensForCallError) {
+        toast.error(`This needs ~${err.needed} token${err.needed !== 1 ? 's' : ''}, you have ${err.remaining} left.`, {
+          action: opts?.onInsufficientTokens
+            ? { label: 'Request Tokens', onClick: opts.onInsufficientTokens }
+            : undefined,
+        });
+        throw err;
+      }
       const msg = err instanceof Error ? err.message : '';
       if (msg === 'INSUFFICIENT_TOKENS') {
         toast.error('You have no tokens left. Request more to continue using AI features.', {
@@ -118,7 +127,7 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
 
   // Enhanced makeAICall with better error handling
   const makeAICallWithRetry = useCallback(async (prompt: string): Promise<string> => {
-    await checkTokens();
+    await checkTokens(estimateTokensForTask(undefined, prompt.length));
     if (!hasAvailableProviders()) {
       const errorMessage = 'No AI providers available. Please configure API keys in Settings.';
       toast.error(errorMessage);
@@ -139,7 +148,7 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
 
   // Bound callForTask — token-checked, truncated, error-handled
   const callForTaskBound = useCallback(async (task: LLMTaskKey, prompt: string): Promise<string> => {
-    await checkTokens();
+    await checkTokens(estimateTokensForTask(task, prompt.length));
     prompt = truncatePrompt(prompt);
     if (!hasAvailableProviders()) {
       const errorMessage = 'No AI providers available. Please configure API keys in Settings.';
@@ -157,7 +166,7 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
   }, [plan, makeAICallWithModel, makeAICallWithThinking, hasAvailableProviders, checkTokens, bill]);
 
   const makeWritingCall = useCallback(async (prompt: string): Promise<string> => {
-    await checkTokens();
+    await checkTokens(estimateTokensForTask('coverLetter', prompt.length));
     prompt = truncatePrompt(prompt);
     if (!hasAvailableProviders()) {
       const errorMessage = 'No AI providers available. Please configure API keys in Settings.';
@@ -175,7 +184,7 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
   }, [makeAICallWithModel, makeAICallWithThinking, hasAvailableProviders, checkTokens, bill]);
 
   const makeAnalysisCall = useCallback(async (prompt: string): Promise<string> => {
-    await checkTokens();
+    await checkTokens(estimateTokensForTask('atsAnalysis', prompt.length));
     prompt = truncatePrompt(prompt);
     if (!hasAvailableProviders()) {
       const errorMessage = 'No AI providers available. Please configure API keys in Settings.';
@@ -194,7 +203,7 @@ export function useAIService(opts?: { onInsufficientTokens?: () => void; skipTok
 
   // Generate LaTeX Resume — driven by llmConfig 'resumeLatex' task (thinking mode by default)
   const generateResumeLatex = useCallback(async (prompt: string): Promise<string> => {
-    await checkTokens();
+    await checkTokens(estimateTokensForTask('resumeLatex', prompt.length));
     const enhancedPrompt = `
 ${prompt}
 
