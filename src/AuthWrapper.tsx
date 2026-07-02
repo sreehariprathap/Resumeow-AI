@@ -4,6 +4,7 @@ import { initUserProfile } from "@/lib/firebaseWeb";
 import { AuthScreen } from "./components/AuthScreen";
 import { WebHeader } from "./components/WebHeader";
 import { WebFooter } from "./components/WebFooter";
+import { InsufficientTokensBanner } from "./components/InsufficientTokensBanner";
 
 interface AuthWrapperProps {
   children: React.ReactNode;
@@ -46,6 +47,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   return (
     <>
       <WebHeader />
+      <InsufficientTokensBanner />
       <div className="container py-8">{children}</div>
       <WebFooter />
     </>
