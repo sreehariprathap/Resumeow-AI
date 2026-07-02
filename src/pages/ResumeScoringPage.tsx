@@ -294,13 +294,13 @@ ${target.latex}
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
+        <div className="min-w-0 flex-1">
           <Button variant="ghost" size="sm" className="mb-2 -ml-2 text-muted-foreground" onClick={() => { setSelectedResume(null); setResult(null); }}>
             <ArrowLeft className="h-4 w-4 mr-1" /> Back to Resumes
           </Button>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <BarChart3 className="h-6 w-6 text-primary" />
-            Resume Score: {selectedResume.name}
+          <h1 className="text-lg sm:text-2xl font-bold flex items-center gap-2 min-w-0">
+            <BarChart3 className="h-6 w-6 text-primary shrink-0" />
+            <span className="truncate">Resume Score: {selectedResume.name}</span>
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             AI-powered analysis of your resume's strength across 5 key dimensions.

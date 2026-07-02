@@ -125,9 +125,9 @@ export function PDFPreviewModal({ resume, onClose, onDelete }: PDFPreviewModalPr
     <Dialog open={!!resume} onOpenChange={o => { if (!o) handleClose(); }}>
       <DialogContent className="w-screen h-screen max-w-full m-0 rounded-none flex flex-col gap-0 p-0 border-0 bg-background">
         <DialogHeader className="px-6 pt-5 pb-3 border-b border-border/50 shrink-0">
-          <DialogTitle className="flex items-center justify-between">
-            <span>Preview — {resume?.name}</span>
-            <div className="flex gap-2 mr-6 flex-wrap">
+          <DialogTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pr-6">
+            <span className="text-sm sm:text-lg truncate min-w-0">Preview — {resume?.name}</span>
+            <div className="flex gap-2 flex-wrap">
               {onDelete && (
                 <Button
                   size="sm"

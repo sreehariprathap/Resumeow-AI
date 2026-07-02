@@ -239,7 +239,7 @@ export function CombinedATSAnalysis({
 
           {currentScore && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <div className="flex justify-between mb-1">
                     <span className="text-xs text-muted-foreground">Keyword Match</span>

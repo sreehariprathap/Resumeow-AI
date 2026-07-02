@@ -165,7 +165,7 @@ Output only the summary text, no quotes or labels.`;
       <ExtraCard label="Awards & Honors" emoji="🏆" open={toggles.awards} onToggle={() => toggle('awards')}>
         <div className="space-y-2">
           {awards.map((a, i) => (
-            <div key={i} className="grid grid-cols-3 gap-2 items-center">
+            <div key={i} className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
               <Input className="h-8 text-sm" value={a.title} onChange={(e) => updateAward(i, { title: e.target.value })} placeholder="Best Paper Award" />
               <Input className="h-8 text-sm" value={a.issuer} onChange={(e) => updateAward(i, { issuer: e.target.value })} placeholder="IEEE" />
               <div className="flex gap-1">

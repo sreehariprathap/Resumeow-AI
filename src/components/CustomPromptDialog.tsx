@@ -232,7 +232,7 @@ export const CustomPromptDialog = ({
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <Label htmlFor="resumePosition" className="text-xs group relative">
                 Resume Placeholder
                 <span className="hidden group-hover:block absolute z-50 top-6 left-0 bg-slate-900 text-white p-2 rounded text-xs w-60">
@@ -246,7 +246,7 @@ export const CustomPromptDialog = ({
                 className="h-7 text-xs"
               />
             </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <Label htmlFor="jobDescriptionPosition" className="text-xs group relative">
                 Job Description Placeholder
                 <span className="hidden group-hover:block absolute z-50 top-6 left-0 bg-slate-900 text-white p-2 rounded text-xs w-60">
@@ -261,7 +261,7 @@ export const CustomPromptDialog = ({
               />
             </div>
             
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <Label htmlFor="optionalInstructionsPosition" className="text-xs group relative">
                 Optional Instructions Placeholder
                 <span className="hidden group-hover:block absolute z-50 top-6 left-0 bg-slate-900 text-white p-2 rounded text-xs w-60">
@@ -276,7 +276,7 @@ export const CustomPromptDialog = ({
               />
             </div>
               {promptType === 'coverLetter' && (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Label htmlFor="coverLetterTemplatePosition" className="text-xs group relative">
                   Cover Letter Template Placeholder
                   <span className="hidden group-hover:block absolute z-50 top-6 left-0 bg-slate-900 text-white p-2 rounded text-xs w-60">

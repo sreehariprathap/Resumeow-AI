@@ -156,7 +156,7 @@ export const DataRecoveryDialog: React.FC<DataRecoveryDialogProps> = ({
                 <Database className="h-4 w-4" />
                 Current Data Status
               </h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div className="flex justify-between">
                   <span>Has Local Data:</span>
                   <Badge variant={recoveryData.consistency?.hasData ? "secondary" : "destructive"}>

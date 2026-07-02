@@ -326,7 +326,7 @@ ${JSON.stringify({ ...resumeProfile, firstName, lastName, phone, location, linke
             <div className="font-semibold text-sm">Personal Information</div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>First Name</Label>
                 <Input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First name" />

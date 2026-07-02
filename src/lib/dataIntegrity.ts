@@ -76,14 +76,6 @@ export const checkDataIntegrity = (userData: Record<string, unknown>): DataInteg
     report.warnings.push("Invalid Google API key format");
   }
 
-  if (userData.resumeTemplates && Array.isArray(userData.resumeTemplates) && userData.resumeTemplates.length === 0) {
-    report.warnings.push("Resume templates array is empty");
-  }
-
-  if (userData.coverLetterTemplates && Array.isArray(userData.coverLetterTemplates) && userData.coverLetterTemplates.length === 0) {
-    report.warnings.push("Cover letter templates array is empty");
-  }
-
   return report;
 };
 

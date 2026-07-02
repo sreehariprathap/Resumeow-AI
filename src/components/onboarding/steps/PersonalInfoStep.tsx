@@ -16,7 +16,7 @@ export const PersonalInfoStep = ({ data, onChange, onNext, onBack, onSkip }: Per
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label>First Name *</Label>
           <Input value={data.firstName || ''} onChange={(e) => onChange({ firstName: e.target.value })} placeholder="Jane" />
@@ -30,7 +30,7 @@ export const PersonalInfoStep = ({ data, onChange, onNext, onBack, onSkip }: Per
         <Label>Email *</Label>
         <Input type="email" value={data.email || ''} onChange={(e) => onChange({ email: e.target.value })} placeholder="jane.doe@email.com" />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label>Phone *</Label>
           <Input value={data.phone || ''} onChange={(e) => onChange({ phone: e.target.value })} placeholder="+1 (555) 000-0000" />

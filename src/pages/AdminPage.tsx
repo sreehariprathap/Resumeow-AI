@@ -10,8 +10,16 @@ import { Badge } from '@/components/ui/badge';
 import { AdminEditModal } from '@/components/AdminEditModal';
 import { LLMHealthCheckModal } from '@/components/LLMHealthCheckModal';
 import { toast } from 'sonner';
-import { Users, Zap, ArrowLeft, RefreshCw, AlertCircle, FlaskConical } from 'lucide-react';
+import { Users, Zap, ArrowLeft, RefreshCw, AlertCircle, FlaskConical, MoreVertical } from 'lucide-react';
 import { log } from '@/lib/logger';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export function AdminPage() {
   const { currentUser } = useAuth();
@@ -144,30 +152,31 @@ export function AdminPage() {
               <p className="text-sm text-muted-foreground">Manage users and token allocations</p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setLlmHealthOpen(true)}
-              className="gap-1.5"
-            >
-              <FlaskConical className="h-4 w-4" /> Test LLM
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => { void fetchUsers(); void fetchTokenRequests(); }}>
-              <RefreshCw className="h-4 w-4 mr-2" /> Refresh
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => void handleTestTokenRequest()}
-              className="gap-1.5"
-            >
-              <Zap className="h-4 w-4" /> Test Token Request
-            </Button>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                Admin actions
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setLlmHealthOpen(true)} className="gap-2">
+                <FlaskConical className="h-3.5 w-3.5" /> Test LLM
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { void fetchUsers(); void fetchTokenRequests(); }} className="gap-2">
+                <RefreshCw className="h-3.5 w-3.5" /> Refresh
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void handleTestTokenRequest()} className="gap-2">
+                <Zap className="h-3.5 w-3.5" /> Test Token Request
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="text-3xl font-bold">{totalUsers}</div>

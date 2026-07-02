@@ -55,7 +55,7 @@ export const ExperienceStep = ({ data, onChange, onNext, onBack, onSkip }: Exper
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">Company</Label>
                 <Input
@@ -75,7 +75,7 @@ export const ExperienceStep = ({ data, onChange, onNext, onBack, onSkip }: Exper
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">From (YYYY-MM)</Label>
                 <Input
