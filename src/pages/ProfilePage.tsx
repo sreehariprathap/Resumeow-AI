@@ -10,8 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, RefreshCw, Zap, Download, Upload, RotateCcw, Settings, Sparkles, FileText } from 'lucide-react';
+import { ArrowLeft, Save, RefreshCw, Zap, Download, Upload, RotateCcw, Settings, Sparkles, FileText, AlertCircle } from 'lucide-react';
 import { RequestTokensDialog } from '@/components/RequestTokensDialog';
+import { TokenInfoDialog } from '@/components/TokenInfoDialog';
 import { useOnboarding } from '@/lib/onboardingContext';
 import { useAIService } from '@/hooks/useAIService';
 import { compileLatexToPdf, downloadPdf, getResumePdfFilename } from '@/lib/latexCompiler';
@@ -70,6 +71,7 @@ export function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [tokenDialogOpen, setTokenDialogOpen] = useState(false);
+  const [tokenInfoOpen, setTokenInfoOpen] = useState(false);
 
   // Editable fields
   const [firstName, setFirstName] = useState('');
@@ -275,7 +277,17 @@ ${JSON.stringify({ ...resumeProfile, firstName, lastName, phone, location, linke
         {/* Account info */}
         <Card>
           <CardHeader>
-            <div className="font-semibold text-sm">Account</div>
+            <div className="font-semibold text-sm flex items-center gap-1.5">
+              Account
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 -mb-0.5"
+                onClick={() => setTokenInfoOpen(true)}
+              >
+                <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
@@ -462,6 +474,7 @@ ${JSON.stringify({ ...resumeProfile, firstName, lastName, phone, location, linke
       </div>
 
       <RequestTokensDialog open={tokenDialogOpen} onOpenChange={setTokenDialogOpen} />
+      <TokenInfoDialog open={tokenInfoOpen} onOpenChange={setTokenInfoOpen} />
     </div>
   );
 }

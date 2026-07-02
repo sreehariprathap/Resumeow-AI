@@ -4,8 +4,9 @@ import { useOnboarding } from "@/lib/onboardingContext";
 import { Button } from "./ui/button";
 import { useTheme } from "./theme-provider";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutList, ShieldCheck, FileText, Target, BarChart3, LogOut, User, UserCircle, Zap, Sun, Moon } from "lucide-react";
+import { LayoutList, ShieldCheck, FileText, Target, BarChart3, LogOut, User, UserCircle, Zap, Sun, Moon, AlertCircle } from "lucide-react";
 import { TokenBadge } from "./TokenBadge";
+import { TokenInfoDialog } from "./TokenInfoDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import {
   DropdownMenu,
@@ -32,6 +33,7 @@ export const WebHeader = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [tokenDialogOpen, setTokenDialogOpen] = useState(false);
+  const [tokenInfoOpen, setTokenInfoOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -60,6 +62,19 @@ export const WebHeader = () => {
             {currentUser && (
               <>
                 <TokenBadge />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setTokenInfoOpen(true)}
+                    >
+                      <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">How tokens are used</TooltipContent>
+                </Tooltip>
 
                 <DropdownMenu>
                   <Tooltip>
@@ -148,6 +163,7 @@ export const WebHeader = () => {
       </div>
     </header>
     <RequestTokensDialog open={tokenDialogOpen} onOpenChange={setTokenDialogOpen} />
+    <TokenInfoDialog open={tokenInfoOpen} onOpenChange={setTokenInfoOpen} />
     </>
   );
 };
