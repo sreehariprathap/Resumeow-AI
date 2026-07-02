@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useRef } from 'react';
 import type { ResumeProfile } from '@/types/resumeProfile';
 import { Trash2 } from 'lucide-react';
+import { getTokenStatusColor } from '@/lib/utils';
 
 function ProfileDataList({ title, items, onUpdate }: { title: string, items: any[], onUpdate: (newItems: any[]) => void }) {
   return (
@@ -256,7 +257,7 @@ ${JSON.stringify({ ...resumeProfile, firstName, lastName, phone, location, linke
   }
 
   const pct = tokensAllocated > 0 ? (tokensRemaining / tokensAllocated) * 100 : 0;
-  const tokenColor = pct > 40 ? 'text-green-500' : pct > 15 ? 'text-yellow-500' : 'text-red-500';
+  const tokenColor = getTokenStatusColor(tokensRemaining, tokensAllocated);
 
   return (
     <div className="min-h-screen bg-background p-6">

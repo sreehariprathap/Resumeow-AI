@@ -1,7 +1,7 @@
 import { useTokens } from '@/lib/tokenContext';
 import { Zap } from 'lucide-react';
 import { Badge } from './ui/badge';
-import { cn } from '@/lib/utils';
+import { cn, getTokenStatusColor } from '@/lib/utils';
 
 export function TokenBadge() {
   const { tokensRemaining, tokensAllocated, isLoading, isAdmin } = useTokens();
@@ -14,8 +14,7 @@ export function TokenBadge() {
     </Badge>
   );
 
-  const pct = tokensAllocated > 0 ? tokensRemaining / tokensAllocated : 0;
-  const colorClass = pct > 0.4 ? 'text-green-500' : pct > 0.15 ? 'text-yellow-500' : 'text-red-500';
+  const colorClass = getTokenStatusColor(tokensRemaining, tokensAllocated);
 
   return (
     <Badge
