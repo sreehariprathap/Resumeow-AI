@@ -109,6 +109,41 @@ export type LLMTaskKey =
   | 'jdMatcher'
   | 'bioSummary';
 
+/**
+ * Pre-flight cost estimate multiplier, applied to a call's prompt length:
+ *   estimatedTokens = ceil((promptChars * multiplier) / 750)
+ * Calibrated against each task's typical OUTPUT size, independent of how
+ * large the prompt itself is (e.g. resumeLatex takes a large profile-JSON
+ * prompt but produces a fairly fixed-size LaTeX document; extractJobDetails
+ * takes a large JD prompt but produces a tiny JSON blob).
+ * These are estimates for pre-flight gating only — they do not change how
+ * a call is actually billed (still post-hoc, from the real response length,
+ * via useAIService.ts's `bill()`).
+ */
+export const TASK_TOKEN_MULTIPLIERS: Record<LLMTaskKey, number> = {
+  resumeLatex: 1.8,        // large, fairly fixed-size LaTeX output
+  coverLetter: 0.9,        // medium prose output
+  atsAnalysis: 0.6,        // structured JSON, moderate
+  combinedATS: 0.8,        // structured JSON, larger (score + suggestions)
+  extractJobDetails: 0.15, // tiny JSON output regardless of JD size
+  jobFit: 0.2,             // small JSON verdict
+  resumeParse: 1.2,        // full structured resume JSON output
+  lazyPipelineJD: 0.5,
+  lazyPipelineLatex: 1.8,
+  resumeScore: 0.5,
+  jdMatcher: 0.9,          // full match report (keywords, bullets, snippet)
+  bioSummary: 0.3,
+};
+
+/** Fallback multiplier for the one untyped call path (the generic makeAICall). */
+export const DEFAULT_TOKEN_MULTIPLIER = 0.9;
+
+/** Estimated token cost for a call, from its prompt length and task key. Gating only — see comment above. */
+export function estimateTokensForTask(taskKey: LLMTaskKey | undefined, promptChars: number): number {
+  const multiplier = taskKey ? TASK_TOKEN_MULTIPLIERS[taskKey] : DEFAULT_TOKEN_MULTIPLIER;
+  return Math.max(1, Math.ceil((promptChars * multiplier) / 750));
+}
+
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 export const llmConfig: {
