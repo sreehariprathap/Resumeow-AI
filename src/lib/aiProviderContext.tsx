@@ -380,7 +380,10 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
   // Make AI call with failsafe — fallback only picks providers that have keys configured
   const makeAICall = async (prompt: string): Promise<string> => {
     try {
-      await assertSufficientBalance();
+      // This inner check only re-verifies the zero-balance case; the real per-call
+      // estimate already ran one layer up in useAIService.ts's checkTokens(). Passing 1
+      // preserves the existing "any tokens left?" behavior at this layer.
+      await assertSufficientBalance(1);
     } catch (error) {
       if (error instanceof Error && error.message === 'INSUFFICIENT_TOKENS') {
         toast.error("You've used all your tokens. Contact the admin to get more.");
@@ -492,7 +495,7 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
   // Call a specific model + provider — both must be explicit, no inference.
   const makeAICallWithModel = async (prompt: string, modelId: string, provider: AIProvider): Promise<string> => {
     try {
-      await assertSufficientBalance();
+      await assertSufficientBalance(1);
     } catch (error) {
       if (error instanceof Error && error.message === 'INSUFFICIENT_TOKENS') {
         toast.error("You've used all your tokens. Contact the admin to get more.");
@@ -512,7 +515,7 @@ export function AIProviderProvider({ children }: AIProviderProviderProps) {
   // The task config provider is passed in explicitly — no guessing.
   const makeAICallWithThinking = async (prompt: string, provider: AIProvider): Promise<string> => {
     try {
-      await assertSufficientBalance();
+      await assertSufficientBalance(1);
     } catch (error) {
       if (error instanceof Error && error.message === 'INSUFFICIENT_TOKENS') {
         toast.error("You've used all your tokens. Contact the admin to get more.");

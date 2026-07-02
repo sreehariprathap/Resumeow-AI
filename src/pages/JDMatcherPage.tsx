@@ -244,7 +244,7 @@ Return ONLY valid JSON: { "overall": <0-100>, "keywordMatch": <0-100>, "missingK
 
       // ── Step 4: PDF Compile ────────────────────────────────────────────────
       if (!isAdmin) {
-        try { await assertSufficientBalance(); }
+        try { await assertSufficientBalance(PDF_COMPILE_TOKEN_COST); }
         catch { setTokenDialogOpen(true); toast.error('No tokens left.'); return; }
       }
       setGenerationStep(4);
