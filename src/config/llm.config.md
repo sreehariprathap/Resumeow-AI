@@ -126,3 +126,13 @@ coverLetter: {
 - DeepSeek Flash ≈ Gemini Flash in cost — safe swap for lightweight tasks.
 - Use `maxTokens` conservatively on extraction tasks — JSON rarely needs more than 2048 tokens.
 - `temperature: 0` is mandatory for any task that outputs JSON (prevents stochastic formatting breaks).
+
+---
+
+## Pre-Flight Token Cost Estimates
+
+`TASK_TOKEN_MULTIPLIERS` (and the `DEFAULT_TOKEN_MULTIPLIER` fallback for the one untyped call path) give each task key a rough cost-per-prompt-character multiplier, used by `estimateTokensForTask(taskKey, promptChars)` to decide — before a call is made — whether the user has enough tokens left for it.
+
+**This does not change how calls are actually billed.** Billing stays exactly as documented above: post-hoc, from the real response length, at `750 output chars = 1 token`. The multiplier table only gates whether a call is allowed to start (see `src/lib/tokenBalance.ts`'s `evaluateTokenBalance`, used by `src/lib/tokenContext.tsx`'s `assertSufficientBalance`).
+
+Tune a task's multiplier in `TASK_TOKEN_MULTIPLIERS` if it's consistently triggering false "not enough tokens" blocks (multiplier too high) or letting calls through that then fail mid-billing on a much larger real balance (multiplier too low).

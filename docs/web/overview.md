@@ -32,5 +32,5 @@ The web app is the full version of Resumeow. Use it on a laptop or desktop.
 
 ## Good to know
 
-- AI actions use tokens. You can see your balance in the top bar.
+- AI actions use tokens. See your balance in the top bar, or open Profile → Account for the full breakdown (allocated / used / remaining) and a cost-per-feature explainer (click the exclamation icon next to the token badge or the Account heading). If you run out, AI features are disabled and a banner appears with options to request more tokens or contact support.
 - Your data syncs to the cloud, so it shows up on mobile too.

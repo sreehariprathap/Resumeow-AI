@@ -7,6 +7,7 @@ where in the codebase it's triggered, and what model each user tier uses.
 - The top-level task entry (no `tierOverrides`) is the **Free tier** model.
 - Add/edit `tierOverrides.pro` on a task entry to set the **Pro tier** model.
 - See `src/config/llm.config.md` for a full configuration guide.
+- Pre-flight token cost estimates (used to gate a call before it runs) are configured per task key in `TASK_TOKEN_MULTIPLIERS` — see `src/config/llm.config.md` § Pre-Flight Token Cost Estimates. Not duplicated into the table below to avoid two sources of truth.
 
 ---
 
