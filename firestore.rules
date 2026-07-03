@@ -37,7 +37,8 @@ service cloud.firestore {
 
     // ── users/{uid}/... (per-user data) ───────────────────────────────────────
     match /users/{uid}/{document=**} {
-      allow read, write: if isSignedIn() && isOwner(uid);
+      allow read: if isSignedIn() && (isOwner(uid) || isAdminEmail() || isAdminDoc());
+      allow write: if isSignedIn() && isOwner(uid);
     }
 
     // ── tokenRequests ─────────────────────────────────────────────────────────

@@ -10,6 +10,9 @@ export function useApplicationTracker() {
   const [applications, setApplications] = useState<TrackedApplication[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Holds the latest not-yet-written-to-Firestore snapshot, so it can be flushed
+  // immediately if the tab is hidden/closed before the debounce timer fires.
+  const pendingRef = useRef<{ uid: string; apps: TrackedApplication[] } | null>(null);
 
   // Load from Firebase on login
   useEffect(() => {
@@ -42,20 +45,51 @@ export function useApplicationTracker() {
     load();
   }, [currentUser]);
 
+  // Writes whatever is currently pending, right now (no debounce). Safe to call
+  // even if nothing is pending. Used both by the debounce timer itself and by
+  // the flush-on-hide/unload guard below.
+  const flushPending = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    const pending = pendingRef.current;
+    if (!pending) return;
+    pendingRef.current = null;
+    saveUserData(pending.uid, 'tracker', { applications: pending.apps, updatedAt: new Date().toISOString() })
+      .catch(() => { /* non-critical */ });
+  }, []);
+
   const persist = useCallback((apps: TrackedApplication[]) => {
     if (!currentUser) return;
     // Write localStorage immediately
     try {
       localStorage.setItem(LOCAL_KEY(currentUser.uid), JSON.stringify(apps));
     } catch { /* ignore */ }
-    // Debounce Firebase write
+    // Debounce Firebase write, but keep the latest snapshot flushable on demand
+    // in case the tab is hidden/closed before the debounce timer fires.
+    pendingRef.current = { uid: currentUser.uid, apps };
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(async () => {
-      try {
-        await saveUserData(currentUser.uid, 'tracker', { applications: apps, updatedAt: new Date().toISOString() });
-      } catch { /* non-critical */ }
-    }, 1500);
-  }, [currentUser]);
+    saveTimeoutRef.current = setTimeout(flushPending, 1500);
+  }, [currentUser, flushPending]);
+
+  // Flush the pending write as soon as the tab is backgrounded/closed, instead
+  // of losing it to the debounce window. visibilitychange fires reliably on
+  // tab close, refresh, and backgrounding (incl. mobile); beforeunload/pagehide
+  // are extra safety nets for browsers that don't fire visibilitychange first.
+  useEffect(() => {
+    const handleHide = () => {
+      if (document.visibilityState === 'hidden') flushPending();
+    };
+    document.addEventListener('visibilitychange', handleHide);
+    window.addEventListener('pagehide', flushPending);
+    window.addEventListener('beforeunload', flushPending);
+    return () => {
+      document.removeEventListener('visibilitychange', handleHide);
+      window.removeEventListener('pagehide', flushPending);
+      window.removeEventListener('beforeunload', flushPending);
+    };
+  }, [flushPending]);
 
   const addApplication = useCallback((
     entry: Omit<TrackedApplication, 'id' | 'createdAt' | 'status'>

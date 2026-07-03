@@ -333,7 +333,10 @@ export const adminGetUserApplications = async (uid: string): Promise<TrackedAppl
     if (!data) return [];
     const apps = Array.isArray(data) ? data : ((data as any).applications ?? []);
     return apps as TrackedApplication[];
-  } catch {
+  } catch (error) {
+    // A permission-denied read looks identical to "no data" to the caller unless logged —
+    // don't let a Firestore rules gap silently masquerade as an empty activity history.
+    log.error('admin: adminGetUserApplications failed', { uid, error });
     return [];
   }
 };
@@ -345,7 +348,8 @@ export const adminGetUserAIActivity = async (uid: string): Promise<any[]> => {
     if (!data) return [];
     const matches = Array.isArray(data) ? data : ((data as any).matches ?? []);
     return matches;
-  } catch {
+  } catch (error) {
+    log.error('admin: adminGetUserAIActivity failed', { uid, error });
     return [];
   }
 };
