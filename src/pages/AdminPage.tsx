@@ -9,8 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { AdminEditModal } from '@/components/AdminEditModal';
 import { LLMHealthCheckModal } from '@/components/LLMHealthCheckModal';
+import { UserActivityModal } from '@/components/admin/UserActivityModal';
 import { toast } from 'sonner';
-import { Users, Zap, ArrowLeft, RefreshCw, AlertCircle, FlaskConical, MoreVertical } from 'lucide-react';
+import { Users, Zap, ArrowLeft, RefreshCw, AlertCircle, FlaskConical, MoreVertical, Activity } from 'lucide-react';
 import { log } from '@/lib/logger';
 import {
   DropdownMenu,
@@ -29,6 +30,7 @@ export function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [activityUser, setActivityUser] = useState<UserProfile | null>(null);
   const [llmHealthOpen, setLlmHealthOpen] = useState(false);
   const [tokenRequests, setTokenRequests] = useState<TokenRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
@@ -361,6 +363,15 @@ export function AdminPage() {
                             >
                               Edit
                             </Button>
+                            {/* Activity button — opens application/token history modal */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                              onClick={() => setActivityUser(u)}
+                            >
+                              <Activity className="h-3.5 w-3.5 mr-1" /> Activity
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -391,6 +402,13 @@ export function AdminPage() {
       <LLMHealthCheckModal
         open={llmHealthOpen}
         onClose={() => setLlmHealthOpen(false)}
+      />
+
+      {/* User activity modal */}
+      <UserActivityModal
+        user={activityUser}
+        open={activityUser !== null}
+        onClose={() => setActivityUser(null)}
       />
     </div>
   );

@@ -325,6 +325,40 @@ export const getAllUserProfiles = async (): Promise<UserProfile[]> => {
   return snap.docs.map(d => d.data() as UserProfile);
 };
 
+export interface JobApplication {
+  id: string;
+  company: string;
+  role: string;
+  status: 'Applied' | 'Interview' | 'Offer' | 'Rejected' | 'Saved';
+  dateApplied?: string | number;
+  notes?: string;
+  jobUrl?: string;
+}
+
+/** Admin: fetch a user's job applications */
+export const adminGetUserApplications = async (uid: string): Promise<JobApplication[]> => {
+  try {
+    const data = await getUserData(uid, 'applications');
+    if (!data) return [];
+    const apps = Array.isArray(data) ? data : ((data as any).applications ?? (data as any).items ?? []);
+    return apps as JobApplication[];
+  } catch {
+    return [];
+  }
+};
+
+/** Admin: fetch a user's recent AI activity (jdMatches as proxy) */
+export const adminGetUserAIActivity = async (uid: string): Promise<any[]> => {
+  try {
+    const data = await getUserData(uid, 'jdMatches');
+    if (!data) return [];
+    const matches = Array.isArray(data) ? data : ((data as any).matches ?? []);
+    return matches;
+  } catch {
+    return [];
+  }
+};
+
 // --- Saved Resumes ---
 
 export interface SavedResume {
