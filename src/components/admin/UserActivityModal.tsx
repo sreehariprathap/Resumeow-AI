@@ -3,8 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Briefcase, Zap, ExternalLink, Clock, TrendingUp } from 'lucide-react';
-import { adminGetUserApplications, adminGetUserAIActivity, type JobApplication, type UserProfile } from '@/lib/firebaseWeb';
+import { Briefcase, Zap, Clock, TrendingUp } from 'lucide-react';
+import { adminGetUserApplications, adminGetUserAIActivity, type UserProfile } from '@/lib/firebaseWeb';
+import type { TrackedApplication } from '@/types/tracker';
 
 interface UserActivityModalProps {
   user: UserProfile | null;
@@ -13,7 +14,7 @@ interface UserActivityModalProps {
 }
 
 export function UserActivityModal({ user, open, onClose }: UserActivityModalProps) {
-  const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [applications, setApplications] = useState<TrackedApplication[]>([]);
   const [aiActivity, setAiActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -32,11 +33,12 @@ export function UserActivityModal({ user, open, onClose }: UserActivityModalProp
   if (!user) return null;
 
   const statusColors: Record<string, string> = {
-    Applied: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-    Interview: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
-    Offer: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-    Rejected: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
-    Saved: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+    tracked: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+    applied: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+    interview: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
+    offer: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+    rejected: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+    withdrawn: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
   };
 
   const statusCounts = applications.reduce((acc, app) => {
@@ -104,29 +106,24 @@ export function UserActivityModal({ user, open, onClose }: UserActivityModalProp
                               {app.status}
                             </span>
                           </div>
-                          <div className="text-sm text-muted-foreground mt-0.5">{app.company}</div>
-                          {app.dateApplied && (
+                          <div className="text-sm text-muted-foreground mt-0.5">
+                            {app.company}{app.location && ` · ${app.location}`}
+                          </div>
+                          {app.createdAt && (
                             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1.5">
                               <Clock className="h-3 w-3" />
-                              {typeof app.dateApplied === 'number'
-                                ? new Date(app.dateApplied).toLocaleDateString()
-                                : app.dateApplied}
+                              {new Date(app.createdAt).toLocaleDateString()}
                             </div>
                           )}
-                          {app.notes && (
-                            <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{app.notes}</p>
+                          {app.skills?.length > 0 && (
+                            <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{app.skills.join(', ')}</p>
                           )}
                         </div>
-                        {app.jobUrl && (
-                          <a
-                            href={app.jobUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="shrink-0 text-muted-foreground hover:text-foreground"
-                            title="View job posting"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
+                        {(app.atsScore != null || app.jobFitScore != null) && (
+                          <div className="shrink-0 text-right text-xs text-muted-foreground">
+                            {app.atsScore != null && <div>ATS: {app.atsScore}%</div>}
+                            {app.jobFitScore != null && <div>Fit: {app.jobFitScore}%</div>}
+                          </div>
                         )}
                       </div>
                     </CardContent>
@@ -194,7 +191,11 @@ export function UserActivityModal({ user, open, onClose }: UserActivityModalProp
                     <div key={i} className="flex items-center justify-between p-2.5 rounded-lg border border-border/40 bg-muted/20 text-xs">
                       <div>
                         <span className="font-medium">JD Analysis</span>
-                        {match.jobTitle && <span className="text-muted-foreground ml-1.5">· {match.jobTitle}</span>}
+                        {(match.role || match.company) && (
+                          <span className="text-muted-foreground ml-1.5">
+                            · {[match.role, match.company].filter(Boolean).join(' @ ')}
+                          </span>
+                        )}
                       </div>
                       <span className={`font-mono font-medium ${match.overallScore >= 70 ? 'text-green-500' : match.overallScore >= 50 ? 'text-yellow-500' : 'text-red-500'}`}>
                         {match.overallScore ?? '—'}%

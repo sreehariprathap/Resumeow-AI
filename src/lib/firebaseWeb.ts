@@ -16,6 +16,7 @@ import {
 import type { User } from "firebase/auth";
 import { initializeFirestore, doc, setDoc, getDoc, collection, getDocs, updateDoc, increment, query, orderBy, addDoc, where, writeBatch } from "firebase/firestore";
 import type { ResumeProfile } from "@/types/resumeProfile";
+import type { TrackedApplication } from "@/types/tracker";
 import { computeMissingDefaults, RESUME_PROFILE_DEFAULTS } from "./profileSeeding";
 import { log } from "./logger";
 
@@ -325,23 +326,13 @@ export const getAllUserProfiles = async (): Promise<UserProfile[]> => {
   return snap.docs.map(d => d.data() as UserProfile);
 };
 
-export interface JobApplication {
-  id: string;
-  company: string;
-  role: string;
-  status: 'Applied' | 'Interview' | 'Offer' | 'Rejected' | 'Saved';
-  dateApplied?: string | number;
-  notes?: string;
-  jobUrl?: string;
-}
-
-/** Admin: fetch a user's job applications */
-export const adminGetUserApplications = async (uid: string): Promise<JobApplication[]> => {
+/** Admin: fetch a user's tracked job applications (written by useApplicationTracker under dataType 'tracker') */
+export const adminGetUserApplications = async (uid: string): Promise<TrackedApplication[]> => {
   try {
-    const data = await getUserData(uid, 'applications');
+    const data = await getUserData(uid, 'tracker');
     if (!data) return [];
-    const apps = Array.isArray(data) ? data : ((data as any).applications ?? (data as any).items ?? []);
-    return apps as JobApplication[];
+    const apps = Array.isArray(data) ? data : ((data as any).applications ?? []);
+    return apps as TrackedApplication[];
   } catch {
     return [];
   }
